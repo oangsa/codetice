@@ -18,6 +18,12 @@ function createDatabase() {
   const client = postgres(connectionString, {
     prepare: false,
     max: 1,
+    // Allow enough time for cold-start on serverless Postgres (Neon, Supabase, etc.).
+    // The server-level statement_timeout can be very short; override it per-connection.
+    connect_timeout: 30,
+    connection: {
+      statement_timeout: 30000, // 30 s — overrides the server default
+    },
   });
   globalThis.__vibeGraderSqlClient = client;
 
