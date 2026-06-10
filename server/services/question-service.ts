@@ -10,6 +10,8 @@ import type { SessionUser } from "@/lib/types";
 export async function listQuestionsForUser(user?: SessionUser | null) {
   const db = getDb();
   const publishedFilter = user?.role === "admin" ? undefined : eq(questions.isPublished, true);
+  const includeUserScores = Boolean(user && user.role !== "admin");
+  const scoreUserId = includeUserScores ? user!.userId : null;
 
   const results = await db
     .select({
@@ -26,8 +28,8 @@ export async function listQuestionsForUser(user?: SessionUser | null) {
     .from(questions)
     .leftJoin(
       questionScores,
-      user
-        ? and(eq(questionScores.questionId, questions.id), eq(questionScores.userId, user.userId))
+      includeUserScores
+        ? and(eq(questionScores.questionId, questions.id), eq(questionScores.userId, scoreUserId!))
         : sql`false`,
     )
     .where(publishedFilter)
@@ -37,7 +39,7 @@ export async function listQuestionsForUser(user?: SessionUser | null) {
 }
 
 export async function listAdminQuestions() {
-  return listQuestionsForUser({ userId: "admin", username: "admin", role: "admin" });
+  return listQuestionsForUser({ userId: "", username: "admin", role: "admin" });
 }
 
 export async function getQuestionBySlug(slug: string, user?: SessionUser | null) {
