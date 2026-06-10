@@ -11,7 +11,7 @@ export default async function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-4">
+    <div className="mx-auto max-w-md space-y-4 pt-8">
       <AuthForm
         title="Register"
         description="Create a student account to solve questions and track your best score."
@@ -20,7 +20,7 @@ export default async function RegisterPage() {
       />
       <p className="text-center text-sm text-slate-500">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-sky-700 hover:text-sky-800">
+        <Link href="/login" className="font-medium text-cyan-300 hover:text-cyan-200">
           Login
         </Link>
       </p>

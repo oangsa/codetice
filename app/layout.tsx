@@ -31,10 +31,12 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-screen bg-slate-50 text-slate-950">
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers />
-        <SiteHeader user={session} />
-        <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+        <div className="min-h-screen">
+          <SiteHeader user={session} />
+          <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        </div>
       </body>
     </html>
   );

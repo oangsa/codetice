@@ -54,10 +54,10 @@ export function AuthForm({
   }
 
   return (
-    <Card className="mx-auto w-full max-w-md">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="mx-auto w-full max-w-md border-white/10 bg-[#0f172a]/88 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+      <CardHeader className="border-b border-white/8 pb-5">
+        <CardTitle className="text-xl text-white">{title}</CardTitle>
+        <CardDescription className="text-slate-400">{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -67,12 +67,30 @@ export function AuthForm({
           }}
         >
           <FormField label="Username" htmlFor="username" error={null}>
-            <Input id="username" name="username" minLength={3} maxLength={50} required />
+            <Input
+              id="username"
+              name="username"
+              minLength={3}
+              maxLength={50}
+              required
+              className="border-white/10 bg-white/[0.04] text-slate-100 placeholder:text-slate-500"
+            />
           </FormField>
           <FormField label="Password" htmlFor="password" error={error}>
-            <Input id="password" name="password" type="password" minLength={8} required />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              minLength={8}
+              required
+              className="border-white/10 bg-white/[0.04] text-slate-100 placeholder:text-slate-500"
+            />
           </FormField>
-          <Button className="w-full" disabled={pending} type="submit">
+          <Button
+            className="w-full border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20"
+            disabled={pending}
+            type="submit"
+          >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {submitLabel}
           </Button>

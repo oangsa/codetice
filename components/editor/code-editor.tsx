@@ -262,16 +262,21 @@ export function CodeEditor({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Solution editor</CardTitle>
-          <div className="flex items-center gap-2">
+      <Card className="border-white/10 bg-[#111827]/88 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+        <CardHeader className="flex flex-col gap-3 border-b border-white/8 pb-4 xl:flex-row xl:items-center xl:justify-between xl:space-y-0">
+          <div>
+            <CardTitle className="text-base text-slate-100">Solution editor</CardTitle>
+            <p className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
+              {languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"} runtime
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <div className="w-44">
               <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger>
+                <SelectTrigger className="border-white/10 bg-white/[0.04] text-slate-100">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-white/10 bg-[#0f172a] text-slate-100">
                   {languages.map((language) => (
                     <SelectItem key={language.slug} value={language.slug}>
                       {language.name}
@@ -283,13 +288,19 @@ export function CodeEditor({
             <Button
               type="button"
               variant="secondary"
+              className="border border-white/10 bg-white/[0.05] text-slate-100 hover:bg-white/[0.09]"
               disabled={pendingAction !== null}
               onClick={() => void runRequest("run")}
             >
               {pendingAction === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               Run sample
             </Button>
-            <Button type="button" disabled={pendingAction !== null} onClick={() => void runRequest("submit")}>
+            <Button
+              type="button"
+              className="border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20"
+              disabled={pendingAction !== null}
+              onClick={() => void runRequest("submit")}
+            >
               {pendingAction === "submit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Submit
             </Button>
@@ -297,7 +308,7 @@ export function CodeEditor({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>{languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"}</span>
+            <span>Judge output normalization enabled</span>
             <span>
               {selectedLanguage === "python"
                 ? diagnosticsLoading
@@ -306,7 +317,7 @@ export function CodeEditor({
                 : "Diagnostics available for Python"}
             </span>
           </div>
-          <div className="overflow-hidden rounded-md border border-slate-200">
+          <div className="overflow-hidden rounded-md border border-white/10">
             <Editor
               height="480px"
               language={editorLanguage}
@@ -319,17 +330,17 @@ export function CodeEditor({
               }
               onMount={handleMount}
               options={monacoOptions}
-              theme="vs"
+              theme="vs-dark"
             />
           </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="output">
-        <TabsList>
-          <TabsTrigger value="output">Output</TabsTrigger>
-          <TabsTrigger value="results">Test Results</TabsTrigger>
-          <TabsTrigger value="console">Console</TabsTrigger>
+        <TabsList className="border border-white/8 bg-white/[0.04]">
+          <TabsTrigger value="output" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Output</TabsTrigger>
+          <TabsTrigger value="results" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Test Results</TabsTrigger>
+          <TabsTrigger value="console" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Console</TabsTrigger>
         </TabsList>
         <TabsContent value="output">
           <OutputPanel title="Program output" value={editorOutput} />

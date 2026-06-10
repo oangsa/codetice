@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { Activity, CircleCheckBig, Gauge } from "lucide-react";
 
+import { MetricCard } from "@/components/commons/metric-card";
+import { PageHeader } from "@/components/commons/page-header";
+import { SurfaceCard } from "@/components/commons/surface-card";
 import { requireUser } from "@/lib/auth";
 import { getQuestionStats, listQuestionsForUser } from "@/server/services/question-service";
 import { listUserSubmissions } from "@/server/services/submission-service";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmissionTable } from "@/components/submissions/submission-table";
 import { formatScore } from "@/lib/utils";
@@ -18,46 +21,26 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950">Dashboard</h1>
-          <p className="text-sm text-slate-500">Track attempts, best scores, and recent grading activity.</p>
-        </div>
-        <Button asChild>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Dashboard"
+        description="Track attempts, best scores, and recent grading activity."
+        actions={
+          <Button asChild className="border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20">
           <Link href="/questions">Browse questions</Link>
-        </Button>
-      </div>
+          </Button>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Total best score</CardDescription>
-            <CardTitle>{formatScore(stats.totalScore)}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Solved questions</CardDescription>
-            <CardTitle>{stats.solved}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Visible questions</CardDescription>
-            <CardTitle>{questions.length}</CardTitle>
-          </CardHeader>
-        </Card>
+        <MetricCard label="Total best score" value={formatScore(stats.totalScore)} hint="Summed from best results" icon={<Gauge className="h-4 w-4" />} />
+        <MetricCard label="Solved questions" value={stats.solved} hint="Problems with recorded best scores" icon={<CircleCheckBig className="h-4 w-4" />} />
+        <MetricCard label="Visible questions" value={questions.length} hint="Published problems in rotation" icon={<Activity className="h-4 w-4" />} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent submissions</CardTitle>
-          <CardDescription>Your latest attempts across all published questions.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <SurfaceCard title="Recent submissions" description="Your latest attempts across all published questions.">
           <SubmissionTable submissions={submissions.slice(0, 10)} />
-        </CardContent>
-      </Card>
+      </SurfaceCard>
     </div>
   );
 }

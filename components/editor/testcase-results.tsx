@@ -32,17 +32,22 @@ export function TestcaseResults({
   return (
     <div className="space-y-3">
       {results.map((result) => (
-        <Card key={result.testcaseId}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-semibold">
+        <Card key={result.testcaseId} className="border-white/10 bg-[#0f172a]/88">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-white/8 pb-4">
+            <CardTitle className="text-sm font-semibold text-slate-100">
               {result.name ?? result.testcaseId}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Badge variant={result.passed ? "success" : "warning"}>{result.status.replaceAll("_", " ")}</Badge>
+              <Badge
+                variant={result.passed ? "success" : "warning"}
+                className="border border-white/10 bg-white/[0.04] uppercase tracking-[0.08em]"
+              >
+                {result.status.replaceAll("_", " ")}
+              </Badge>
               {result.passed ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
               ) : (
-                <XCircle className="h-4 w-4 text-amber-600" />
+                <XCircle className="h-4 w-4 text-amber-300" />
               )}
             </div>
           </CardHeader>
@@ -50,11 +55,11 @@ export function TestcaseResults({
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Expected</p>
-                <pre className="rounded-md bg-slate-100 p-3 whitespace-pre-wrap">{result.expectedOutput ?? "Hidden"}</pre>
+                <pre className="whitespace-pre-wrap rounded-md border border-white/8 bg-black/25 p-3 text-slate-200">{result.expectedOutput ?? "Hidden"}</pre>
               </div>
               <div>
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Actual</p>
-                <pre className="rounded-md bg-slate-100 p-3 whitespace-pre-wrap">{result.actualOutput ?? "Hidden"}</pre>
+                <pre className="whitespace-pre-wrap rounded-md border border-white/8 bg-black/25 p-3 text-slate-200">{result.actualOutput ?? "Hidden"}</pre>
               </div>
             </div>
             <Separator />

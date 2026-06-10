@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
+import { PageHeader } from "@/components/commons/page-header";
+import { SurfaceCard } from "@/components/commons/surface-card";
 import { CodeEditor } from "@/components/editor/code-editor";
 import { SubmissionTable } from "@/components/submissions/submission-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,56 +36,54 @@ export default async function QuestionDetailPage(props: {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950">{question.title}</h1>
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="info">{question.difficulty}</Badge>
-            <Badge variant="warning">{formatScore(question.totalScore)} points</Badge>
-          </div>
-        </div>
-        <Link href="/questions" className="text-sm font-medium text-sky-700 hover:text-sky-800">
-          Back to list
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Problem workspace"
+        title={question.title}
+        description="Review the statement, test with samples, then submit against the full judge."
+        actions={
+          <>
+            <Badge variant="info" className="border border-cyan-400/15 bg-cyan-400/10 text-cyan-200">
+              {question.difficulty}
+            </Badge>
+            <Badge variant="warning" className="border border-amber-300/15 bg-amber-400/10 text-amber-200">
+              {formatScore(question.totalScore)} points
+            </Badge>
+            <Link href="/questions" className="inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200">
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </>
+        }
+      />
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-[720px] gap-4">
         <ResizablePanel defaultSize={40} minSize={30}>
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="text-base">Problem</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[640px]">
+          <SurfaceCard title="Problem" className="h-full" contentClassName="h-[640px]">
               <Tabs defaultValue="description" className="h-full">
-                <TabsList>
-                  <TabsTrigger value="description">Description</TabsTrigger>
-                  <TabsTrigger value="samples">Samples</TabsTrigger>
-                  <TabsTrigger value="submissions">Submissions</TabsTrigger>
+                <TabsList className="border border-white/8 bg-white/[0.04]">
+                  <TabsTrigger value="description" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Description</TabsTrigger>
+                  <TabsTrigger value="samples" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Samples</TabsTrigger>
+                  <TabsTrigger value="submissions" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Submissions</TabsTrigger>
                 </TabsList>
                 <TabsContent value="description" className="h-[580px]">
                   <ScrollArea className="h-full pr-4">
-                    <div className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{question.description}</div>
+                    <div className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{question.description}</div>
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="samples" className="h-[580px]">
                   <ScrollArea className="h-full pr-4">
                     <div className="space-y-4">
                       {sampleCases.map((testcase, index) => (
-                        <Card key={testcase.id}>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Sample {index + 1}</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3 text-sm">
+                        <SurfaceCard key={testcase.id} title={`Sample ${index + 1}`} className="bg-[#0b1324]/88" contentClassName="space-y-3 text-sm">
                             <div>
                               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Input</p>
-                              <pre className="rounded-md bg-slate-100 p-3 whitespace-pre-wrap">{testcase.input}</pre>
+                              <pre className="whitespace-pre-wrap rounded-md border border-white/8 bg-black/25 p-3 text-slate-200">{testcase.input}</pre>
                             </div>
                             <div>
                               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Expected output</p>
-                              <pre className="rounded-md bg-slate-100 p-3 whitespace-pre-wrap">{testcase.expectedOutput}</pre>
+                              <pre className="whitespace-pre-wrap rounded-md border border-white/8 bg-black/25 p-3 text-slate-200">{testcase.expectedOutput}</pre>
                             </div>
-                          </CardContent>
-                        </Card>
+                        </SurfaceCard>
                       ))}
                     </div>
                   </ScrollArea>
@@ -94,10 +94,9 @@ export default async function QuestionDetailPage(props: {
                   </ScrollArea>
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
+          </SurfaceCard>
         </ResizablePanel>
-        <ResizableHandle className="w-px bg-slate-200" />
+        <ResizableHandle className="w-px bg-white/10" />
         <ResizablePanel defaultSize={60} minSize={40}>
           <CodeEditor
             questionId={question.id}

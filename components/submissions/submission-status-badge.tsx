@@ -12,5 +12,12 @@ export function SubmissionStatusBadge({ status }: { status: string }) {
             ? "warning"
             : "default";
 
-  return <Badge variant={variant}>{status.replaceAll("_", " ")}</Badge>;
+  return (
+    <Badge
+      variant={variant}
+      className="border border-white/10 bg-white/[0.04] px-2.5 py-1 uppercase tracking-[0.08em]"
+    >
+      {status.replaceAll("_", " ")}
+    </Badge>
+  );
 }

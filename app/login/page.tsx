@@ -11,7 +11,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-4">
+    <div className="mx-auto max-w-md space-y-4 pt-8">
       <AuthForm
         title="Login"
         description="Use your local account to access questions, submissions, and admin tools."
@@ -20,7 +20,7 @@ export default async function LoginPage() {
       />
       <p className="text-center text-sm text-slate-500">
         Need an account?{" "}
-        <Link href="/register" className="font-medium text-sky-700 hover:text-sky-800">
+        <Link href="/register" className="font-medium text-cyan-300 hover:text-cyan-200">
           Register
         </Link>
       </p>
