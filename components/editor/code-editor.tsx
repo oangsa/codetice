@@ -10,6 +10,7 @@ import { OutputPanel } from "@/components/editor/output-panel";
 import { TestcaseResults } from "@/components/editor/testcase-results";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PYTHON_COMPLETIONS } from "@/lib/constants";
 
@@ -28,11 +29,23 @@ type ResultRow = {
 export function CodeEditor({
   questionId,
   starterCode,
+  starterCodeByLanguage,
+  languages,
+  assignmentId,
 }: {
   questionId: string;
   starterCode: string;
+  starterCodeByLanguage: Record<string, string>;
+  languages: Array<{ slug: string; name: string }>;
+  assignmentId?: string | null;
 }) {
-  const [code, setCode] = useState(starterCode);
+  const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.slug ?? "python");
+  const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>(() => {
+    const initialLanguage = languages[0]?.slug ?? "python";
+    return {
+      [initialLanguage]: starterCodeByLanguage[initialLanguage] || starterCode,
+    };
+  });
   const [pendingAction, setPendingAction] = useState<"run" | "submit" | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [consoleOutput, setConsoleOutput] = useState("");
@@ -41,6 +54,9 @@ export function CodeEditor({
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
+  const editorLanguage =
+    selectedLanguage === "javascript" ? "javascript" : selectedLanguage === "typescript" ? "typescript" : "python";
+  const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? starterCode;
 
   const monacoOptions = useMemo(
     () => ({
@@ -64,7 +80,8 @@ export function CodeEditor({
       body: JSON.stringify({
         questionId,
         sourceCode: code,
-        language: "python",
+        language: selectedLanguage,
+        assignmentId,
       }),
     });
 
@@ -107,6 +124,17 @@ export function CodeEditor({
 
   useEffect(() => {
     if (!editorRef.current) {
+      return;
+    }
+
+    if (selectedLanguage !== "python") {
+      diagnosticsAbortRef.current?.abort();
+      void import("monaco-editor").then((monaco) => {
+        const model = editorRef.current?.getModel();
+        if (model) {
+          monaco.editor.setModelMarkers(model, "pyright", []);
+        }
+      });
       return;
     }
 
@@ -171,7 +199,7 @@ export function CodeEditor({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [code]);
+  }, [code, selectedLanguage]);
 
   useEffect(() => {
     if (!activeSubmissionId) {
@@ -238,6 +266,20 @@ export function CodeEditor({
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Solution editor</CardTitle>
           <div className="flex items-center gap-2">
+            <div className="w-44">
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((language) => (
+                    <SelectItem key={language.slug} value={language.slug}>
+                      {language.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               type="button"
               variant="secondary"
@@ -255,15 +297,26 @@ export function CodeEditor({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Python editor</span>
-            <span>{diagnosticsLoading ? "Running Pyright diagnostics..." : "Pyright diagnostics ready"}</span>
+            <span>{languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"}</span>
+            <span>
+              {selectedLanguage === "python"
+                ? diagnosticsLoading
+                  ? "Running Pyright diagnostics..."
+                  : "Pyright diagnostics ready"
+                : "Diagnostics available for Python"}
+            </span>
           </div>
           <div className="overflow-hidden rounded-md border border-slate-200">
             <Editor
               height="480px"
-              defaultLanguage="python"
+              language={editorLanguage}
               value={code}
-              onChange={(value) => setCode(value ?? "")}
+              onChange={(value) =>
+                setCodeByLanguage((current) => ({
+                  ...current,
+                  [selectedLanguage]: value ?? "",
+                }))
+              }
               onMount={handleMount}
               options={monacoOptions}
               theme="vs"

@@ -24,6 +24,15 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
                 <Link href="/questions">Questions</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
+                <Link href="/leaderboard">Leaderboard</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/classrooms">Classrooms</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/assignments">Assignments</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
                 <Link href="/submissions">Submissions</Link>
               </Button>
               {user.role === "admin" ? (

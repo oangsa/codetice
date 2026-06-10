@@ -54,7 +54,14 @@ export async function getQuestionBySlug(slug: string, user?: SessionUser | null)
     },
   });
 
-  return question ?? null;
+  return question
+    ? {
+        ...question,
+        starterCodeByLanguage: question.starterCodeByLanguage
+          ? (JSON.parse(question.starterCodeByLanguage) as Record<string, string>)
+          : {},
+      }
+    : null;
 }
 
 export async function getQuestionById(questionId: string) {
@@ -68,7 +75,14 @@ export async function getQuestionById(questionId: string) {
     },
   });
 
-  return question ?? null;
+  return question
+    ? {
+        ...question,
+        starterCodeByLanguage: question.starterCodeByLanguage
+          ? (JSON.parse(question.starterCodeByLanguage) as Record<string, string>)
+          : {},
+      }
+    : null;
 }
 
 export async function createQuestion(input: {
@@ -80,6 +94,7 @@ export async function createQuestion(input: {
   timeLimitMs: number;
   memoryLimitMb: number;
   starterCode?: string | null;
+  starterCodeByLanguage?: Record<string, string | null> | null;
   isPublished: boolean;
   createdBy: string;
 }) {
@@ -96,6 +111,7 @@ export async function createQuestion(input: {
       timeLimitMs: input.timeLimitMs,
       memoryLimitMb: input.memoryLimitMb,
       starterCode: input.starterCode ?? "",
+      starterCodeByLanguage: JSON.stringify(input.starterCodeByLanguage ?? {}),
       isPublished: false,
       createdBy: input.createdBy,
     })
@@ -123,6 +139,7 @@ export async function updateQuestion(
     timeLimitMs: number;
     memoryLimitMb: number;
     starterCode?: string | null;
+    starterCodeByLanguage?: Record<string, string | null> | null;
     isPublished: boolean;
   },
 ) {
@@ -147,6 +164,7 @@ export async function updateQuestion(
       timeLimitMs: input.timeLimitMs,
       memoryLimitMb: input.memoryLimitMb,
       starterCode: input.starterCode ?? "",
+      starterCodeByLanguage: JSON.stringify(input.starterCodeByLanguage ?? {}),
       isPublished: input.isPublished,
       updatedAt: new Date(),
     })

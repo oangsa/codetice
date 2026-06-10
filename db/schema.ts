@@ -30,6 +30,7 @@ export const questions = pgTable("questions", {
   timeLimitMs: integer("time_limit_ms").notNull().default(2000),
   memoryLimitMb: integer("memory_limit_mb").notNull().default(128),
   starterCode: text("starter_code"),
+  starterCodeByLanguage: text("starter_code_by_language"),
   isPublished: boolean("is_published").notNull().default(false),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
@@ -61,6 +62,7 @@ export const submissions = pgTable("submissions", {
   questionId: uuid("question_id")
     .notNull()
     .references(() => questions.id, { onDelete: "cascade" }),
+  assignmentId: uuid("assignment_id").references(() => assignments.id, { onDelete: "set null" }),
   language: varchar("language", { length: 50 }).notNull().default("python"),
   sourceCode: text("source_code").notNull(),
   status: varchar("status", { length: 30 }).notNull(),
@@ -165,11 +167,100 @@ export const rateLimits = pgTable(
   }),
 );
 
+export const leaderboards = pgTable(
+  "leaderboards",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalScore: decimal("total_score", { precision: 10, scale: 2 }).notNull().default("0"),
+    solvedCount: integer("solved_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userUnique: uniqueIndex("leaderboards_user_unique").on(table.userId),
+  }),
+);
+
+export const classrooms = pgTable("classrooms", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  inviteCode: varchar("invite_code", { length: 50 }).notNull().unique(),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+});
+
+export const classroomMembers = pgTable(
+  "classroom_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    classroomId: uuid("classroom_id")
+      .notNull()
+      .references(() => classrooms.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 20 }).notNull().default("student"),
+    joinedAt: timestamp("joined_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    classroomUserUnique: uniqueIndex("classroom_members_classroom_user_unique").on(
+      table.classroomId,
+      table.userId,
+    ),
+  }),
+);
+
+export const assignments = pgTable("assignments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  classroomId: uuid("classroom_id").references(() => classrooms.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  startAt: timestamp("start_at", { withTimezone: false }),
+  dueAt: timestamp("due_at", { withTimezone: false }),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+});
+
+export const assignmentQuestions = pgTable(
+  "assignment_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assignmentId: uuid("assignment_id")
+      .notNull()
+      .references(() => assignments.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => ({
+    assignmentQuestionUnique: uniqueIndex("assignment_questions_assignment_question_unique").on(
+      table.assignmentId,
+      table.questionId,
+    ),
+  }),
+);
+
+export const supportedLanguages = pgTable("supported_languages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  slug: varchar("slug", { length: 50 }).notNull().unique(),
+  dockerImage: varchar("docker_image", { length: 255 }).notNull(),
+  fileExtension: varchar("file_extension", { length: 20 }).notNull(),
+  runCommand: text("run_command").notNull(),
+  defaultStarterCode: text("default_starter_code"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   questions: many(questions),
   submissions: many(submissions),
   questionScores: many(questionScores),
   rejudgeJobs: many(rejudgeJobs),
+  leaderboardEntries: many(leaderboards),
+  classroomMembers: many(classroomMembers),
+  classroomsCreated: many(classrooms),
 }));
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -179,6 +270,7 @@ export const questionsRelations = relations(questions, ({ one, many }) => ({
   questionScores: many(questionScores),
   rejudgeJobs: many(rejudgeJobs),
   customCheckers: many(customCheckers),
+  assignmentQuestions: many(assignmentQuestions),
 }));
 
 export const testcasesRelations = relations(testcases, ({ one, many }) => ({
@@ -189,6 +281,7 @@ export const testcasesRelations = relations(testcases, ({ one, many }) => ({
 export const submissionsRelations = relations(submissions, ({ one, many }) => ({
   user: one(users, { fields: [submissions.userId], references: [users.id] }),
   question: one(questions, { fields: [submissions.questionId], references: [questions.id] }),
+  assignment: one(assignments, { fields: [submissions.assignmentId], references: [assignments.id] }),
   testcaseResults: many(testcaseResults),
   gradingJobs: many(gradingJobs),
 }));
@@ -238,6 +331,53 @@ export const customCheckersRelations = relations(customCheckers, ({ one }) => ({
   }),
 }));
 
+export const leaderboardsRelations = relations(leaderboards, ({ one }) => ({
+  user: one(users, {
+    fields: [leaderboards.userId],
+    references: [users.id],
+  }),
+}));
+
+export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [classrooms.createdBy],
+    references: [users.id],
+  }),
+  members: many(classroomMembers),
+  assignments: many(assignments),
+}));
+
+export const classroomMembersRelations = relations(classroomMembers, ({ one }) => ({
+  classroom: one(classrooms, {
+    fields: [classroomMembers.classroomId],
+    references: [classrooms.id],
+  }),
+  user: one(users, {
+    fields: [classroomMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const assignmentsRelations = relations(assignments, ({ one, many }) => ({
+  classroom: one(classrooms, {
+    fields: [assignments.classroomId],
+    references: [classrooms.id],
+  }),
+  assignmentQuestions: many(assignmentQuestions),
+  submissions: many(submissions),
+}));
+
+export const assignmentQuestionsRelations = relations(assignmentQuestions, ({ one }) => ({
+  assignment: one(assignments, {
+    fields: [assignmentQuestions.assignmentId],
+    references: [assignments.id],
+  }),
+  question: one(questions, {
+    fields: [assignmentQuestions.questionId],
+    references: [questions.id],
+  }),
+}));
+
 export const touchUpdatedAt = sql`now()`;
 
 export type User = typeof users.$inferSelect;
@@ -248,3 +388,4 @@ export type Submission = typeof submissions.$inferSelect;
 export type TestcaseResult = typeof testcaseResults.$inferSelect;
 export type QuestionScore = typeof questionScores.$inferSelect;
 export type GradingJob = typeof gradingJobs.$inferSelect;
+export type SupportedLanguage = typeof supportedLanguages.$inferSelect;

@@ -15,10 +15,14 @@ export type PythonRunResult = {
 };
 
 type RunPythonInput = {
+  language: string;
   sourceCode: string;
   stdin: string;
   timeLimitMs: number;
   memoryLimitMb?: number | null;
+  fileExtension?: string | null;
+  runCommand?: string | null;
+  dockerImage?: string | null;
 };
 
 let dockerAvailability: boolean | null = null;
@@ -91,8 +95,36 @@ async function collectProcessResult(
   });
 }
 
-async function runWithLocalPython(scriptPath: string, workspace: string, stdin: string, timeLimitMs: number) {
-  const processRef = spawn("python", [scriptPath], {
+function buildLocalCommand(language: string, scriptPath: string) {
+  if (language === "javascript") {
+    return {
+      command: "node",
+      args: [scriptPath],
+    };
+  }
+
+  if (language === "typescript") {
+    return {
+      command: "bun",
+      args: [scriptPath],
+    };
+  }
+
+  return {
+    command: "python",
+    args: [scriptPath],
+  };
+}
+
+async function runWithLocalRuntime(
+  language: string,
+  scriptPath: string,
+  workspace: string,
+  stdin: string,
+  timeLimitMs: number,
+) {
+  const localCommand = buildLocalCommand(language, scriptPath);
+  const processRef = spawn(localCommand.command, localCommand.args, {
     cwd: workspace,
     stdio: "pipe",
   });
@@ -102,14 +134,16 @@ async function runWithLocalPython(scriptPath: string, workspace: string, stdin: 
 
 async function runWithDocker(
   workspace: string,
+  fileName: string,
   stdin: string,
   timeLimitMs: number,
   memoryLimitMb: number | null | undefined,
+  dockerImage: string,
+  runCommand: string,
 ) {
   const stdinPath = path.join(workspace, "stdin.txt");
   await fs.writeFile(stdinPath, stdin, "utf8");
 
-  const image = process.env.PYTHON_DOCKER_IMAGE ?? "python:3.12-alpine";
   const memoryLimit = `${memoryLimitMb ?? 128}m`;
 
   const processRef = spawn(
@@ -130,10 +164,10 @@ async function runWithDocker(
       `${workspace}:/workspace`,
       "-w",
       "/workspace",
-      image,
+      dockerImage,
       "sh",
       "-lc",
-      "python /workspace/main.py < /workspace/stdin.txt",
+      `${runCommand.replace("/workspace/main.py", `/workspace/${fileName}`)} < /workspace/stdin.txt`,
     ],
     {
       stdio: "pipe",
@@ -144,26 +178,40 @@ async function runWithDocker(
 }
 
 export async function runPythonCode({
+  language,
   sourceCode,
   stdin,
   timeLimitMs,
   memoryLimitMb,
+  fileExtension,
+  runCommand,
+  dockerImage,
 }: RunPythonInput) {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-grader-"));
-  const scriptPath = path.join(workspace, "main.py");
+  const extension = fileExtension ?? (language === "javascript" ? "js" : language === "typescript" ? "ts" : "py");
+  const fileName = `main.${extension}`;
+  const scriptPath = path.join(workspace, fileName);
   await fs.writeFile(scriptPath, sourceCode, "utf8");
 
   try {
     const runtime = await resolveRuntime();
     if (runtime === "docker") {
       try {
-        return await runWithDocker(workspace, stdin, timeLimitMs, memoryLimitMb);
+        return await runWithDocker(
+          workspace,
+          fileName,
+          stdin,
+          timeLimitMs,
+          memoryLimitMb,
+          dockerImage ?? process.env.PYTHON_DOCKER_IMAGE ?? "python:3.12-alpine",
+          runCommand ?? "python /workspace/main.py",
+        );
       } catch {
-        return await runWithLocalPython(scriptPath, workspace, stdin, timeLimitMs);
+        return await runWithLocalRuntime(language, scriptPath, workspace, stdin, timeLimitMs);
       }
     }
 
-    return await runWithLocalPython(scriptPath, workspace, stdin, timeLimitMs);
+    return await runWithLocalRuntime(language, scriptPath, workspace, stdin, timeLimitMs);
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }

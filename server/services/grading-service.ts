@@ -4,6 +4,10 @@ import { compareOutput } from "@/lib/grader/compare-output";
 import { runPythonCode } from "@/lib/grader/run-python";
 
 type GradeInput = {
+  language: string;
+  fileExtension?: string | null;
+  runCommand?: string | null;
+  dockerImage?: string | null;
   sourceCode: string;
   testcases: Array<{
     id: string;
@@ -23,10 +27,14 @@ export async function gradeCode(input: GradeInput) {
 
   for (const testcase of input.testcases) {
     const run = await runPythonCode({
+      language: input.language,
       sourceCode: input.sourceCode,
       stdin: testcase.input,
       timeLimitMs: input.timeLimitMs,
       memoryLimitMb: input.memoryLimitMb,
+      fileExtension: input.fileExtension,
+      runCommand: input.runCommand,
+      dockerImage: input.dockerImage,
     });
     const passed =
       !run.timedOut &&

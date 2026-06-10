@@ -3,16 +3,19 @@ import "server-only";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 import {
+  assignments,
   gradingJobs,
   questionScores,
   questions,
   rejudgeJobs,
   submissions,
+  supportedLanguages,
   testcaseResults,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import { gradeCode } from "@/server/services/grading-service";
+import { recomputeLeaderboardForUser } from "@/server/services/leaderboard-service";
 
 function deriveSubmissionStatus(
   results: Array<{
@@ -47,6 +50,7 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
           },
         },
       },
+      assignment: true,
     },
   });
 
@@ -54,7 +58,19 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
     throw new Error("Submission not found.");
   }
 
+  const language = await db.query.supportedLanguages.findFirst({
+    where: eq(supportedLanguages.slug, submission.language),
+  });
+
+  if (!language || !language.isEnabled) {
+    throw new Error("Submission language is not available.");
+  }
+
   const results = await gradeCode({
+    language: submission.language,
+    fileExtension: language.fileExtension,
+    runCommand: language.runCommand,
+    dockerImage: language.dockerImage,
     sourceCode,
     testcases: submission.question.testcases.map((testcase) => ({
       id: testcase.id,
@@ -130,23 +146,35 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
       .where(eq(questionScores.id, existingScore.id));
   }
 
+  await recomputeLeaderboardForUser(submission.userId);
+
   return updatedSubmission;
 }
 
 export async function runSampleSubmission(input: {
   questionId: string;
   sourceCode: string;
+  language: string;
 }) {
   const db = getDb();
-  const question = await db.query.questions.findFirst({
-    where: eq(questions.id, input.questionId),
-    with: {
-      testcases: true,
-    },
-  });
+  const [question, language] = await Promise.all([
+    db.query.questions.findFirst({
+      where: eq(questions.id, input.questionId),
+      with: {
+        testcases: true,
+      },
+    }),
+    db.query.supportedLanguages.findFirst({
+      where: eq(supportedLanguages.slug, input.language),
+    }),
+  ]);
 
   if (!question) {
     throw new Error("Question not found.");
+  }
+
+  if (!language || !language.isEnabled) {
+    throw new Error("Language not supported.");
   }
 
   const sampleCases = question.testcases
@@ -154,6 +182,10 @@ export async function runSampleSubmission(input: {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const results = await gradeCode({
+    language: input.language,
+    fileExtension: language.fileExtension,
+    runCommand: language.runCommand,
+    dockerImage: language.dockerImage,
     sourceCode: input.sourceCode,
     testcases: sampleCases.map((testcase) => ({
       id: testcase.id,
@@ -182,22 +214,41 @@ export async function enqueueOfficialSubmission(input: {
   userId: string;
   questionId: string;
   sourceCode: string;
-  language: "python";
+  language: string;
+  assignmentId?: string | null;
 }) {
   const db = getDb();
-  const question = await db.query.questions.findFirst({
-    where: eq(questions.id, input.questionId),
-    with: {
-      testcases: {
-        columns: {
-          id: true,
+  const [question, language, assignment] = await Promise.all([
+    db.query.questions.findFirst({
+      where: eq(questions.id, input.questionId),
+      with: {
+        testcases: {
+          columns: {
+            id: true,
+          },
         },
       },
-    },
-  });
+    }),
+    db.query.supportedLanguages.findFirst({
+      where: eq(supportedLanguages.slug, input.language),
+    }),
+    input.assignmentId
+      ? db.query.assignments.findFirst({
+          where: eq(assignments.id, input.assignmentId),
+        })
+      : Promise.resolve(null),
+  ]);
 
   if (!question) {
     throw new Error("Question not found.");
+  }
+
+  if (!language || !language.isEnabled) {
+    throw new Error("Selected language is not available.");
+  }
+
+  if (assignment?.dueAt && new Date(assignment.dueAt) < new Date()) {
+    throw new Error("Assignment is closed for submissions.");
   }
 
   if (question.testcases.length === 0) {
@@ -209,6 +260,7 @@ export async function enqueueOfficialSubmission(input: {
     .values({
       userId: input.userId,
       questionId: question.id,
+      assignmentId: input.assignmentId ?? null,
       language: input.language,
       sourceCode: input.sourceCode,
       status: "queued",
@@ -409,6 +461,7 @@ export async function listUserSubmissions(userId: string) {
     where: eq(submissions.userId, userId),
     with: {
       question: true,
+      assignment: true,
       gradingJobs: {
         orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
         limit: 1,
@@ -427,6 +480,7 @@ export async function getSubmissionDetail(submissionId: string, userId: string, 
         : and(eq(submissions.id, submissionId), eq(submissions.userId, userId)),
     with: {
       question: true,
+      assignment: true,
       gradingJobs: {
         orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
         limit: 5,
@@ -469,6 +523,7 @@ export async function listRecentSubmissionsForAdmin() {
     with: {
       user: true,
       question: true,
+      assignment: true,
       gradingJobs: {
         orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
         limit: 1,

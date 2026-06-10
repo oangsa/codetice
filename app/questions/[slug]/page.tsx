@@ -10,20 +10,26 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireUser } from "@/lib/auth";
 import { formatScore } from "@/lib/utils";
+import { listSupportedLanguages } from "@/server/services/language-service";
 import { getQuestionBySlug, listQuestionSubmissions } from "@/server/services/question-service";
 
 export default async function QuestionDetailPage(props: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ assignmentId?: string }>;
 }) {
   const session = await requireUser();
   const { slug } = await props.params;
+  const { assignmentId } = await props.searchParams;
 
   const question = await getQuestionBySlug(slug, session);
   if (!question) {
     notFound();
   }
 
-  const submissions = await listQuestionSubmissions(question.id, session.userId);
+  const [submissions, languages] = await Promise.all([
+    listQuestionSubmissions(question.id, session.userId),
+    listSupportedLanguages(),
+  ]);
   const sampleCases = question.testcases.filter((testcase) => testcase.isSample);
 
   return (
@@ -93,7 +99,13 @@ export default async function QuestionDetailPage(props: {
         </ResizablePanel>
         <ResizableHandle className="w-px bg-slate-200" />
         <ResizablePanel defaultSize={60} minSize={40}>
-          <CodeEditor questionId={question.id} starterCode={question.starterCode || "print('')"} />
+          <CodeEditor
+            questionId={question.id}
+            assignmentId={assignmentId ?? null}
+            starterCode={question.starterCode || "print('')"}
+            starterCodeByLanguage={question.starterCodeByLanguage}
+            languages={languages.map((language) => ({ slug: language.slug, name: language.name }))}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

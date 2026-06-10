@@ -51,3 +51,5 @@ export const PYTHON_COMPLETIONS = [
   "min",
   "max",
 ];
+
+export const SUPPORTED_LANGUAGE_SLUGS = ["python", "javascript", "typescript"] as const;

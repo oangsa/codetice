@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
+    "db:push": "bun --env-file=.env.local db/push.ts",
     "db:seed": "bun --env-file=.env.local db/seed.ts",
     "worker:jobs": "bun --env-file=.env.local scripts/process-grading-jobs.ts"
   },

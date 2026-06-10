@@ -2,7 +2,7 @@ import argon2 from "argon2";
 import { eq } from "drizzle-orm";
 
 import { closeDb, getDb } from "@/lib/db";
-import { users } from "@/db/schema";
+import { supportedLanguages, users } from "@/db/schema";
 
 async function main() {
   const username = process.env.ADMIN_USERNAME;
@@ -14,6 +14,46 @@ async function main() {
   }
 
   const db = getDb();
+  const defaultLanguages = [
+    {
+      name: "Python",
+      slug: "python",
+      dockerImage: "python:3.12-alpine",
+      fileExtension: "py",
+      runCommand: "python /workspace/main.py",
+      defaultStarterCode: "print('')",
+      isEnabled: true,
+    },
+    {
+      name: "JavaScript",
+      slug: "javascript",
+      dockerImage: "node:22-alpine",
+      fileExtension: "js",
+      runCommand: "node /workspace/main.js",
+      defaultStarterCode: "console.log('');",
+      isEnabled: true,
+    },
+    {
+      name: "TypeScript",
+      slug: "typescript",
+      dockerImage: "node:22-alpine",
+      fileExtension: "ts",
+      runCommand: "bun /workspace/main.ts",
+      defaultStarterCode: "console.log('');",
+      isEnabled: true,
+    },
+  ] as const;
+
+  for (const language of defaultLanguages) {
+    const existingLanguage = await db.query.supportedLanguages.findFirst({
+      where: eq(supportedLanguages.slug, language.slug),
+    });
+
+    if (!existingLanguage) {
+      await db.insert(supportedLanguages).values(language);
+    }
+  }
+
   const existing = await db.query.users.findFirst({
     where: eq(users.username, username),
   });

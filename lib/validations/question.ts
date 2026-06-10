@@ -28,6 +28,14 @@ export const questionSchema = z.object({
   timeLimitMs: z.coerce.number().int().positive(),
   memoryLimitMb: z.coerce.number().int().positive(),
   starterCode: z.string().optional().nullable(),
+  starterCodeByLanguage: z
+    .object({
+      python: z.string().optional().nullable(),
+      javascript: z.string().optional().nullable(),
+      typescript: z.string().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
   isPublished: z.boolean().default(false),
 });
 

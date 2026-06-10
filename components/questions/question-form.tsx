@@ -31,6 +31,7 @@ export function QuestionForm({
     timeLimitMs: number;
     memoryLimitMb: number;
     starterCode: string | null;
+    starterCodeByLanguage: Record<string, string>;
     isPublished: boolean;
     testcases: Array<{
       id: string;
@@ -60,6 +61,11 @@ export function QuestionForm({
       timeLimitMs: Number(formData.get("timeLimitMs") ?? 2000),
       memoryLimitMb: Number(formData.get("memoryLimitMb") ?? 128),
       starterCode: String(formData.get("starterCode") ?? ""),
+      starterCodeByLanguage: {
+        python: String(formData.get("starterCodePython") ?? ""),
+        javascript: String(formData.get("starterCodeJavascript") ?? ""),
+        typescript: String(formData.get("starterCodeTypescript") ?? ""),
+      },
       isPublished: formData.get("isPublished") === "on",
     };
 
@@ -156,6 +162,29 @@ export function QuestionForm({
             <FormField label="Starter code" htmlFor="starterCode">
               <Textarea id="starterCode" name="starterCode" defaultValue={question?.starterCode ?? ""} />
             </FormField>
+            <div className="grid gap-4 md:grid-cols-3">
+              <FormField label="Python starter" htmlFor="starterCodePython">
+                <Textarea
+                  id="starterCodePython"
+                  name="starterCodePython"
+                  defaultValue={question?.starterCodeByLanguage?.python ?? ""}
+                />
+              </FormField>
+              <FormField label="JavaScript starter" htmlFor="starterCodeJavascript">
+                <Textarea
+                  id="starterCodeJavascript"
+                  name="starterCodeJavascript"
+                  defaultValue={question?.starterCodeByLanguage?.javascript ?? ""}
+                />
+              </FormField>
+              <FormField label="TypeScript starter" htmlFor="starterCodeTypescript">
+                <Textarea
+                  id="starterCodeTypescript"
+                  name="starterCodeTypescript"
+                  defaultValue={question?.starterCodeByLanguage?.typescript ?? ""}
+                />
+              </FormField>
+            </div>
             <div className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-slate-900">Published</p>
