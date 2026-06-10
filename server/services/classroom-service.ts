@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import {
   assignmentQuestions,
@@ -8,6 +8,7 @@ import {
   classroomMembers,
   classrooms,
   questions,
+  questionScores,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
 
@@ -237,6 +238,164 @@ export async function getAssignmentById(assignmentId: string) {
         orderBy: (fields, ops) => [ops.asc(fields.sortOrder)],
       },
     },
+  });
+}
+
+// Get all questions in a classroom (flattened from assignments) with user's scores
+export async function getClassroomQuestionsForUser(classroomId: string, userId: string) {
+  const db = getDb();
+  const classroom = await db.query.classrooms.findFirst({
+    where: eq(classrooms.id, classroomId),
+    with: {
+      assignments: {
+        with: {
+          assignmentQuestions: {
+            with: {
+              question: {
+                with: {
+                  questionScores: {
+                    where: (qs, { eq: eqFn }) => eqFn(qs.userId, userId),
+                  },
+                },
+              },
+            },
+            orderBy: (fields, ops) => [ops.asc(fields.sortOrder)],
+          },
+        },
+        orderBy: (fields, ops) => [ops.asc(fields.dueAt), ops.asc(fields.createdAt)],
+      },
+    },
+  });
+
+  if (!classroom) return [];
+
+  const seen = new Set<string>();
+  const items: Array<{
+    rowNumber: number;
+    assignmentId: string;
+    assignmentTitle: string;
+    dueAt: Date | null;
+    questionId: string;
+    title: string;
+    slug: string;
+    difficulty: string;
+    totalScore: string;
+    bestScore: string | null;
+    attempts: number;
+    status: "todo" | "attempted" | "accepted";
+  }> = [];
+
+  let rowNum = 0;
+  for (const assignment of classroom.assignments) {
+    for (const aq of assignment.assignmentQuestions) {
+      if (seen.has(aq.questionId)) continue;
+      seen.add(aq.questionId);
+      rowNum++;
+      const score = aq.question.questionScores[0] ?? null;
+      const bestScore = score?.bestScore ?? null;
+      const attempts = score?.attempts ?? 0;
+      const totalScore = parseFloat(aq.question.totalScore);
+      const best = bestScore ? parseFloat(bestScore) : 0;
+      const status: "todo" | "attempted" | "accepted" =
+        attempts === 0 ? "todo" : best >= totalScore ? "accepted" : "attempted";
+      items.push({
+        rowNumber: rowNum,
+        assignmentId: assignment.id,
+        assignmentTitle: assignment.title,
+        dueAt: assignment.dueAt,
+        questionId: aq.question.id,
+        title: aq.question.title,
+        slug: aq.question.slug,
+        difficulty: aq.question.difficulty,
+        totalScore: aq.question.totalScore,
+        bestScore,
+        attempts,
+        status,
+      });
+    }
+  }
+  return items;
+}
+
+// Get classrooms with stats (member count, question count, user progress)
+export async function listClassroomsWithStats(userId: string, role: string) {
+  const db = getDb();
+
+  let rawClassrooms: Array<{
+    id: string;
+    name: string;
+    inviteCode: string;
+    createdBy: string | null;
+    createdAt: Date;
+    members: Array<{ userId: string; role: string; joinedAt: Date }>;
+    assignments: Array<{
+      assignmentQuestions: Array<{ questionId: string }>;
+    }>;
+    creator: { username: string } | null;
+  }>;
+
+  if (role === "admin") {
+    rawClassrooms = (await db.query.classrooms.findMany({
+      with: {
+        members: true,
+        assignments: { with: { assignmentQuestions: { columns: { questionId: true } } } },
+        creator: { columns: { username: true } },
+      },
+      orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
+    })) as typeof rawClassrooms;
+  } else {
+    const memberships = await db.query.classroomMembers.findMany({
+      where: eq(classroomMembers.userId, userId),
+      with: {
+        classroom: {
+          with: {
+            members: true,
+            assignments: { with: { assignmentQuestions: { columns: { questionId: true } } } },
+            creator: { columns: { username: true } },
+          },
+        },
+      },
+      orderBy: (fields, ops) => [ops.desc(fields.joinedAt)],
+    });
+    rawClassrooms = memberships.map((m) => m.classroom) as typeof rawClassrooms;
+  }
+
+  // Get user's question scores for progress computation
+  const allQuestionIds = rawClassrooms.flatMap((c) =>
+    c.assignments.flatMap((a) => a.assignmentQuestions.map((aq) => aq.questionId)),
+  );
+
+  const userScores =
+    allQuestionIds.length > 0
+      ? await db.query.questionScores.findMany({
+          where: (qs, { and: andFn, eq: eqFn, inArray: inArrayFn }) =>
+            andFn(eqFn(qs.userId, userId), inArrayFn(qs.questionId, allQuestionIds)),
+          columns: { questionId: true, attempts: true },
+        })
+      : [];
+
+  const attemptedSet = new Set(userScores.filter((s) => s.attempts > 0).map((s) => s.questionId));
+
+  return rawClassrooms.map((c) => {
+    const membership = c.members.find((m) => m.userId === userId);
+    const uniqueQuestionIds = [...new Set(c.assignments.flatMap((a) => a.assignmentQuestions.map((aq) => aq.questionId)))];
+    const questionCount = uniqueQuestionIds.length;
+    const solvedCount = uniqueQuestionIds.filter((qid) => attemptedSet.has(qid)).length;
+    const progressPercent = questionCount > 0 ? Math.round((solvedCount / questionCount) * 100) : 0;
+    return {
+      id: c.id,
+      name: c.name,
+      inviteCode: c.inviteCode,
+      createdBy: c.createdBy,
+      creatorName: c.creator?.username ?? "Unknown",
+      createdAt: c.createdAt,
+      memberCount: c.members.length,
+      questionCount,
+      solvedCount,
+      progressPercent,
+      joinedAt: membership?.joinedAt ?? c.createdAt,
+      userRole: membership?.role ?? "student",
+    };
   });
 }
 

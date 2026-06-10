@@ -1,0 +1,313 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+
+type Testcase = {
+  id: string; // local id for React key
+  name: string;
+  input: string;
+  expectedOutput: string;
+  isSample: boolean;
+  isHidden: boolean;
+};
+
+function newTestcase(): Testcase {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    input: "",
+    expectedOutput: "",
+    isSample: false,
+    isHidden: true,
+  };
+}
+
+export function NewQuestionForm({ classroomId }: { classroomId: string }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [difficulty, setDifficulty] = useState("easy");
+  const [testcases, setTestcases] = useState<Testcase[]>([newTestcase()]);
+
+  function addTestcase() {
+    setTestcases((prev) => [...prev, newTestcase()]);
+  }
+
+  function removeTestcase(id: string) {
+    setTestcases((prev) => prev.filter((tc) => tc.id !== id));
+  }
+
+  function updateTestcase(id: string, field: keyof Testcase, value: string | boolean) {
+    setTestcases((prev) => prev.map((tc) => (tc.id === id ? { ...tc, [field]: value } : tc)));
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    const body = {
+      title: String(data.get("title") ?? ""),
+      slug: String(data.get("slug") ?? ""),
+      description: String(data.get("description") ?? ""),
+      difficulty,
+      totalScore: Number(data.get("totalScore") ?? 100),
+      timeLimitMs: Number(data.get("timeLimitMs") ?? 2000),
+      memoryLimitMb: Number(data.get("memoryLimitMb") ?? 128),
+      starterCode: String(data.get("starterCode") ?? ""),
+      isPublished: data.get("isPublished") === "on",
+      assignmentTitle: String(data.get("assignmentTitle") ?? "General"),
+      assignmentDueAt: String(data.get("assignmentDueAt") ?? "") || null,
+      testcases: testcases.map((tc, index) => ({
+        name: tc.name || undefined,
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        isSample: tc.isSample,
+        isHidden: tc.isHidden,
+        sortOrder: index,
+      })),
+    };
+
+    const response = await fetch(`/api/classrooms/${classroomId}/questions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const json = (await response.json()) as {
+      message?: string;
+      question?: { id: string; slug: string };
+    };
+
+    if (!response.ok) {
+      toast.error(json.message ?? "Failed to create question.");
+      setPending(false);
+      return;
+    }
+
+    toast.success("Question created and added to classroom.");
+    router.push(`/classrooms/${classroomId}`);
+    router.refresh();
+  }
+
+  function slugify(title: string) {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 100);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Question details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Question details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Title" htmlFor="title">
+              <Input
+                id="title"
+                name="title"
+                required
+                onChange={(e) => {
+                  const slugInput = e.currentTarget.form?.elements.namedItem(
+                    "slug",
+                  ) as HTMLInputElement;
+                  if (slugInput) slugInput.value = slugify(e.target.value);
+                }}
+              />
+            </FormField>
+            <FormField label="Slug" htmlFor="slug">
+              <Input id="slug" name="slug" required pattern="[a-z0-9-]+" />
+            </FormField>
+          </div>
+
+          <FormField label="Description" htmlFor="description">
+            <Textarea id="description" name="description" rows={5} required />
+          </FormField>
+
+          <div className="grid gap-4 md:grid-cols-4">
+            <FormField label="Difficulty" htmlFor="difficulty">
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger id="difficulty">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Total score" htmlFor="totalScore">
+              <Input id="totalScore" name="totalScore" type="number" defaultValue={100} />
+            </FormField>
+            <FormField label="Time limit (ms)" htmlFor="timeLimitMs">
+              <Input id="timeLimitMs" name="timeLimitMs" type="number" defaultValue={2000} />
+            </FormField>
+            <FormField label="Memory (MB)" htmlFor="memoryLimitMb">
+              <Input id="memoryLimitMb" name="memoryLimitMb" type="number" defaultValue={128} />
+            </FormField>
+          </div>
+
+          <FormField label="Starter code" htmlFor="starterCode">
+            <Textarea
+              id="starterCode"
+              name="starterCode"
+              rows={3}
+              placeholder="Optional starter code for students"
+            />
+          </FormField>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Assignment name" htmlFor="assignmentTitle">
+              <Input
+                id="assignmentTitle"
+                name="assignmentTitle"
+                defaultValue="General"
+                required
+              />
+            </FormField>
+            <FormField label="Due date (optional)" htmlFor="assignmentDueAt">
+              <Input id="assignmentDueAt" name="assignmentDueAt" type="datetime-local" />
+            </FormField>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Published</p>
+              <p className="text-xs text-slate-500">Visible to students immediately.</p>
+            </div>
+            <Switch name="isPublished" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Testcases */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Testcases</CardTitle>
+          <Button type="button" variant="secondary" size="sm" onClick={addTestcase}>
+            <Plus className="h-4 w-4" />
+            Add testcase
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {testcases.map((tc, index) => (
+            <div key={tc.id} className="space-y-3 rounded-lg border border-slate-200 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-700">
+                  Testcase {index + 1}
+                  {tc.isSample && (
+                    <Badge variant="info" className="ml-2">
+                      Sample
+                    </Badge>
+                  )}
+                  {!tc.isHidden && (
+                    <Badge variant="success" className="ml-2">
+                      Visible
+                    </Badge>
+                  )}
+                </p>
+                {testcases.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTestcase(tc.id)}
+                    className="text-slate-400 hover:text-red-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Input
+                  </Label>
+                  <Textarea
+                    rows={3}
+                    value={tc.input}
+                    onChange={(e) => updateTestcase(tc.id, "input", e.target.value)}
+                    placeholder="stdin input"
+                    className="font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Expected output
+                  </Label>
+                  <Textarea
+                    rows={3}
+                    value={tc.expectedOutput}
+                    onChange={(e) => updateTestcase(tc.id, "expectedOutput", e.target.value)}
+                    placeholder="expected stdout"
+                    className="font-mono text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 pt-1">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={tc.isSample}
+                    onCheckedChange={(v) => updateTestcase(tc.id, "isSample", v)}
+                    id={`sample-${tc.id}`}
+                  />
+                  <Label htmlFor={`sample-${tc.id}`} className="cursor-pointer text-sm">
+                    Sample (visible to students)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={!tc.isHidden}
+                    onCheckedChange={(v) => updateTestcase(tc.id, "isHidden", !v)}
+                    id={`hidden-${tc.id}`}
+                  />
+                  <Label htmlFor={`hidden-${tc.id}`} className="cursor-pointer text-sm">
+                    Show output to students
+                  </Label>
+                </div>
+                <Input
+                  className="w-40"
+                  placeholder="Name (optional)"
+                  value={tc.name}
+                  onChange={(e) => updateTestcase(tc.id, "name", e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Submit */}
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Create question
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => router.back()}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
