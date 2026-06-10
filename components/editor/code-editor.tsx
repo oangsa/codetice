@@ -262,10 +262,10 @@ export function CodeEditor({
 
   return (
     <div className="space-y-4">
-      <Card className="border-white/10 bg-[#111827]/88 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-        <CardHeader className="flex flex-col gap-3 border-b border-white/8 pb-4 xl:flex-row xl:items-center xl:justify-between xl:space-y-0">
+      <Card>
+        <CardHeader className="flex flex-col gap-3 border-b border-slate-100 pb-4 xl:flex-row xl:items-center xl:justify-between xl:space-y-0">
           <div>
-            <CardTitle className="text-base text-slate-100">Solution editor</CardTitle>
+            <CardTitle className="text-base">Solution editor</CardTitle>
             <p className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
               {languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"} runtime
             </p>
@@ -273,10 +273,10 @@ export function CodeEditor({
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-44">
               <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger className="border-white/10 bg-white/[0.04] text-slate-100">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-white/10 bg-[#0f172a] text-slate-100">
+                <SelectContent>
                   {languages.map((language) => (
                     <SelectItem key={language.slug} value={language.slug}>
                       {language.name}
@@ -288,7 +288,6 @@ export function CodeEditor({
             <Button
               type="button"
               variant="secondary"
-              className="border border-white/10 bg-white/[0.05] text-slate-100 hover:bg-white/[0.09]"
               disabled={pendingAction !== null}
               onClick={() => void runRequest("run")}
             >
@@ -297,7 +296,6 @@ export function CodeEditor({
             </Button>
             <Button
               type="button"
-              className="border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20"
               disabled={pendingAction !== null}
               onClick={() => void runRequest("submit")}
             >
@@ -317,7 +315,7 @@ export function CodeEditor({
                 : "Diagnostics available for Python"}
             </span>
           </div>
-          <div className="overflow-hidden rounded-md border border-white/10">
+          <div className="overflow-hidden rounded-md border border-slate-200">
             <Editor
               height="480px"
               language={editorLanguage}
@@ -330,17 +328,17 @@ export function CodeEditor({
               }
               onMount={handleMount}
               options={monacoOptions}
-              theme="vs-dark"
+              theme="vs"
             />
           </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="output">
-        <TabsList className="border border-white/8 bg-white/[0.04]">
-          <TabsTrigger value="output" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Output</TabsTrigger>
-          <TabsTrigger value="results" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Test Results</TabsTrigger>
-          <TabsTrigger value="console" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Console</TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="output">Output</TabsTrigger>
+          <TabsTrigger value="results">Test Results</TabsTrigger>
+          <TabsTrigger value="console">Console</TabsTrigger>
         </TabsList>
         <TabsContent value="output">
           <OutputPanel title="Program output" value={editorOutput} />

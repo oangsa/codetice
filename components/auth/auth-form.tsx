@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -54,43 +54,52 @@ export function AuthForm({
   }
 
   return (
-    <Card className="mx-auto w-full max-w-md border-white/10 bg-[#0f172a]/88 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-      <CardHeader className="border-b border-white/8 pb-5">
-        <CardTitle className="text-xl text-white">{title}</CardTitle>
-        <CardDescription className="text-slate-400">{description}</CardDescription>
+    <Card className="mx-auto w-full max-w-sm shadow-sm">
+      <CardHeader className="border-b border-slate-100 pb-5">
+        <CardTitle className="text-xl">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-5">
         <form
-          className="space-y-4"
+          className="flex flex-col gap-4"
           action={async (formData) => {
             await handleSubmit(formData);
           }}
         >
+          {error ? (
+            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </div>
+          ) : null}
           <FormField label="Username" htmlFor="username" error={null}>
-            <Input
-              id="username"
-              name="username"
-              minLength={3}
-              maxLength={50}
-              required
-              className="border-white/10 bg-white/[0.04] text-slate-100 placeholder:text-slate-500"
-            />
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Input
+                id="username"
+                name="username"
+                minLength={3}
+                maxLength={50}
+                required
+                className="pl-9"
+                placeholder="Enter your username"
+              />
+            </div>
           </FormField>
-          <FormField label="Password" htmlFor="password" error={error}>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              minLength={8}
-              required
-              className="border-white/10 bg-white/[0.04] text-slate-100 placeholder:text-slate-500"
-            />
+          <FormField label="Password" htmlFor="password" error={null}>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                minLength={8}
+                required
+                className="pl-9"
+                placeholder="Enter your password"
+              />
+            </div>
           </FormField>
-          <Button
-            className="w-full border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20"
-            disabled={pending}
-            type="submit"
-          >
+          <Button className="mt-1 w-full" disabled={pending} type="submit">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {submitLabel}
           </Button>

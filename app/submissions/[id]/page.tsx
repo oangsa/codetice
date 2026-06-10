@@ -63,7 +63,7 @@ export default async function SubmissionDetailPage(props: {
                 </div>
               </div>
               {result.errorMessage ? (
-                <pre className="rounded-md bg-slate-950 p-3 text-xs text-slate-100 whitespace-pre-wrap">
+                <pre className="rounded-md bg-slate-800 p-3 text-xs text-slate-100 whitespace-pre-wrap">
                   {result.errorMessage}
                 </pre>
               ) : null}

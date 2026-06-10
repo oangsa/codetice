@@ -1,3 +1,53 @@
 $ next dev --port "3000"
 ⚠ Slow filesystem detected. The benchmark took 307ms. If D:\code\repos\vibe-code\vibe-grader\.next/dev is a network drive, consider moving it to a local folder.
 See more: https://nextjs.org/docs/app/guides/local-development
+⨯ Error: Failed query: select "questions"."id", "questions"."title", "questions"."slug", "questions"."difficulty", "questions"."total_score", "questions"."is_published", "questions"."created_at", "question_scores"."best_score", "question_scores"."attempts" from "questions" left join "question_scores" on ("question_scores"."question_id" = "questions"."id" and "question_scores"."user_id" = $1) order by "questions"."created_at" desc
+params: admin
+    at async listQuestionsForUser (server\services\question-service.ts:14:19)
+    at async AdminDashboardPage (app\admin\page.tsx:12:36)
+  12 |   const publishedFilter = user?.role === "admin" ? undefined : eq(questions.isPublished, t...
+  13 |
+> 14 |   const results = await db
+     |                   ^
+  15 |     .select({
+  16 |       id: questions.id,
+  17 |       title: questions.title, {
+  query: 'select "questions"."id", "questions"."title", "questions"."slug", "questions"."difficulty", "questions"."total_score", "questions"."is_published", "questions"."created_at", "question_scores"."best_score", "question_scores"."attempts" from "questions" left join "question_scores" on ("question_scores"."question_id" = "questions"."id" and "question_scores"."user_id" = $1) order by "questions"."created_at" desc',
+  params: [ 'admin' ],
+  digest: '1107952678',
+  [cause]: Error [PostgresError]: invalid input syntax for type uuid: "admin"
+      at ignore-listed frames {
+    severity_local: 'ERROR',
+    severity: 'ERROR',
+    code: '22P02',
+    where: "unnamed portal parameter $1 = '...'",
+    file: 'uuid.c',
+    line: '138',
+    routine: 'string_to_uuid'
+  }
+}
+[browser] Uncaught Error: Failed query: select "questions"."id", "questions"."title", "questions"."slug", "questions"."difficulty", "questions"."total_score", "questions"."is_published", "questions"."created_at", "question_scores"."best_score", "question_scores"."attempts" from "questions" left join "question_scores" on ("question_scores"."question_id" = "questions"."id" and "question_scores"."user_id" = $1) order by "questions"."created_at" desc
+params: admin
+    at  listQuestionsForUser (server\services\question-service.ts:14:19)
+    at  AdminDashboardPage (app\admin\page.tsx:12:36)
+  12 |   const publishedFilter = user?.role === "admin" ? undefined : eq(questions.isPublished, t...
+  13 |
+> 14 |   const results = await db
+     |                   ^
+  15 |     .select({
+  16 |       id: questions.id,
+  17 |       title: questions.title,
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+error: script "dev" exited with code 1

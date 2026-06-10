@@ -7,3 +7,34 @@
 ○ Compiling / ...
  GET / 307 in 4.3s (next.js: 4.0s, application-code: 312ms)
  GET /login 200 in 480ms (next.js: 428ms, application-code: 52ms)
+ GET / 307 in 180ms (next.js: 9ms, application-code: 171ms)
+ GET /login 200 in 124ms (next.js: 4ms, application-code: 120ms)
+ POST /api/auth/login 200 in 1581ms (next.js: 955ms, application-code: 626ms)
+ GET /dashboard 200 in 1061ms (next.js: 697ms, application-code: 363ms)
+ GET /dashboard 200 in 517ms (next.js: 6ms, application-code: 511ms)
+ GET /questions 200 in 582ms (next.js: 470ms, application-code: 112ms)
+ GET /leaderboard 200 in 518ms (next.js: 398ms, application-code: 120ms)
+ GET /classrooms 200 in 559ms (next.js: 445ms, application-code: 114ms)
+ GET /submissions 200 in 554ms (next.js: 438ms, application-code: 116ms)
+ GET /admin 200 in 674ms (next.js: 395ms, application-code: 279ms)
+✓ Compiled in 216ms
+✓ Compiled in 161ms
+✓ Compiled in 186ms
+✓ Compiled in 74ms
+✓ Compiled in 523ms
+✓ Compiled in 84ms
+✓ Compiled in 101ms
+✓ Compiled in 69ms
+✓ Compiled in 55ms
+✓ Compiled in 72ms
+✓ Compiled in 102ms
+✓ Compiled in 159ms
+✓ Compiled in 323ms
+✓ Compiled in 76ms
+✓ Compiled in 81ms
+✓ Compiled in 69ms
+✓ Compiled in 89ms
+ GET /admin 200 in 17.2min (next.js: 157ms, application-code: 17.2min)
+ GET /admin? 200 in 5.1s (next.js: 691ms, application-code: 4.4s)
+ GET / 307 in 443ms (next.js: 198ms, application-code: 244ms)
+[?25h

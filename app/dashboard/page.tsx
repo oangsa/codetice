@@ -29,7 +29,7 @@ export default async function DashboardPage() {
         title="Dashboard"
         description="Track attempts, best scores, and recent grading activity."
         actions={
-          <Button asChild className="border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20">
+          <Button asChild>
             <Link href="/questions">Browse questions</Link>
           </Button>
         }

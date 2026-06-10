@@ -21,7 +21,7 @@ export default async function AdminDashboardPage() {
         title="Admin"
         description="Manage questions, testcases, language settings, and review recent grading activity."
         actions={
-          <Button asChild className="border border-cyan-400/30 bg-cyan-400/12 text-cyan-50 hover:bg-cyan-400/20">
+          <Button asChild>
           <Link href="/admin/questions/new">New question</Link>
           </Button>
         }

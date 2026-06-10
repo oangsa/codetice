@@ -42,13 +42,12 @@ export default async function QuestionDetailPage(props: {
         description="Review the statement, test with samples, then submit against the full judge."
         actions={
           <>
-            <Badge variant="info" className="border border-cyan-400/15 bg-cyan-400/10 text-cyan-200">
-              {question.difficulty}
-            </Badge>
-            <Badge variant="warning" className="border border-amber-300/15 bg-amber-400/10 text-amber-200">
-              {formatScore(question.totalScore)} points
-            </Badge>
-            <Link href="/questions" className="inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200">
+            <Badge variant="info">{question.difficulty}</Badge>
+            <Badge variant="warning">{formatScore(question.totalScore)} points</Badge>
+            <Link
+              href="/questions"
+              className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
               <ChevronLeft className="h-4 w-4" />
               Back
             </Link>
@@ -59,44 +58,49 @@ export default async function QuestionDetailPage(props: {
       <ResizablePanelGroup orientation="horizontal" className="min-h-[720px] gap-4">
         <ResizablePanel defaultSize={40} minSize={30}>
           <SurfaceCard title="Problem" className="h-full" contentClassName="h-[640px]">
-              <Tabs defaultValue="description" className="h-full">
-                <TabsList className="border border-white/8 bg-white/[0.04]">
-                  <TabsTrigger value="description" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Description</TabsTrigger>
-                  <TabsTrigger value="samples" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Samples</TabsTrigger>
-                  <TabsTrigger value="submissions" className="text-slate-400 data-[state=active]:bg-white/8 data-[state=active]:text-white">Submissions</TabsTrigger>
-                </TabsList>
-                <TabsContent value="description" className="h-[580px]">
-                  <ScrollArea className="h-full pr-4">
-                    <div className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{question.description}</div>
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="samples" className="h-[580px]">
-                  <ScrollArea className="h-full pr-4">
-                    <div className="space-y-4">
-                      {sampleCases.map((testcase, index) => (
-                        <SurfaceCard key={testcase.id} title={`Sample ${index + 1}`} className="bg-[#0b1324]/88" contentClassName="space-y-3 text-sm">
-                            <div>
-                              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Input</p>
-                              <pre className="whitespace-pre-wrap rounded-md border border-white/8 bg-black/25 p-3 text-slate-200">{testcase.input}</pre>
-                            </div>
-                            <div>
-                              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Expected output</p>
-                              <pre className="whitespace-pre-wrap rounded-md border border-white/8 bg-black/25 p-3 text-slate-200">{testcase.expectedOutput}</pre>
-                            </div>
-                        </SurfaceCard>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="submissions" className="h-[580px]">
-                  <ScrollArea className="h-full">
-                    <SubmissionTable submissions={submissions} showQuestion={false} />
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
+            <Tabs defaultValue="description" className="h-full">
+              <TabsList className="border border-slate-200 bg-slate-50">
+                <TabsTrigger value="description">Description</TabsTrigger>
+                <TabsTrigger value="samples">Samples</TabsTrigger>
+                <TabsTrigger value="submissions">Submissions</TabsTrigger>
+              </TabsList>
+              <TabsContent value="description" className="h-[580px]">
+                <ScrollArea className="h-full pr-4">
+                  <div className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{question.description}</div>
+                </ScrollArea>
+              </TabsContent>
+              <TabsContent value="samples" className="h-[580px]">
+                <ScrollArea className="h-full pr-4">
+                  <div className="space-y-4">
+                    {sampleCases.map((testcase, index) => (
+                      <div key={testcase.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Sample {index + 1}
+                        </p>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Input</p>
+                            <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">{testcase.input}</pre>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Expected output</p>
+                            <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">{testcase.expectedOutput}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+              <TabsContent value="submissions" className="h-[580px]">
+                <ScrollArea className="h-full">
+                  <SubmissionTable submissions={submissions} showQuestion={false} />
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
           </SurfaceCard>
         </ResizablePanel>
-        <ResizableHandle className="w-px bg-white/10" />
+        <ResizableHandle className="w-px bg-slate-200" />
         <ResizablePanel defaultSize={60} minSize={40}>
           <CodeEditor
             questionId={question.id}

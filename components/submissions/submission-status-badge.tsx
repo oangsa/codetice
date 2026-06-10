@@ -13,10 +13,7 @@ export function SubmissionStatusBadge({ status }: { status: string }) {
             : "default";
 
   return (
-    <Badge
-      variant={variant}
-      className="border border-white/10 bg-white/[0.04] px-2.5 py-1 uppercase tracking-[0.08em]"
-    >
+    <Badge variant={variant} className="capitalize">
       {status.replaceAll("_", " ")}
     </Badge>
   );
