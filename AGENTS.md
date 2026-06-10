@@ -1367,3 +1367,9 @@ Build in this order:
 - chore -> update that is not about the code eg. .gitignore
 
 - then, git commit -m "action: commit message"
+
+
+## Rules
+
+- When you know anything new please write a skill in `docs/skill/{}.md`
+- Test before push
