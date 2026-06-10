@@ -4,3 +4,6 @@
 - Environments: .env.local
 ✓ Ready in 1535ms
 
+○ Compiling / ...
+ GET / 307 in 4.3s (next.js: 4.0s, application-code: 312ms)
+ GET /login 200 in 480ms (next.js: 428ms, application-code: 52ms)
