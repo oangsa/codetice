@@ -173,6 +173,8 @@ export async function createTestcase(
     expectedOutput: string;
     isSample: boolean;
     isHidden: boolean;
+    checkerType: string;
+    floatTolerance?: number | null;
     sortOrder: number;
   },
 ) {
@@ -187,6 +189,8 @@ export async function createTestcase(
       expectedOutput: input.expectedOutput,
       isSample: input.isSample,
       isHidden: input.isHidden,
+      checkerType: input.checkerType,
+      floatTolerance: input.floatTolerance?.toString() ?? null,
       sortOrder: input.sortOrder,
     })
     .returning();
@@ -202,6 +206,8 @@ export async function updateTestcase(
     expectedOutput: string;
     isSample: boolean;
     isHidden: boolean;
+    checkerType: string;
+    floatTolerance?: number | null;
     sortOrder: number;
   },
 ) {
@@ -214,6 +220,8 @@ export async function updateTestcase(
       expectedOutput: input.expectedOutput,
       isSample: input.isSample,
       isHidden: input.isHidden,
+      checkerType: input.checkerType,
+      floatTolerance: input.floatTolerance?.toString() ?? null,
       sortOrder: input.sortOrder,
       updatedAt: new Date(),
     })

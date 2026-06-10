@@ -1,6 +1,12 @@
 export const SESSION_COOKIE = "vibe_grader_session";
 export const USER_ROLES = ["student", "admin"] as const;
 export const QUESTION_DIFFICULTIES = ["easy", "medium", "hard"] as const;
+export const CHECKER_TYPES = [
+  "exact",
+  "ignore_trailing_whitespace",
+  "ignore_all_whitespace",
+  "floating_point_tolerance",
+] as const;
 export const SUBMISSION_STATUSES = [
   "queued",
   "running",
@@ -11,6 +17,7 @@ export const SUBMISSION_STATUSES = [
   "memory_limit_exceeded",
   "internal_error",
 ] as const;
+export const GRADING_JOB_STATUSES = ["queued", "running", "completed", "failed"] as const;
 
 export const PYTHON_COMPLETIONS = [
   "def",

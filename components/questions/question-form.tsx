@@ -39,6 +39,8 @@ export function QuestionForm({
       expectedOutput: string;
       isSample: boolean;
       isHidden: boolean;
+      checkerType: string;
+      floatTolerance: string | null;
       sortOrder: number;
     }>;
   };
@@ -184,6 +186,7 @@ export function QuestionForm({
                   <TableHead>Name</TableHead>
                   <TableHead>Sample</TableHead>
                   <TableHead>Hidden</TableHead>
+                  <TableHead>Checker</TableHead>
                   <TableHead>Sort</TableHead>
                   <TableHead />
                 </TableRow>
@@ -201,6 +204,14 @@ export function QuestionForm({
                       <Badge variant={testcase.isHidden ? "warning" : "info"}>
                         {testcase.isHidden ? "hidden" : "visible"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="default">{testcase.checkerType}</Badge>
+                        {testcase.floatTolerance ? (
+                          <span className="text-xs text-slate-500">tol {testcase.floatTolerance}</span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>{testcase.sortOrder}</TableCell>
                     <TableCell className="flex justify-end gap-2">

@@ -1,7 +1,7 @@
 import argon2 from "argon2";
 import { eq } from "drizzle-orm";
 
-import { getDb } from "@/lib/db";
+import { closeDb, getDb } from "@/lib/db";
 import { users } from "@/db/schema";
 
 async function main() {
@@ -34,4 +34,11 @@ async function main() {
   console.log(`Created admin user '${username}'.`);
 }
 
-void main();
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await closeDb();
+  });

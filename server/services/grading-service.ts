@@ -11,16 +11,27 @@ type GradeInput = {
     input: string;
     expectedOutput: string;
     isHidden: boolean;
+    checkerType: string;
+    floatTolerance: string | null;
   }>;
   timeLimitMs: number;
+  memoryLimitMb?: number | null;
 };
 
 export async function gradeCode(input: GradeInput) {
   const results = [];
 
   for (const testcase of input.testcases) {
-    const run = await runPythonCode(input.sourceCode, testcase.input, input.timeLimitMs);
-    const passed = !run.timedOut && run.exitCode === 0 && compareOutput(run.stdout, testcase.expectedOutput);
+    const run = await runPythonCode({
+      sourceCode: input.sourceCode,
+      stdin: testcase.input,
+      timeLimitMs: input.timeLimitMs,
+      memoryLimitMb: input.memoryLimitMb,
+    });
+    const passed =
+      !run.timedOut &&
+      run.exitCode === 0 &&
+      compareOutput(run.stdout, testcase.expectedOutput, testcase.checkerType, testcase.floatTolerance);
 
     const status = run.timedOut
       ? "time_limit_exceeded"

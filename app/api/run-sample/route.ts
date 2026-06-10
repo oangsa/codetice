@@ -1,10 +1,12 @@
 import { requireUser } from "@/lib/auth";
 import { fail, ok } from "@/lib/api";
+import { getRequestIdentifier } from "@/lib/request";
 import { runSampleSchema } from "@/lib/validations/submission";
+import { assertRateLimit } from "@/server/services/rate-limit-service";
 import { runSampleSubmission } from "@/server/services/submission-service";
 
 export async function POST(request: Request) {
-  await requireUser();
+  const session = await requireUser();
   const body = await request.json();
   const parsed = runSampleSchema.safeParse(body);
 
@@ -13,6 +15,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    await assertRateLimit({
+      identifier: await getRequestIdentifier(session.userId),
+      action: "run-sample",
+      limit: 60,
+      windowMinutes: 15,
+    });
     const result = await runSampleSubmission(parsed.data);
     return ok(result);
   } catch (error) {

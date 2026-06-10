@@ -46,6 +46,8 @@ export const testcases = pgTable("testcases", {
   expectedOutput: text("expected_output").notNull(),
   isSample: boolean("is_sample").notNull().default(false),
   isHidden: boolean("is_hidden").notNull().default(true),
+  checkerType: varchar("checker_type", { length: 50 }).notNull().default("exact"),
+  floatTolerance: decimal("float_tolerance", { precision: 20, scale: 10 }),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
@@ -112,10 +114,62 @@ export const questionScores = pgTable(
   }),
 );
 
+export const gradingJobs = pgTable("grading_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  submissionId: uuid("submission_id")
+    .notNull()
+    .references(() => submissions.id, { onDelete: "cascade" }),
+  status: varchar("status", { length: 30 }).notNull().default("queued"),
+  attempts: integer("attempts").notNull().default(0),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: false }),
+  completedAt: timestamp("completed_at", { withTimezone: false }),
+});
+
+export const rejudgeJobs = pgTable("rejudge_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  questionId: uuid("question_id").references(() => questions.id, { onDelete: "cascade" }),
+  requestedBy: uuid("requested_by").references(() => users.id),
+  status: varchar("status", { length: 30 }).notNull().default("queued"),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: false }),
+});
+
+export const customCheckers = pgTable("custom_checkers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  questionId: uuid("question_id")
+    .notNull()
+    .references(() => questions.id, { onDelete: "cascade" }),
+  language: varchar("language", { length: 50 }).notNull().default("python"),
+  sourceCode: text("source_code").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+});
+
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    identifier: varchar("identifier", { length: 255 }).notNull(),
+    action: varchar("action", { length: 100 }).notNull(),
+    count: integer("count").notNull().default(1),
+    windowStart: timestamp("window_start", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    identifierActionWindowUnique: uniqueIndex("rate_limits_identifier_action_window_unique").on(
+      table.identifier,
+      table.action,
+      table.windowStart,
+    ),
+  }),
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   questions: many(questions),
   submissions: many(submissions),
   questionScores: many(questionScores),
+  rejudgeJobs: many(rejudgeJobs),
 }));
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -123,6 +177,8 @@ export const questionsRelations = relations(questions, ({ one, many }) => ({
   testcases: many(testcases),
   submissions: many(submissions),
   questionScores: many(questionScores),
+  rejudgeJobs: many(rejudgeJobs),
+  customCheckers: many(customCheckers),
 }));
 
 export const testcasesRelations = relations(testcases, ({ one, many }) => ({
@@ -134,6 +190,7 @@ export const submissionsRelations = relations(submissions, ({ one, many }) => ({
   user: one(users, { fields: [submissions.userId], references: [users.id] }),
   question: one(questions, { fields: [submissions.questionId], references: [questions.id] }),
   testcaseResults: many(testcaseResults),
+  gradingJobs: many(gradingJobs),
 }));
 
 export const testcaseResultsRelations = relations(testcaseResults, ({ one }) => ({
@@ -156,6 +213,31 @@ export const questionScoresRelations = relations(questionScores, ({ one }) => ({
   }),
 }));
 
+export const gradingJobsRelations = relations(gradingJobs, ({ one }) => ({
+  submission: one(submissions, {
+    fields: [gradingJobs.submissionId],
+    references: [submissions.id],
+  }),
+}));
+
+export const rejudgeJobsRelations = relations(rejudgeJobs, ({ one }) => ({
+  question: one(questions, {
+    fields: [rejudgeJobs.questionId],
+    references: [questions.id],
+  }),
+  requester: one(users, {
+    fields: [rejudgeJobs.requestedBy],
+    references: [users.id],
+  }),
+}));
+
+export const customCheckersRelations = relations(customCheckers, ({ one }) => ({
+  question: one(questions, {
+    fields: [customCheckers.questionId],
+    references: [questions.id],
+  }),
+}));
+
 export const touchUpdatedAt = sql`now()`;
 
 export type User = typeof users.$inferSelect;
@@ -165,3 +247,4 @@ export type Testcase = typeof testcases.$inferSelect;
 export type Submission = typeof submissions.$inferSelect;
 export type TestcaseResult = typeof testcaseResults.$inferSelect;
 export type QuestionScore = typeof questionScores.$inferSelect;
+export type GradingJob = typeof gradingJobs.$inferSelect;

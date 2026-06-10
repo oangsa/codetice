@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { QUESTION_DIFFICULTIES } from "@/lib/constants";
+import { CHECKER_TYPES, QUESTION_DIFFICULTIES } from "@/lib/constants";
 
 export const testcaseSchema = z.object({
   id: z.string().uuid().optional(),
@@ -9,6 +9,13 @@ export const testcaseSchema = z.object({
   expectedOutput: z.string(),
   isSample: z.boolean().default(false),
   isHidden: z.boolean().default(true),
+  checkerType: z.enum(CHECKER_TYPES).default("exact"),
+  floatTolerance: z.preprocess((value) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+    return Number(value);
+  }, z.number().positive().nullable()).optional(),
   sortOrder: z.coerce.number().int().default(0),
 });
 

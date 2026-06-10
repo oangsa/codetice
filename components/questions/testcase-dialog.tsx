@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { CHECKER_TYPES } from "@/lib/constants";
 
 type TestcaseRecord = {
   id?: string;
@@ -25,6 +27,8 @@ type TestcaseRecord = {
   expectedOutput: string;
   isSample: boolean;
   isHidden: boolean;
+  checkerType: string;
+  floatTolerance: string | number | null;
   sortOrder: number;
 };
 
@@ -34,6 +38,8 @@ const initialState: TestcaseRecord = {
   expectedOutput: "",
   isSample: false,
   isHidden: true,
+  checkerType: "exact",
+  floatTolerance: null,
   sortOrder: 0,
 };
 
@@ -48,6 +54,7 @@ export function TestcaseDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [checkerType, setCheckerType] = useState<string>(testcase?.checkerType ?? "exact");
   const current = testcase ?? initialState;
 
   async function handleSubmit(formData: FormData) {
@@ -59,6 +66,11 @@ export function TestcaseDialog({
       expectedOutput: String(formData.get("expectedOutput") ?? ""),
       isSample: formData.get("isSample") === "on",
       isHidden: formData.get("isHidden") === "on",
+      checkerType,
+      floatTolerance:
+        checkerType === "floating_point_tolerance"
+          ? Number(formData.get("floatTolerance") ?? 0.000001)
+          : null,
       sortOrder: Number(formData.get("sortOrder") ?? 0),
     };
 
@@ -113,10 +125,41 @@ export function TestcaseDialog({
           <FormField label="Expected output" htmlFor="expectedOutput">
             <Textarea id="expectedOutput" name="expectedOutput" defaultValue={current.expectedOutput} />
           </FormField>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Checker type" htmlFor="checkerType">
+              <Select value={checkerType} onValueChange={setCheckerType}>
+                <SelectTrigger id="checkerType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CHECKER_TYPES.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
             <FormField label="Sort order" htmlFor="sortOrder">
               <Input id="sortOrder" name="sortOrder" type="number" defaultValue={current.sortOrder} />
             </FormField>
+          </div>
+          {checkerType === "floating_point_tolerance" ? (
+            <FormField
+              label="Float tolerance"
+              htmlFor="floatTolerance"
+              description="Absolute tolerance used to compare numeric tokens."
+            >
+              <Input
+                id="floatTolerance"
+                name="floatTolerance"
+                type="number"
+                step="0.000001"
+                defaultValue={current.floatTolerance ?? 0.000001}
+              />
+            </FormField>
+          ) : null}
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Sample</label>
               <div className="flex h-10 items-center rounded-md border border-slate-200 px-3">

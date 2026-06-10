@@ -1,11 +1,137 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
-import { questionScores, questions, submissions, testcaseResults } from "@/db/schema";
+import {
+  gradingJobs,
+  questionScores,
+  questions,
+  rejudgeJobs,
+  submissions,
+  testcaseResults,
+} from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import { gradeCode } from "@/server/services/grading-service";
+
+function deriveSubmissionStatus(
+  results: Array<{
+    status: string;
+    passed: boolean;
+  }>,
+) {
+  if (results.some((result) => result.status === "runtime_error")) {
+    return "runtime_error";
+  }
+
+  if (results.some((result) => result.status === "time_limit_exceeded")) {
+    return "time_limit_exceeded";
+  }
+
+  if (results.some((result) => !result.passed)) {
+    return "wrong_answer";
+  }
+
+  return "accepted";
+}
+
+async function applySubmissionResults(submissionId: string, sourceCode: string) {
+  const db = getDb();
+  const submission = await db.query.submissions.findFirst({
+    where: eq(submissions.id, submissionId),
+    with: {
+      question: {
+        with: {
+          testcases: {
+            orderBy: (fields, ops) => [ops.asc(fields.sortOrder), ops.asc(fields.createdAt)],
+          },
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    throw new Error("Submission not found.");
+  }
+
+  const results = await gradeCode({
+    sourceCode,
+    testcases: submission.question.testcases.map((testcase) => ({
+      id: testcase.id,
+      name: testcase.name,
+      input: testcase.input,
+      expectedOutput: testcase.expectedOutput,
+      isHidden: testcase.isHidden,
+      checkerType: testcase.checkerType,
+      floatTolerance: testcase.floatTolerance,
+    })),
+    timeLimitMs: submission.question.timeLimitMs,
+    memoryLimitMb: submission.question.memoryLimitMb,
+  });
+
+  await db.delete(testcaseResults).where(eq(testcaseResults.submissionId, submission.id));
+  await db.insert(testcaseResults).values(
+    results.map((result) => ({
+      submissionId: submission.id,
+      testcaseId: result.testcaseId,
+      status: result.status,
+      actualOutput: result.actualOutput,
+      expectedOutput: result.expectedOutput,
+      errorMessage: result.errorMessage,
+      runtimeMs: result.runtimeMs,
+      memoryKb: result.memoryKb,
+      passed: result.passed,
+    })),
+  );
+
+  const passedCount = results.filter((result) => result.passed).length;
+  const totalCount = results.length;
+  const score = calculateScore(Number(submission.question.totalScore), passedCount, totalCount);
+  const finalStatus = deriveSubmissionStatus(results);
+  const maxRuntime = results.reduce((max, item) => Math.max(max, item.runtimeMs ?? 0), 0);
+  const firstError = results.find((item) => item.errorMessage)?.errorMessage ?? null;
+
+  const [updatedSubmission] = await db
+    .update(submissions)
+    .set({
+      status: finalStatus,
+      passedCount,
+      totalCount,
+      score: score.toFixed(2),
+      runtimeMs: maxRuntime,
+      memoryKb: null,
+      errorMessage: firstError,
+    })
+    .where(eq(submissions.id, submission.id))
+    .returning();
+
+  const existingScore = await db.query.questionScores.findFirst({
+    where: and(eq(questionScores.userId, submission.userId), eq(questionScores.questionId, submission.questionId)),
+  });
+
+  if (!existingScore) {
+    await db.insert(questionScores).values({
+      userId: submission.userId,
+      questionId: submission.questionId,
+      bestSubmissionId: submission.id,
+      bestScore: score.toFixed(2),
+      attempts: 1,
+    });
+  } else {
+    const bestScore = Number(existingScore.bestScore);
+    await db
+      .update(questionScores)
+      .set({
+        bestSubmissionId: score > bestScore ? submission.id : existingScore.bestSubmissionId,
+        bestScore: Math.max(score, bestScore).toFixed(2),
+        attempts: existingScore.attempts + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(questionScores.id, existingScore.id));
+  }
+
+  return updatedSubmission;
+}
 
 export async function runSampleSubmission(input: {
   questionId: string;
@@ -35,8 +161,11 @@ export async function runSampleSubmission(input: {
       input: testcase.input,
       expectedOutput: testcase.expectedOutput,
       isHidden: testcase.isHidden,
+      checkerType: testcase.checkerType,
+      floatTolerance: testcase.floatTolerance,
     })),
     timeLimitMs: question.timeLimitMs,
+    memoryLimitMb: question.memoryLimitMb,
   });
 
   return {
@@ -49,7 +178,7 @@ export async function runSampleSubmission(input: {
   };
 }
 
-export async function submitOfficialSolution(input: {
+export async function enqueueOfficialSubmission(input: {
   userId: string;
   questionId: string;
   sourceCode: string;
@@ -60,13 +189,19 @@ export async function submitOfficialSolution(input: {
     where: eq(questions.id, input.questionId),
     with: {
       testcases: {
-        orderBy: (fields, ops) => [ops.asc(fields.sortOrder), ops.asc(fields.createdAt)],
+        columns: {
+          id: true,
+        },
       },
     },
   });
 
   if (!question) {
     throw new Error("Question not found.");
+  }
+
+  if (question.testcases.length === 0) {
+    throw new Error("Question has no testcases.");
   }
 
   const [submission] = await db
@@ -84,95 +219,188 @@ export async function submitOfficialSolution(input: {
     throw new Error("Unable to create submission.");
   }
 
+  const [gradingJob] = await db
+    .insert(gradingJobs)
+    .values({
+      submissionId: submission.id,
+      status: "queued",
+    })
+    .returning();
+
+  return {
+    submission,
+    gradingJob,
+  };
+}
+
+export async function processGradingJob(jobId: string) {
+  const db = getDb();
+  const job = await db.query.gradingJobs.findFirst({
+    where: eq(gradingJobs.id, jobId),
+    with: {
+      submission: true,
+    },
+  });
+
+  if (!job) {
+    throw new Error("Grading job not found.");
+  }
+
+  if (job.status === "completed") {
+    return job;
+  }
+
+  await db
+    .update(gradingJobs)
+    .set({
+      status: "running",
+      attempts: job.attempts + 1,
+      startedAt: new Date(),
+      errorMessage: null,
+    })
+    .where(eq(gradingJobs.id, jobId));
+
   await db
     .update(submissions)
     .set({
       status: "running",
     })
-    .where(eq(submissions.id, submission.id));
+    .where(eq(submissions.id, job.submissionId));
 
-  const results = await gradeCode({
-    sourceCode: input.sourceCode,
-    testcases: question.testcases.map((testcase) => ({
-      id: testcase.id,
-      name: testcase.name,
-      input: testcase.input,
-      expectedOutput: testcase.expectedOutput,
-      isHidden: testcase.isHidden,
-    })),
-    timeLimitMs: question.timeLimitMs,
+  try {
+    await applySubmissionResults(job.submissionId, job.submission.sourceCode);
+
+    const [updatedJob] = await db
+      .update(gradingJobs)
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+        errorMessage: null,
+      })
+      .where(eq(gradingJobs.id, jobId))
+      .returning();
+
+    return updatedJob;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal grading failure.";
+
+    await db
+      .update(submissions)
+      .set({
+        status: "internal_error",
+        errorMessage: message,
+      })
+      .where(eq(submissions.id, job.submissionId));
+
+    const [updatedJob] = await db
+      .update(gradingJobs)
+      .set({
+        status: "failed",
+        completedAt: new Date(),
+        errorMessage: message,
+      })
+      .where(eq(gradingJobs.id, jobId))
+      .returning();
+
+    return updatedJob;
+  }
+}
+
+export async function processPendingGradingJobs(limit = 10) {
+  const db = getDb();
+  const pendingJobs = await db.query.gradingJobs.findMany({
+    where: or(eq(gradingJobs.status, "queued"), isNull(gradingJobs.startedAt)),
+    orderBy: (fields, ops) => [ops.asc(fields.createdAt)],
+    limit,
   });
 
-  const passedCount = results.filter((result) => result.passed).length;
-  const totalCount = results.length;
-  const score = calculateScore(Number(question.totalScore), passedCount, totalCount);
-
-  let finalStatus: string = "accepted";
-  if (results.some((result) => result.status === "runtime_error")) {
-    finalStatus = "runtime_error";
-  } else if (results.some((result) => result.status === "time_limit_exceeded")) {
-    finalStatus = "time_limit_exceeded";
-  } else if (results.some((result) => !result.passed)) {
-    finalStatus = "wrong_answer";
+  for (const job of pendingJobs) {
+    await processGradingJob(job.id);
   }
 
-  const maxRuntime = results.reduce((max, item) => Math.max(max, item.runtimeMs ?? 0), 0);
-  const firstError = results.find((item) => item.errorMessage)?.errorMessage ?? null;
+  return pendingJobs.length;
+}
 
-  await db.insert(testcaseResults).values(
-    results.map((result) => ({
-      submissionId: submission.id,
-      testcaseId: result.testcaseId,
-      status: result.status,
-      actualOutput: result.actualOutput,
-      expectedOutput: result.expectedOutput,
-      errorMessage: result.errorMessage,
-      runtimeMs: result.runtimeMs,
-      memoryKb: result.memoryKb,
-      passed: result.passed,
-    })),
-  );
+export async function rejudgeSubmission(submissionId: string, requestedBy: string) {
+  const db = getDb();
+  const submission = await db.query.submissions.findFirst({
+    where: eq(submissions.id, submissionId),
+  });
 
-  const [updatedSubmission] = await db
-    .update(submissions)
-    .set({
-      status: finalStatus,
-      passedCount,
-      totalCount,
-      score: score.toFixed(2),
-      runtimeMs: maxRuntime,
-      memoryKb: null,
-      errorMessage: firstError,
+  if (!submission) {
+    throw new Error("Submission not found.");
+  }
+
+  const [job] = await db
+    .insert(rejudgeJobs)
+    .values({
+      questionId: submission.questionId,
+      requestedBy,
+      status: "queued",
     })
-    .where(eq(submissions.id, submission.id))
     .returning();
 
-  const existingScore = await db.query.questionScores.findFirst({
-    where: and(eq(questionScores.userId, input.userId), eq(questionScores.questionId, input.questionId)),
+  await db
+    .update(submissions)
+    .set({
+      status: "queued",
+      errorMessage: null,
+    })
+    .where(eq(submissions.id, submissionId));
+
+  const [gradingJob] = await db
+    .insert(gradingJobs)
+    .values({
+      submissionId,
+      status: "queued",
+    })
+    .returning();
+
+  return { rejudgeJob: job, gradingJob };
+}
+
+export async function rejudgeQuestion(questionId: string, requestedBy: string) {
+  const db = getDb();
+  const questionSubmissions = await db.query.submissions.findMany({
+    where: eq(submissions.questionId, questionId),
+    columns: { id: true },
   });
 
-  if (!existingScore) {
-    await db.insert(questionScores).values({
-      userId: input.userId,
-      questionId: input.questionId,
-      bestSubmissionId: submission.id,
-      bestScore: score.toFixed(2),
-      attempts: 1,
-    });
-  } else {
-    const bestScore = Number(existingScore.bestScore);
+  const [job] = await db
+    .insert(rejudgeJobs)
+    .values({
+      questionId,
+      requestedBy,
+      status: "queued",
+    })
+    .returning();
+
+  if (questionSubmissions.length > 0) {
+    await db.insert(gradingJobs).values(
+      questionSubmissions.map((submission) => ({
+        submissionId: submission.id,
+        status: "queued",
+      })),
+    );
+
     await db
-      .update(questionScores)
+      .update(submissions)
       .set({
-        bestSubmissionId: score > bestScore ? submission.id : existingScore.bestSubmissionId,
-        bestScore: Math.max(score, bestScore).toFixed(2),
-        attempts: existingScore.attempts + 1,
-        updatedAt: new Date(),
+        status: "queued",
+        errorMessage: null,
       })
-      .where(eq(questionScores.id, existingScore.id));
+      .where(inArray(submissions.id, questionSubmissions.map((submission) => submission.id)));
   }
 
-  return updatedSubmission;
+  await db
+    .update(rejudgeJobs)
+    .set({
+      status: "completed",
+      completedAt: new Date(),
+    })
+    .where(eq(rejudgeJobs.id, job.id));
+
+  return job;
 }
 
 export async function listUserSubmissions(userId: string) {
@@ -181,6 +409,10 @@ export async function listUserSubmissions(userId: string) {
     where: eq(submissions.userId, userId),
     with: {
       question: true,
+      gradingJobs: {
+        orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
+        limit: 1,
+      },
     },
     orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
   });
@@ -195,6 +427,10 @@ export async function getSubmissionDetail(submissionId: string, userId: string, 
         : and(eq(submissions.id, submissionId), eq(submissions.userId, userId)),
     with: {
       question: true,
+      gradingJobs: {
+        orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
+        limit: 5,
+      },
       testcaseResults: {
         with: {
           testcase: true,
@@ -233,6 +469,10 @@ export async function listRecentSubmissionsForAdmin() {
     with: {
       user: true,
       question: true,
+      gradingJobs: {
+        orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
+        limit: 1,
+      },
     },
     orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
     limit: 50,

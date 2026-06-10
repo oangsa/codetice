@@ -38,6 +38,7 @@ export function CodeEditor({
   const [consoleOutput, setConsoleOutput] = useState("");
   const [editorOutput, setEditorOutput] = useState("");
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
 
@@ -95,10 +96,9 @@ export function CodeEditor({
       setEditorOutput((payload.results ?? []).map((result) => result.actualOutput ?? "").join("\n---\n"));
       toast.success("Sample tests complete.");
     } else {
-      setConsoleOutput(
-        `Submission ${payload.status}\nPassed ${payload.passedCount}/${payload.totalCount}\nScore ${payload.score ?? 0}`,
-      );
-      setEditorOutput(payload.errorMessage ?? "Submission recorded.");
+      setActiveSubmissionId(payload.submission?.id ?? null);
+      setConsoleOutput(`Submission ${payload.status}\nQueued for grading.`);
+      setEditorOutput(payload.errorMessage ?? "Submission recorded and queued.");
       toast.success("Solution submitted.");
     }
 
@@ -172,6 +172,51 @@ export function CodeEditor({
       controller.abort();
     };
   }, [code]);
+
+  useEffect(() => {
+    if (!activeSubmissionId) {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      const response = await fetch(`/api/submissions/${activeSubmissionId}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        submission: {
+          id: string;
+          status: string;
+          score: string;
+          passedCount: number;
+          totalCount: number;
+          errorMessage: string | null;
+          testcaseResults: ResultRow[];
+        };
+      };
+
+      const submission = payload.submission;
+      if (!submission) {
+        return;
+      }
+
+      setResults(submission.testcaseResults ?? []);
+      setConsoleOutput(
+        `Submission ${submission.status}\nPassed ${submission.passedCount}/${submission.totalCount}\nScore ${submission.score}`,
+      );
+      setEditorOutput(submission.errorMessage ?? "Submission processed.");
+
+      if (!["queued", "running"].includes(submission.status)) {
+        window.clearInterval(interval);
+        setActiveSubmissionId(null);
+      }
+    }, 1500);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeSubmissionId]);
 
   function handleMount(editor: monacoEditor.editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;

@@ -1,7 +1,9 @@
 import { createUserSession } from "@/lib/auth";
 import { fail, ok } from "@/lib/api";
+import { getRequestIdentifier } from "@/lib/request";
 import { loginSchema } from "@/lib/validations/auth";
 import { loginUser } from "@/server/services/auth-service";
+import { assertRateLimit } from "@/server/services/rate-limit-service";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -12,6 +14,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    await assertRateLimit({
+      identifier: await getRequestIdentifier(),
+      action: "login",
+      limit: 20,
+      windowMinutes: 15,
+    });
     const user = await loginUser(parsed.data);
     await createUserSession(user);
     return ok({ user });

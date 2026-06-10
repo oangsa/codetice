@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { RejudgeButton } from "@/components/submissions/rejudge-button";
 import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,9 +22,12 @@ export default async function SubmissionDetailPage(props: {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>{submission.question.title}</CardTitle>
-          <CardDescription>Submitted {formatDate(submission.createdAt)}</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>{submission.question.title}</CardTitle>
+            <CardDescription>Submitted {formatDate(submission.createdAt)}</CardDescription>
+          </div>
+          {session.role === "admin" ? <RejudgeButton submissionId={submission.id} /> : null}
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <SubmissionStatusBadge status={submission.status} />
@@ -31,6 +35,9 @@ export default async function SubmissionDetailPage(props: {
           <Badge variant="default">
             Passed {submission.passedCount}/{submission.totalCount}
           </Badge>
+          {submission.gradingJobs[0] ? (
+            <Badge variant="warning">job {submission.gradingJobs[0].status}</Badge>
+          ) : null}
         </CardContent>
       </Card>
 
