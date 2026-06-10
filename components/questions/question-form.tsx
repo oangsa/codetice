@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { Upload } from "lucide-react";
+
 import { TestcaseDialog } from "@/components/questions/testcase-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -49,6 +52,60 @@ export function QuestionForm({
   const router = useRouter();
   const [difficulty, setDifficulty] = useState(question?.difficulty ?? "easy");
   const [pending, setPending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleTxtUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length || !question?.id) return;
+    setUploading(true);
+
+    const inputs: Record<string, string> = {};
+    const outputs: Record<string, string> = {};
+
+    await Promise.all(
+      files.map(async (file) => {
+        const match = file.name.match(/^(\d+)(in|out)\.txt$/i);
+        if (!match) return;
+        const [, num, type] = match;
+        const content = await file.text();
+        if (type!.toLowerCase() === "in") inputs[num!] = content;
+        else outputs[num!] = content;
+      }),
+    );
+
+    const allNums = [...new Set([...Object.keys(inputs), ...Object.keys(outputs)])];
+    allNums.sort((a, b) => Number(a) - Number(b));
+
+    if (allNums.length === 0) {
+      toast.error("No valid files found. Name files like '1in.txt' and '1out.txt'.");
+      setUploading(false);
+      e.target.value = "";
+      return;
+    }
+
+    let created = 0;
+    for (const num of allNums) {
+      const res = await fetch(`/api/questions/${question.id}/testcases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Test ${num}`,
+          input: inputs[num] ?? "",
+          expectedOutput: outputs[num] ?? "",
+          isSample: false,
+          isHidden: true,
+          checkerType: "exact",
+          sortOrder: Number(num) - 1,
+        }),
+      });
+      if (res.ok) created++;
+    }
+
+    toast.success(`Imported ${created} of ${allNums.length} testcase(s).`);
+    setUploading(false);
+    e.target.value = "";
+    window.location.reload();
+  }
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -126,9 +183,14 @@ export function QuestionForm({
                 <Input id="slug" name="slug" defaultValue={question?.slug ?? ""} required />
               </FormField>
             </div>
-            <FormField label="Description" htmlFor="description">
-              <Textarea id="description" name="description" defaultValue={question?.description ?? ""} required />
-            </FormField>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Description</label>
+              <MarkdownEditor
+                name="description"
+                defaultValue={question?.description ?? ""}
+                required
+              />
+            </div>
             <div className="grid gap-4 md:grid-cols-4">
               <FormField label="Difficulty" htmlFor="difficulty">
                 <Select value={difficulty} onValueChange={setDifficulty}>
@@ -206,7 +268,24 @@ export function QuestionForm({
               <CardTitle>Testcases</CardTitle>
               <CardDescription>Students can only inspect sample cases.</CardDescription>
             </div>
-            <TestcaseDialog questionId={question.id} triggerLabel="Add testcase" />
+            <div className="flex items-center gap-2">
+              {/* .txt bulk upload */}
+              <label className={uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}>
+                <input
+                  type="file"
+                  multiple
+                  accept=".txt"
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={handleTxtUpload}
+                />
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? "Uploading…" : "Upload .txt"}
+                </span>
+              </label>
+              <TestcaseDialog questionId={question.id} triggerLabel="Add testcase" />
+            </div>
           </CardHeader>
           <CardContent>
             <Table>

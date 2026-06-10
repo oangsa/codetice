@@ -7,6 +7,7 @@ import { SurfaceCard } from "@/components/commons/surface-card";
 import { CodeEditor } from "@/components/editor/code-editor";
 import { SubmissionTable } from "@/components/submissions/submission-table";
 import { Badge } from "@/components/ui/badge";
+import { Markdown } from "@/components/ui/markdown";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -66,7 +67,7 @@ export default async function QuestionDetailPage(props: {
               </TabsList>
               <TabsContent value="description" className="h-[580px]">
                 <ScrollArea className="h-full pr-4">
-                  <div className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{question.description}</div>
+                  <Markdown>{question.description}</Markdown>
                 </ScrollArea>
               </TabsContent>
               <TabsContent value="samples" className="h-[580px]">

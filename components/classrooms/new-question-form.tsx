@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Textarea } from "@/components/ui/textarea";
 
 type Testcase = {
@@ -51,6 +52,51 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
 
   function updateTestcase(id: string, field: keyof Testcase, value: string | boolean) {
     setTestcases((prev) => prev.map((tc) => (tc.id === id ? { ...tc, [field]: value } : tc)));
+  }
+
+  async function handleTxtUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    const inputs: Record<string, string> = {};
+    const outputs: Record<string, string> = {};
+
+    await Promise.all(
+      files.map(async (file) => {
+        const match = file.name.match(/^(\d+)(in|out)\.txt$/i);
+        if (!match) return;
+        const [, num, type] = match;
+        const content = await file.text();
+        if (type!.toLowerCase() === "in") inputs[num!] = content;
+        else outputs[num!] = content;
+      }),
+    );
+
+    const allNums = [...new Set([...Object.keys(inputs), ...Object.keys(outputs)])];
+    allNums.sort((a, b) => Number(a) - Number(b));
+
+    if (allNums.length === 0) {
+      toast.error("No valid files found. Name files like '1in.txt' and '1out.txt'.");
+      e.target.value = "";
+      return;
+    }
+
+    const newCases: Testcase[] = allNums.map((num) => ({
+      id: crypto.randomUUID(),
+      name: `Test ${num}`,
+      input: inputs[num] ?? "",
+      expectedOutput: outputs[num] ?? "",
+      isSample: false,
+      isHidden: true,
+    }));
+
+    // Replace the empty placeholder if it exists, then add new ones
+    setTestcases((prev) => {
+      const nonEmpty = prev.filter((tc) => tc.input.trim() || tc.expectedOutput.trim());
+      return [...nonEmpty, ...newCases];
+    });
+    toast.success(`Imported ${newCases.length} testcase(s).`);
+    e.target.value = "";
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -140,9 +186,10 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
             </FormField>
           </div>
 
-          <FormField label="Description" htmlFor="description">
-            <Textarea id="description" name="description" rows={5} required />
-          </FormField>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Description</label>
+            <MarkdownEditor name="description" required rows={8} />
+          </div>
 
           <div className="grid gap-4 md:grid-cols-4">
             <FormField label="Difficulty" htmlFor="difficulty">
@@ -205,10 +252,25 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Testcases</CardTitle>
-          <Button type="button" variant="secondary" size="sm" onClick={addTestcase}>
-            <Plus className="h-4 w-4" />
-            Add testcase
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                multiple
+                accept=".txt"
+                className="sr-only"
+                onChange={handleTxtUpload}
+              />
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                <Upload className="h-3.5 w-3.5" />
+                Upload .txt
+              </span>
+            </label>
+            <Button type="button" variant="secondary" size="sm" onClick={addTestcase}>
+              <Plus className="h-4 w-4" />
+              Add testcase
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {testcases.map((tc, index) => (
