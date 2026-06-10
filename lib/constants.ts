@@ -1,0 +1,46 @@
+export const SESSION_COOKIE = "vibe_grader_session";
+export const USER_ROLES = ["student", "admin"] as const;
+export const QUESTION_DIFFICULTIES = ["easy", "medium", "hard"] as const;
+export const SUBMISSION_STATUSES = [
+  "queued",
+  "running",
+  "accepted",
+  "wrong_answer",
+  "runtime_error",
+  "time_limit_exceeded",
+  "memory_limit_exceeded",
+  "internal_error",
+] as const;
+
+export const PYTHON_COMPLETIONS = [
+  "def",
+  "return",
+  "if",
+  "elif",
+  "else",
+  "for",
+  "while",
+  "break",
+  "continue",
+  "import",
+  "from",
+  "class",
+  "try",
+  "except",
+  "finally",
+  "with",
+  "print",
+  "input",
+  "len",
+  "range",
+  "map",
+  "list",
+  "dict",
+  "set",
+  "int",
+  "float",
+  "str",
+  "sum",
+  "min",
+  "max",
+];

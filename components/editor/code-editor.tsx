@@ -1,0 +1,248 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Editor, { type Monaco } from "@monaco-editor/react";
+import type * as monacoEditor from "monaco-editor";
+import { Loader2, Play, Send } from "lucide-react";
+import { toast } from "sonner";
+
+import { OutputPanel } from "@/components/editor/output-panel";
+import { TestcaseResults } from "@/components/editor/testcase-results";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PYTHON_COMPLETIONS } from "@/lib/constants";
+
+type ResultRow = {
+  testcaseId: string;
+  name: string | null;
+  passed: boolean;
+  status: string;
+  runtimeMs: number | null;
+  actualOutput: string | null;
+  expectedOutput: string | null;
+  errorMessage: string | null;
+  isHidden: boolean;
+};
+
+export function CodeEditor({
+  questionId,
+  starterCode,
+}: {
+  questionId: string;
+  starterCode: string;
+}) {
+  const [code, setCode] = useState(starterCode);
+  const [pendingAction, setPendingAction] = useState<"run" | "submit" | null>(null);
+  const [results, setResults] = useState<ResultRow[]>([]);
+  const [consoleOutput, setConsoleOutput] = useState("");
+  const [editorOutput, setEditorOutput] = useState("");
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
+  const diagnosticsAbortRef = useRef<AbortController | null>(null);
+
+  const monacoOptions = useMemo(
+    () => ({
+      minimap: { enabled: false },
+      fontSize: 14,
+      automaticLayout: true,
+      roundedSelection: false,
+      scrollBeyondLastLine: false,
+      padding: { top: 12, bottom: 12 },
+    }),
+    [],
+  );
+
+  async function runRequest(kind: "run" | "submit") {
+    setPendingAction(kind);
+    const endpoint = kind === "run" ? "/api/run-sample" : "/api/submit";
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        questionId,
+        sourceCode: code,
+        language: "python",
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      message?: string;
+      results?: ResultRow[];
+      submission?: { id: string };
+      status?: string;
+      errorMessage?: string | null;
+      passedCount?: number;
+      totalCount?: number;
+      score?: string;
+      runtimeMs?: number | null;
+    };
+
+    if (!response.ok) {
+      toast.error(payload.message ?? "Request failed.");
+      setPendingAction(null);
+      return;
+    }
+
+    if (kind === "run") {
+      setResults(payload.results ?? []);
+      setConsoleOutput(
+        (payload.results ?? [])
+          .map((result) => `${result.name ?? result.testcaseId}: ${result.status}`)
+          .join("\n"),
+      );
+      setEditorOutput((payload.results ?? []).map((result) => result.actualOutput ?? "").join("\n---\n"));
+      toast.success("Sample tests complete.");
+    } else {
+      setConsoleOutput(
+        `Submission ${payload.status}\nPassed ${payload.passedCount}/${payload.totalCount}\nScore ${payload.score ?? 0}`,
+      );
+      setEditorOutput(payload.errorMessage ?? "Submission recorded.");
+      toast.success("Solution submitted.");
+    }
+
+    setPendingAction(null);
+  }
+
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+
+    diagnosticsAbortRef.current?.abort();
+    const controller = new AbortController();
+    diagnosticsAbortRef.current = controller;
+
+    const timeout = setTimeout(async () => {
+      setDiagnosticsLoading(true);
+      try {
+        const response = await fetch("/api/python/diagnostics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceCode: code }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          diagnostics: Array<{
+            message: string;
+            line: number;
+            column: number;
+            endLine: number;
+            endColumn: number;
+            severity: "error" | "warning" | "information";
+          }>;
+        };
+
+        const monaco = await import("monaco-editor");
+        const model = editorRef.current?.getModel();
+        if (model) {
+          monaco.editor.setModelMarkers(
+            model,
+            "pyright",
+            payload.diagnostics.map((diagnostic) => ({
+              message: diagnostic.message,
+              startLineNumber: diagnostic.line,
+              startColumn: diagnostic.column,
+              endLineNumber: diagnostic.endLine,
+              endColumn: diagnostic.endColumn,
+              severity:
+                diagnostic.severity === "warning"
+                  ? monaco.MarkerSeverity.Warning
+                  : diagnostic.severity === "information"
+                    ? monaco.MarkerSeverity.Info
+                    : monaco.MarkerSeverity.Error,
+            })),
+          );
+        }
+      } catch {
+        // Ignore transient diagnostics failures in the editor.
+      } finally {
+        setDiagnosticsLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [code]);
+
+  function handleMount(editor: monacoEditor.editor.IStandaloneCodeEditor, monaco: Monaco) {
+    editorRef.current = editor;
+
+    monaco.languages.registerCompletionItemProvider("python", {
+      provideCompletionItems: () => ({
+        suggestions: PYTHON_COMPLETIONS.map((item) => ({
+          label: item,
+          kind: monaco.languages.CompletionItemKind.Keyword,
+          insertText: item,
+        })),
+      }),
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Solution editor</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pendingAction !== null}
+              onClick={() => void runRequest("run")}
+            >
+              {pendingAction === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              Run sample
+            </Button>
+            <Button type="button" disabled={pendingAction !== null} onClick={() => void runRequest("submit")}>
+              {pendingAction === "submit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Submit
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>Python editor</span>
+            <span>{diagnosticsLoading ? "Running Pyright diagnostics..." : "Pyright diagnostics ready"}</span>
+          </div>
+          <div className="overflow-hidden rounded-md border border-slate-200">
+            <Editor
+              height="480px"
+              defaultLanguage="python"
+              value={code}
+              onChange={(value) => setCode(value ?? "")}
+              onMount={handleMount}
+              options={monacoOptions}
+              theme="vs"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="output">
+        <TabsList>
+          <TabsTrigger value="output">Output</TabsTrigger>
+          <TabsTrigger value="results">Test Results</TabsTrigger>
+          <TabsTrigger value="console">Console</TabsTrigger>
+        </TabsList>
+        <TabsContent value="output">
+          <OutputPanel title="Program output" value={editorOutput} />
+        </TabsContent>
+        <TabsContent value="results">
+          <TestcaseResults results={results} />
+        </TabsContent>
+        <TabsContent value="console">
+          <OutputPanel title="Console" value={consoleOutput} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
