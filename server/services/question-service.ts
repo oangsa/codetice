@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, desc, eq, sql } from "drizzle-orm";
 
-import { questionScores, questions, submissions, testcases } from "@/db/schema";
+import { leaderboards, questionScores, questions, submissions, testcases } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import type { SessionUser } from "@/lib/types";
@@ -270,18 +270,41 @@ export async function listQuestionSubmissions(questionId: string, userId: string
 
 export async function getQuestionStats(userId: string) {
   const db = getDb();
-  const [summary] = await db
-    .select({
-      solved: sql<number>`count(*)::int`,
-      totalScore: sql<string>`coalesce(sum(${questionScores.bestScore}), 0)::text`,
-    })
-    .from(questionScores)
-    .where(eq(questionScores.userId, userId));
 
-  return {
-    solved: summary?.solved ?? 0,
-    totalScore: summary?.totalScore ?? "0",
-  };
+  const leaderboard = await db.query.leaderboards.findFirst({
+    where: eq(leaderboards.userId, userId),
+    columns: {
+      totalScore: true,
+      solvedCount: true,
+    },
+  });
+
+  if (leaderboard) {
+    return {
+      solved: leaderboard.solvedCount,
+      totalScore: leaderboard.totalScore,
+    };
+  }
+
+  try {
+    const [summary] = await db
+      .select({
+        solved: sql<number>`count(*)::int`,
+        totalScore: sql<string>`coalesce(sum(${questionScores.bestScore}), 0)::text`,
+      })
+      .from(questionScores)
+      .where(eq(questionScores.userId, userId));
+
+    return {
+      solved: summary?.solved ?? 0,
+      totalScore: summary?.totalScore ?? "0",
+    };
+  } catch {
+    return {
+      solved: 0,
+      totalScore: "0",
+    };
+  }
 }
 
 export function computeQuestionProgress(bestScore: string, totalScore: string) {

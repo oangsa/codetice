@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   decimal,
+  index,
   integer,
   pgTable,
   text,
@@ -20,39 +21,52 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
 
-export const questions = pgTable("questions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
-  slug: varchar("slug", { length: 255 }).notNull().unique(),
-  description: text("description").notNull(),
-  difficulty: varchar("difficulty", { length: 20 }).notNull().default("easy"),
-  totalScore: decimal("total_score", { precision: 10, scale: 2 }).notNull().default("100"),
-  timeLimitMs: integer("time_limit_ms").notNull().default(2000),
-  memoryLimitMb: integer("memory_limit_mb").notNull().default(128),
-  starterCode: text("starter_code"),
-  starterCodeByLanguage: text("starter_code_by_language"),
-  isPublished: boolean("is_published").notNull().default(false),
-  createdBy: uuid("created_by").references(() => users.id),
-  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
-});
+export const questions = pgTable(
+  "questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: varchar("title", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
+    description: text("description").notNull(),
+    difficulty: varchar("difficulty", { length: 20 }).notNull().default("easy"),
+    totalScore: decimal("total_score", { precision: 10, scale: 2 }).notNull().default("100"),
+    timeLimitMs: integer("time_limit_ms").notNull().default(2000),
+    memoryLimitMb: integer("memory_limit_mb").notNull().default(128),
+    starterCode: text("starter_code"),
+    starterCodeByLanguage: text("starter_code_by_language"),
+    isPublished: boolean("is_published").notNull().default(false),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    publishedCreatedAtIdx: index("questions_published_created_at_idx").on(table.isPublished, table.createdAt),
+    createdAtIdx: index("questions_created_at_idx").on(table.createdAt),
+  }),
+);
 
-export const testcases = pgTable("testcases", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  questionId: uuid("question_id")
-    .notNull()
-    .references(() => questions.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 255 }),
-  input: text("input").notNull(),
-  expectedOutput: text("expected_output").notNull(),
-  isSample: boolean("is_sample").notNull().default(false),
-  isHidden: boolean("is_hidden").notNull().default(true),
-  checkerType: varchar("checker_type", { length: 50 }).notNull().default("exact"),
-  floatTolerance: decimal("float_tolerance", { precision: 20, scale: 10 }),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
-});
+export const testcases = pgTable(
+  "testcases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }),
+    input: text("input").notNull(),
+    expectedOutput: text("expected_output").notNull(),
+    isSample: boolean("is_sample").notNull().default(false),
+    isHidden: boolean("is_hidden").notNull().default(true),
+    checkerType: varchar("checker_type", { length: 50 }).notNull().default("exact"),
+    floatTolerance: decimal("float_tolerance", { precision: 20, scale: 10 }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    questionSortIdx: index("testcases_question_sort_idx").on(table.questionId, table.sortOrder, table.createdAt),
+  }),
+);
 
 export const submissions = pgTable("submissions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -73,7 +87,11 @@ export const submissions = pgTable("submissions", {
   memoryKb: integer("memory_kb"),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-});
+}, (table) => ({
+  userCreatedAtIdx: index("submissions_user_created_at_idx").on(table.userId, table.createdAt),
+  questionCreatedAtIdx: index("submissions_question_created_at_idx").on(table.questionId, table.createdAt),
+  createdAtIdx: index("submissions_created_at_idx").on(table.createdAt),
+}));
 
 export const testcaseResults = pgTable("testcase_results", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -91,7 +109,9 @@ export const testcaseResults = pgTable("testcase_results", {
   memoryKb: integer("memory_kb"),
   passed: boolean("passed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-});
+}, (table) => ({
+  submissionIdx: index("testcase_results_submission_idx").on(table.submissionId),
+}));
 
 export const questionScores = pgTable(
   "question_scores",
@@ -127,7 +147,10 @@ export const gradingJobs = pgTable("grading_jobs", {
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: false }),
   completedAt: timestamp("completed_at", { withTimezone: false }),
-});
+}, (table) => ({
+  submissionCreatedAtIdx: index("grading_jobs_submission_created_at_idx").on(table.submissionId, table.createdAt),
+  statusCreatedAtIdx: index("grading_jobs_status_created_at_idx").on(table.status, table.createdAt),
+}));
 
 export const rejudgeJobs = pgTable("rejudge_jobs", {
   id: uuid("id").defaultRandom().primaryKey(),
