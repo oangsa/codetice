@@ -17,9 +17,9 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Control room"
-        title="Admin"
-        description="Manage questions, testcases, language settings, and review recent grading activity."
+        eyebrow="Administration"
+        title="Control Room"
+        description="Review inventory, monitor grading traffic, and maintain the question bank from one operational workspace."
         actions={
           <Button asChild>
           <Link href="/admin/questions/new">New question</Link>
@@ -32,7 +32,7 @@ export default async function AdminDashboardPage() {
         <MetricCard label="Recent submissions" value={submissions.length} hint="Latest official attempts" icon={<ClipboardList className="h-4 w-4" />} />
       </div>
 
-      <SurfaceCard title="Latest submissions" description="Most recent official attempts across all students.">
+      <SurfaceCard title="Latest Submissions" description="Most recent official attempts across all students.">
           <SubmissionTable submissions={submissions} />
       </SurfaceCard>
     </div>

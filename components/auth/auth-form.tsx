@@ -49,13 +49,13 @@ export function AuthForm({
     }
 
     toast.success(endpoint.includes("register") ? "Account created." : "Logged in.");
-    router.push("/dashboard");
+    router.push("/classrooms");
     router.refresh();
   }
 
   return (
-    <Card className="mx-auto w-full max-w-sm shadow-sm">
-      <CardHeader className="border-b border-slate-100 pb-5">
+    <Card className="mx-auto w-full max-w-sm rounded-xl border-slate-200 shadow-sm">
+      <CardHeader className="border-b border-slate-200 bg-slate-50/70 pb-5">
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>

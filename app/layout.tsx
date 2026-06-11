@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 
 import { Providers } from "@/components/providers";
-import { SiteHeader } from "@/components/site-header";
+import { AppShell } from "@/components/workspace/app-shell";
 import { getSession } from "@/lib/auth";
 
 const inter = Inter({
@@ -29,10 +29,7 @@ export default async function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers />
-        <div className="min-h-screen">
-          <SiteHeader user={session} />
-          <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
-        </div>
+        <AppShell user={session}>{children}</AppShell>
       </body>
     </html>
   );

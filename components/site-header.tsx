@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Code2, LayoutDashboard, ListChecks, Shield, Trophy, Users } from "lucide-react";
+import { Code2, Shield, Users } from "lucide-react";
 
 import { UserMenu } from "@/components/user-menu";
 import { Badge } from "@/components/ui/badge";
@@ -7,12 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { SessionUser } from "@/lib/types";
 
 const NAV_LINKS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/questions", label: "Problems", icon: Code2 },
-  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/classrooms", label: "Classrooms", icon: Users },
-  { href: "/assignments", label: "Assignments", icon: ListChecks },
-  { href: "/submissions", label: "Submissions", icon: Shield },
+  { href: "/classrooms", label: "Classroom", icon: Users },
 ];
 
 export function SiteHeader({ user }: { user: SessionUser | null }) {
@@ -20,7 +15,7 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-6">
-          <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-3 text-sm font-semibold text-slate-900">
+          <Link href={user ? "/classrooms" : "/"} className="flex items-center gap-3 text-sm font-semibold text-slate-900">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
               <Code2 className="h-5 w-5" />
             </div>
