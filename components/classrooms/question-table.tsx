@@ -7,7 +7,7 @@ import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatScore, formatDate } from "@/lib/utils";
+import { cn, formatScore, formatDate } from "@/lib/utils";
 
 type QuestionRow = {
   rowNumber: number;
@@ -24,18 +24,29 @@ type QuestionRow = {
   status: "todo" | "attempted" | "accepted";
 };
 
-type BadgeVariant = "default" | "outline" | "secondary" | "destructive";
-
-const STATUS_VARIANTS: Record<string, BadgeVariant> = {
-  todo: "outline",
-  attempted: "secondary",
-  accepted: "default",
+const difficultyVariants: Record<string, string> = {
+  easy: "bg-green-50 text-green-900",
+  medium: "bg-amber-50 text-amber-900",
+  normal: "bg-amber-50 text-amber-900",
+  hard: "bg-red-50 text-red-900",
 };
 
-const DIFFICULTY_VARIANTS: Record<string, BadgeVariant> = {
-  easy: "default",
-  medium: "secondary",
-  hard: "destructive",
+const statusVariants: Record<QuestionRow["status"], { label: string; dotClassName: string; textClassName: string }> = {
+  todo: {
+    label: "Todo",
+    dotClassName: "bg-amber-400",
+    textClassName: "text-amber-900",
+  },
+  attempted: {
+    label: "Failed",
+    dotClassName: "bg-red-500",
+    textClassName: "text-red-900",
+  },
+  accepted: {
+    label: "Passed",
+    dotClassName: "bg-green-500",
+    textClassName: "text-green-900",
+  },
 };
 
 export function QuestionTable({
@@ -116,9 +127,14 @@ export function QuestionTable({
                     <p className="mt-0.5 text-xs text-slate-400">{q.assignmentTitle}</p>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={DIFFICULTY_VARIANTS[q.difficulty] ?? "default"} className="capitalize">
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
+                        difficultyVariants[q.difficulty] ?? "bg-slate-100 text-slate-900",
+                      )}
+                    >
                       {q.difficulty}
-                    </Badge>
+                    </span>
                   </TableCell>
                   <TableCell className="text-sm text-slate-500">
                     {q.dueAt ? (
@@ -136,9 +152,17 @@ export function QuestionTable({
                     {q.bestScore ? formatScore(q.bestScore) : "None"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Badge variant={STATUS_VARIANTS[q.status] ?? "default"} className="capitalize">
-                      {q.status}
-                    </Badge>
+                    <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          statusVariants[q.status].dotClassName,
+                        )}
+                      />
+                      <span className={statusVariants[q.status].textClassName}>
+                        {statusVariants[q.status].label}
+                      </span>
+                    </span>
                   </TableCell>
                 </TableRow>
               ))
