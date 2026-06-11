@@ -7,13 +7,10 @@ import { Loader2, Play, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { OutputPanel } from "@/components/editor/output-panel";
-import { TestcaseResults } from "@/components/editor/testcase-results";
 import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PYTHON_COMPLETIONS } from "@/lib/constants";
 
 type ResultRow = {
@@ -50,9 +47,6 @@ export function CodeEditor({
     };
   });
   const [pendingAction, setPendingAction] = useState<"run" | "submit" | null>(null);
-  const [results, setResults] = useState<ResultRow[]>([]);
-  const [consoleOutput, setConsoleOutput] = useState("");
-  const [editorOutput, setEditorOutput] = useState("");
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const [submissionSummary, setSubmissionSummary] = useState<{
@@ -113,20 +107,11 @@ export function CodeEditor({
     }
 
     if (kind === "run") {
-      setResults(payload.results ?? []);
       setSubmissionSummary(null);
-      setConsoleOutput(
-        (payload.results ?? [])
-          .map((result) => `${result.name ?? result.testcaseId}: ${result.status}`)
-          .join("\n"),
-      );
-      setEditorOutput((payload.results ?? []).map((result) => result.actualOutput ?? "").join("\n---\n"));
       toast.success("Sample tests complete.");
     } else {
       setSubmissionSummary(null);
       setActiveSubmissionId(payload.submission?.id ?? null);
-      setConsoleOutput(`Submission ${payload.status}\nQueued for grading.`);
-      setEditorOutput(payload.errorMessage ?? "Submission recorded and queued.");
       toast.message("Solution submitted", {
         description: "Grading is running. Final result will appear here when processing finishes.",
       });
@@ -242,17 +227,12 @@ export function CodeEditor({
         return;
       }
 
-      setResults(submission.testcaseResults ?? []);
       setSubmissionSummary({
         status: submission.status,
         score: submission.score,
         passedCount: submission.passedCount,
         totalCount: submission.totalCount,
       });
-      setConsoleOutput(
-        `Submission ${submission.status}\nPassed ${submission.passedCount}/${submission.totalCount}\nScore ${submission.score}`,
-      );
-      setEditorOutput(submission.errorMessage ?? "Submission processed.");
 
       if (!["queued", "running"].includes(submission.status)) {
         if (submission.status === "accepted") {
@@ -373,23 +353,6 @@ export function CodeEditor({
           </div>
         </CardContent>
       </Card>
-
-      <Tabs defaultValue="output">
-        <TabsList>
-          <TabsTrigger value="output">Output</TabsTrigger>
-          <TabsTrigger value="results">Test Results</TabsTrigger>
-          <TabsTrigger value="console">Console</TabsTrigger>
-        </TabsList>
-        <TabsContent value="output">
-          <OutputPanel title="Program output" value={editorOutput} />
-        </TabsContent>
-        <TabsContent value="results">
-          <TestcaseResults results={results} />
-        </TabsContent>
-        <TabsContent value="console">
-          <OutputPanel title="Console" value={consoleOutput} />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
