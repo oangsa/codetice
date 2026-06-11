@@ -31,7 +31,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 rounded-md border border-slate-200 px-2 text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-50">
-          <span className="hidden text-sm font-medium md:inline">{user.username}</span>
+          <span className="text-sm font-medium">{user.username}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
