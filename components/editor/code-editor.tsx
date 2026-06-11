@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { OutputPanel } from "@/components/editor/output-panel";
 import { TestcaseResults } from "@/components/editor/testcase-results";
+import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -300,12 +301,12 @@ export function CodeEditor({
               {languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"} runtime
             </p>
             {submissionSummary ? (
-              <p className="mt-2 text-sm text-slate-600">
-                Latest submission:{" "}
-                <span className="font-medium text-slate-900">
-                  {submissionSummary.status.replaceAll("_", " ")}
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                <span>Latest submission:</span>
+                <SubmissionStatusBadge status={submissionSummary.status} />
+                <span>
+                  {`${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}
                 </span>
-                {` · ${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}
               </p>
             ) : null}
           </div>
