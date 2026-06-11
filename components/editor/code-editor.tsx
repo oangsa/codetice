@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { type Monaco } from "@monaco-editor/react";
 import type * as monacoEditor from "monaco-editor";
 import { Loader2, Play, Send } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { OutputPanel } from "@/components/editor/output-panel";
@@ -39,6 +40,7 @@ export function CodeEditor({
   languages: Array<{ slug: string; name: string }>;
   assignmentId?: string | null;
 }) {
+  const router = useRouter();
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.slug ?? "python");
   const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>(() => {
     const initialLanguage = languages[0]?.slug ?? "python";
@@ -263,6 +265,7 @@ export function CodeEditor({
               `Passed ${submission.passedCount}/${submission.totalCount} tests. Score ${submission.score}.`,
           });
         }
+        router.refresh();
         window.clearInterval(interval);
         setActiveSubmissionId(null);
       }
@@ -271,7 +274,7 @@ export function CodeEditor({
     return () => {
       window.clearInterval(interval);
     };
-  }, [activeSubmissionId]);
+  }, [activeSubmissionId, router]);
 
   function handleMount(editor: monacoEditor.editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;
