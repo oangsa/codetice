@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { type Monaco } from "@monaco-editor/react";
 import type * as monacoEditor from "monaco-editor";
-import { Loader2, Play, Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -46,7 +46,7 @@ export function CodeEditor({
       [initialLanguage]: starterCodeByLanguage[initialLanguage] || starterCode,
     };
   });
-  const [pendingAction, setPendingAction] = useState<"run" | "submit" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"submit" | null>(null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const [submissionSummary, setSubmissionSummary] = useState<{
@@ -73,11 +73,10 @@ export function CodeEditor({
     [],
   );
 
-  async function runRequest(kind: "run" | "submit") {
-    setPendingAction(kind);
-    const endpoint = kind === "run" ? "/api/run-sample" : "/api/submit";
+  async function submitSolution() {
+    setPendingAction("submit");
 
-    const response = await fetch(endpoint, {
+    const response = await fetch("/api/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -106,16 +105,11 @@ export function CodeEditor({
       return;
     }
 
-    if (kind === "run") {
-      setSubmissionSummary(null);
-      toast.success("Sample tests complete.");
-    } else {
-      setSubmissionSummary(null);
-      setActiveSubmissionId(payload.submission?.id ?? null);
-      toast.message("Solution submitted", {
-        description: "Grading is running. Final result will appear here when processing finishes.",
-      });
-    }
+    setSubmissionSummary(null);
+    setActiveSubmissionId(payload.submission?.id ?? null);
+    toast.message("Solution submitted", {
+      description: "Grading is running. Final result will appear here when processing finishes.",
+    });
 
     setPendingAction(null);
   }
@@ -307,17 +301,8 @@ export function CodeEditor({
             </div>
             <Button
               type="button"
-              variant="secondary"
               disabled={pendingAction !== null}
-              onClick={() => void runRequest("run")}
-            >
-              {pendingAction === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Run sample
-            </Button>
-            <Button
-              type="button"
-              disabled={pendingAction !== null}
-              onClick={() => void runRequest("submit")}
+              onClick={() => void submitSolution()}
             >
               {pendingAction === "submit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Submit
@@ -337,7 +322,7 @@ export function CodeEditor({
           </div>
           <div className="overflow-hidden rounded-md border border-slate-200">
             <Editor
-              height="480px"
+              height="620px"
               language={editorLanguage}
               value={code}
               onChange={(value) =>
