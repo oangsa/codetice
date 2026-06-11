@@ -35,17 +35,17 @@ const statusVariants: Record<QuestionRow["status"], { label: string; dotClassNam
   todo: {
     label: "Todo",
     dotClassName: "bg-amber-400",
-    textClassName: "text-amber-900",
+    textClassName: "text-slate-950",
   },
   attempted: {
     label: "Failed",
     dotClassName: "bg-red-500",
-    textClassName: "text-red-900",
+    textClassName: "text-slate-950",
   },
   accepted: {
     label: "Passed",
     dotClassName: "bg-green-500",
-    textClassName: "text-green-900",
+    textClassName: "text-slate-950",
   },
 };
 
