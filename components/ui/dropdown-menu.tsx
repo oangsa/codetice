@@ -18,7 +18,10 @@ export const DropdownMenuContent = ({
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       sideOffset={sideOffset}
-      className={cn("z-50 min-w-40 rounded-md border border-slate-200 bg-white p-1 shadow-md dark:border-slate-700 dark:bg-slate-900", className)}
+      className={cn(
+        "z-50 min-w-40 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+        className,
+      )}
       {...props}
     />
   </DropdownMenuPrimitive.Portal>
@@ -30,7 +33,7 @@ export const DropdownMenuItem = ({
 }: DropdownMenuPrimitive.DropdownMenuItemProps) => (
   <DropdownMenuPrimitive.Item
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-slate-100 focus:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800 dark:focus:bg-slate-800",
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}
