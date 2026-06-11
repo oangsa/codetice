@@ -75,7 +75,7 @@ export default async function ClassroomDetailPage(props: {
           <SurfaceCard title="Membership">
             {membership ? (
               <div className="space-y-2">
-                <Badge variant={membership.role === "teacher" ? "secondary" : "default"} className="capitalize">
+                <Badge variant={membership.role === "teacher" ? "default" : "secondary"} className="capitalize">
                   {membership.role}
                 </Badge>
                 <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -102,7 +102,7 @@ export default async function ClassroomDetailPage(props: {
             <div>
               {membership ? (
                 <div className="space-y-2">
-                  <Badge variant="default" className="capitalize">
+                  <Badge variant="secondary" className="capitalize">
                     {membership.role}
                   </Badge>
                   <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -159,7 +159,7 @@ export default async function ClassroomDetailPage(props: {
                       <TableCell className="font-medium">{entry.username}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={entry.role === "teacher" ? "secondary" : "default"}
+                          variant={entry.role === "teacher" ? "default" : "secondary"}
                           className="capitalize"
                         >
                           {entry.role}
@@ -195,7 +195,7 @@ export default async function ClassroomDetailPage(props: {
                     <TableCell className="font-medium">{member.user.username}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={member.role === "teacher" ? "secondary" : "default"}
+                        variant={member.role === "teacher" ? "default" : "secondary"}
                         className="capitalize"
                       >
                         {member.role}
