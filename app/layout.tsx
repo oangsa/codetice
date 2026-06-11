@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Vibe Grader",
+  title: "Codetice",
   description: "Python coding grader with local auth, admin authoring, and testcase-based scoring.",
 };
 

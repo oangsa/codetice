@@ -20,7 +20,7 @@ export default async function RegisterPage() {
           </div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Contest Workspace</p>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Create account</h1>
-          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Join Vibe Grader to start solving problems and tracking best scores.</p>
+          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Join Codetice to start solving problems and tracking best scores.</p>
         </div>
 
         <AuthForm

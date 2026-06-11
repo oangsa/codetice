@@ -21,7 +21,7 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
             </div>
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Contest Workspace</div>
-              <span className="block truncate text-sm font-semibold text-slate-900">Vibe Grader</span>
+              <span className="block truncate text-sm font-semibold text-slate-900">Codetice</span>
             </div>
           </Link>
           {user ? (

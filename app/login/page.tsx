@@ -19,7 +19,7 @@ export default async function LoginPage() {
             <Code2 className="h-7 w-7" />
           </div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Contest Workspace</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Vibe Grader</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Codetice</h1>
           <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Sign in to access classrooms, questions, and grading history.</p>
         </div>
 
