@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
 
 import { ClassroomCard } from "@/components/classrooms/classroom-card";
+import { CreateClassroomForm } from "@/components/classrooms/create-classroom-form";
 import { PageHeader } from "@/components/commons/page-header";
 import { SurfaceCard } from "@/components/commons/surface-card";
 import { JoinClassroomForm } from "@/components/classrooms/join-classroom-form";
@@ -18,6 +19,7 @@ import { listClassroomsWithStats } from "@/server/services/classroom-service";
 
 export default async function ClassroomsDashboardPage() {
   const session = await requireUser();
+  const isAdmin = session.role === "admin";
   const classrooms = await listClassroomsWithStats(session.userId, session.role);
 
   return (
@@ -37,14 +39,14 @@ export default async function ClassroomsDashboardPage() {
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="h-4 w-4" />
-                  Join classroom
+                  {isAdmin ? "Create Classroom" : "Join classroom"}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Join a classroom</DialogTitle>
+                  <DialogTitle>{isAdmin ? "Create a classroom" : "Join a classroom"}</DialogTitle>
                 </DialogHeader>
-                <JoinClassroomForm />
+                {isAdmin ? <CreateClassroomForm /> : <JoinClassroomForm />}
               </DialogContent>
             </Dialog>
           </>
