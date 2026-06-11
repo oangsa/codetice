@@ -56,10 +56,10 @@ export default async function ClassroomsDashboardPage() {
         description={`${classrooms.length} classroom${classrooms.length === 1 ? "" : "s"} available in your account.`}
       >
         {classrooms.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 py-16 text-center">
-            <BookOpen className="mb-3 h-10 w-10 text-slate-300" />
-            <p className="font-medium text-slate-600">No classrooms yet</p>
-            <p className="mt-1 text-sm text-slate-400">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 py-16 text-center dark:border-slate-700">
+            <BookOpen className="mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" />
+            <p className="font-medium text-slate-600 dark:text-slate-300">No classrooms yet</p>
+            <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
               Join a classroom with an invite code to get started.
             </p>
           </div>

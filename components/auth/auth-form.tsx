@@ -54,8 +54,8 @@ export function AuthForm({
   }
 
   return (
-    <Card className="mx-auto w-full max-w-sm rounded-xl border-slate-200 shadow-sm">
-      <CardHeader className="border-b border-slate-200 bg-slate-50/70 pb-5">
+    <Card className="mx-auto w-full max-w-sm rounded-xl border-slate-200 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <CardHeader className="border-b border-slate-200 bg-slate-50/70 pb-5 dark:border-slate-800 dark:bg-slate-900/60">
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
@@ -67,7 +67,7 @@ export function AuthForm({
           }}
         >
           {error ? (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/60 dark:text-red-300">
               {error}
             </div>
           ) : null}

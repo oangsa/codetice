@@ -26,7 +26,7 @@ export default async function RootLayout({
   const session = await getSession();
 
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers />
         <AppShell user={session}>{children}</AppShell>

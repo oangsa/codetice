@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -98,19 +99,19 @@ export function AppShell({
   const pageTitle = getPageTitle(pathname, user.role);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-          <div className="flex h-16 items-center border-b border-slate-200 px-4">
+        <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex lg:flex-col">
+          <div className="flex h-16 items-center border-b border-slate-200 px-4 dark:border-slate-800">
             <Link href="/classrooms" className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900">
                 <Code2 className="h-5 w-5" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">
                   Contest Workspace
                 </span>
-                <span className="block truncate text-base font-semibold text-slate-900">
+                <span className="block truncate text-base font-semibold text-slate-900 dark:text-slate-100">
                   Vibe Grader
                 </span>
               </span>
@@ -120,7 +121,7 @@ export function AppShell({
           <div className="flex-1 overflow-y-auto px-3 py-4">
             {sections.map((section) => (
               <div key={section.label} className="mb-5">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
                   {section.label}
                 </p>
                 <nav className="space-y-1">
@@ -135,8 +136,8 @@ export function AppShell({
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                           active
-                            ? "bg-slate-900 text-white shadow-sm"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                            ? "bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100",
                         )}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
@@ -149,24 +150,27 @@ export function AppShell({
             ))}
           </div>
 
-          <div className="border-t border-slate-200 px-4 py-4">
-            <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-            <p className="mt-1 text-xs capitalize text-slate-500">{user.role}</p>
+          <div className="border-t border-slate-200 px-4 py-4 dark:border-slate-800">
+            <div className="mb-3">
+              <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{user.username}</p>
+              <p className="mt-1 text-xs capitalize text-slate-500 dark:text-slate-400">{user.role}</p>
+            </div>
+            <ThemeToggle />
           </div>
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
             <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white lg:hidden">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 lg:hidden">
                   <Code2 className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
                     Vibe Grader
                   </p>
-                  <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
                     {pageTitle}
                   </p>
                 </div>
@@ -180,7 +184,7 @@ export function AppShell({
               </div>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto border-t border-slate-100 px-4 py-3 lg:hidden sm:px-6">
+            <div className="flex gap-2 overflow-x-auto border-t border-slate-100 px-4 py-3 dark:border-slate-800 lg:hidden sm:px-6">
               {sections.flatMap((section) => section.items).map((item) => {
                 const active = isActivePath(pathname, item.href);
                 return (
