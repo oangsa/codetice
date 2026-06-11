@@ -304,12 +304,12 @@ export function QuestionForm({
                   <TableRow key={testcase.id}>
                     <TableCell>{testcase.name ?? "Unnamed testcase"}</TableCell>
                     <TableCell>
-                      <Badge variant={testcase.isSample ? "success" : "default"}>
+                      <Badge variant={testcase.isSample ? "default" : "outline"}>
                         {testcase.isSample ? "sample" : "official"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={testcase.isHidden ? "warning" : "info"}>
+                      <Badge variant={testcase.isHidden ? "secondary" : "outline"}>
                         {testcase.isHidden ? "hidden" : "visible"}
                       </Badge>
                     </TableCell>

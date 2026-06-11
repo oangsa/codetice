@@ -43,8 +43,8 @@ export default async function QuestionDetailPage(props: {
         description="Review the statement, test with samples, then submit against the full judge."
         actions={
           <>
-            <Badge variant="info">{question.difficulty}</Badge>
-            <Badge variant="warning">{formatScore(question.totalScore)} points</Badge>
+            <Badge variant="secondary">{question.difficulty}</Badge>
+            <Badge variant="outline">{formatScore(question.totalScore)} points</Badge>
             <Link
               href="/questions"
               className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"

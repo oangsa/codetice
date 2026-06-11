@@ -48,7 +48,7 @@ export function SubmissionTable({
               <SubmissionStatusBadge status={submission.status} />
             </TableCell>
             <TableCell>
-              <Badge variant="info">
+              <Badge variant="secondary">
                 {formatScore(submission.score)}
               </Badge>
             </TableCell>

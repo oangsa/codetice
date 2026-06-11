@@ -34,7 +34,7 @@ export default async function AssignmentsPage() {
                   <CardTitle>{assignment.title}</CardTitle>
                   <CardDescription>{assignment.classroom?.name ?? "No classroom"}</CardDescription>
                 </div>
-                {assignment.dueAt ? <Badge variant="warning">Due {formatDate(assignment.dueAt)}</Badge> : null}
+                {assignment.dueAt ? <Badge variant="secondary">Due {formatDate(assignment.dueAt)}</Badge> : null}
               </div>
             </CardHeader>
             <CardContent className="space-y-3">

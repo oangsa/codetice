@@ -279,12 +279,12 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
                 <p className="text-sm font-semibold text-slate-700">
                   Testcase {index + 1}
                   {tc.isSample && (
-                    <Badge variant="info" className="ml-2">
+                    <Badge variant="secondary" className="ml-2">
                       Sample
                     </Badge>
                   )}
                   {!tc.isHidden && (
-                    <Badge variant="success" className="ml-2">
+                    <Badge variant="default" className="ml-2">
                       Visible
                     </Badge>
                   )}

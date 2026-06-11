@@ -63,7 +63,7 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
           {user ? (
             <>
               <Badge
-                variant={user.role === "admin" ? "warning" : "default"}
+                variant={user.role === "admin" ? "secondary" : "default"}
                 className="capitalize"
               >
                 {user.role}

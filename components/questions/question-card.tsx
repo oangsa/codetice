@@ -26,7 +26,7 @@ export function QuestionCard({
       <CardHeader className="border-b border-slate-100 pb-4">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-base">{question.title}</CardTitle>
-          <Badge variant="info">{question.difficulty}</Badge>
+          <Badge variant="secondary">{question.difficulty}</Badge>
         </div>
         <CardDescription>Worth {formatScore(question.totalScore)} points</CardDescription>
       </CardHeader>
@@ -39,7 +39,7 @@ export function QuestionCard({
         <div className="flex items-center justify-between text-xs text-slate-500">
           <span>{question.attempts ?? 0} attempts</span>
           {typeof question.isPublished === "boolean" ? (
-            <Badge variant={question.isPublished ? "success" : "warning"}>
+            <Badge variant={question.isPublished ? "default" : "outline"}>
               {question.isPublished ? "Published" : "Draft"}
             </Badge>
           ) : null}

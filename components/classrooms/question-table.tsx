@@ -24,15 +24,17 @@ type QuestionRow = {
   status: "todo" | "attempted" | "accepted";
 };
 
-const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "info"> = {
-  todo: "default",
-  attempted: "warning",
-  accepted: "success",
+type BadgeVariant = "default" | "outline" | "secondary" | "destructive";
+
+const STATUS_VARIANTS: Record<string, BadgeVariant> = {
+  todo: "outline",
+  attempted: "secondary",
+  accepted: "default",
 };
 
-const DIFFICULTY_VARIANTS: Record<string, "default" | "success" | "warning" | "destructive" | "info"> = {
-  easy: "success",
-  medium: "warning",
+const DIFFICULTY_VARIANTS: Record<string, BadgeVariant> = {
+  easy: "default",
+  medium: "secondary",
   hard: "destructive",
 };
 

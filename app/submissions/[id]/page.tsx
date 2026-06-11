@@ -31,12 +31,12 @@ export default async function SubmissionDetailPage(props: {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <SubmissionStatusBadge status={submission.status} />
-          <Badge variant="info">Score {formatScore(submission.score)}</Badge>
+          <Badge variant="secondary">Score {formatScore(submission.score)}</Badge>
           <Badge variant="default">
             Passed {submission.passedCount}/{submission.totalCount}
           </Badge>
           {submission.gradingJobs[0] ? (
-            <Badge variant="warning">job {submission.gradingJobs[0].status}</Badge>
+            <Badge variant="outline">job {submission.gradingJobs[0].status}</Badge>
           ) : null}
         </CardContent>
       </Card>

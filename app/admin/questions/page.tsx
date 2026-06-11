@@ -68,11 +68,11 @@ export default async function AdminQuestionsPage() {
               <TableRow key={question.id}>
                 <TableCell>{question.title}</TableCell>
                 <TableCell>
-                  <Badge variant="info">{question.difficulty}</Badge>
+                  <Badge variant="secondary">{question.difficulty}</Badge>
                 </TableCell>
                 <TableCell>{formatScore(question.totalScore)}</TableCell>
                 <TableCell>
-                  <Badge variant={question.isPublished ? "success" : "warning"}>
+                  <Badge variant={question.isPublished ? "default" : "outline"}>
                     {question.isPublished ? "Published" : "Draft"}
                   </Badge>
                 </TableCell>
