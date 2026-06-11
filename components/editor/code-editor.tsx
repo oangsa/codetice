@@ -52,6 +52,12 @@ export function CodeEditor({
   const [editorOutput, setEditorOutput] = useState("");
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
+  const [submissionSummary, setSubmissionSummary] = useState<{
+    status: string;
+    score: string;
+    passedCount: number;
+    totalCount: number;
+  } | null>(null);
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
   const editorLanguage =
@@ -105,6 +111,7 @@ export function CodeEditor({
 
     if (kind === "run") {
       setResults(payload.results ?? []);
+      setSubmissionSummary(null);
       setConsoleOutput(
         (payload.results ?? [])
           .map((result) => `${result.name ?? result.testcaseId}: ${result.status}`)
@@ -113,10 +120,13 @@ export function CodeEditor({
       setEditorOutput((payload.results ?? []).map((result) => result.actualOutput ?? "").join("\n---\n"));
       toast.success("Sample tests complete.");
     } else {
+      setSubmissionSummary(null);
       setActiveSubmissionId(payload.submission?.id ?? null);
       setConsoleOutput(`Submission ${payload.status}\nQueued for grading.`);
       setEditorOutput(payload.errorMessage ?? "Submission recorded and queued.");
-      toast.success("Solution submitted.");
+      toast.message("Solution submitted", {
+        description: "Grading is running. Final result will appear here when processing finishes.",
+      });
     }
 
     setPendingAction(null);
@@ -230,12 +240,29 @@ export function CodeEditor({
       }
 
       setResults(submission.testcaseResults ?? []);
+      setSubmissionSummary({
+        status: submission.status,
+        score: submission.score,
+        passedCount: submission.passedCount,
+        totalCount: submission.totalCount,
+      });
       setConsoleOutput(
         `Submission ${submission.status}\nPassed ${submission.passedCount}/${submission.totalCount}\nScore ${submission.score}`,
       );
       setEditorOutput(submission.errorMessage ?? "Submission processed.");
 
       if (!["queued", "running"].includes(submission.status)) {
+        if (submission.status === "accepted") {
+          toast.success("Accepted", {
+            description: `Passed ${submission.passedCount}/${submission.totalCount} tests. Score ${submission.score}.`,
+          });
+        } else {
+          toast.error(submission.status.replaceAll("_", " "), {
+            description:
+              submission.errorMessage ??
+              `Passed ${submission.passedCount}/${submission.totalCount} tests. Score ${submission.score}.`,
+          });
+        }
         window.clearInterval(interval);
         setActiveSubmissionId(null);
       }
@@ -269,6 +296,15 @@ export function CodeEditor({
             <p className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
               {languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"} runtime
             </p>
+            {submissionSummary ? (
+              <p className="mt-2 text-sm text-slate-600">
+                Latest submission:{" "}
+                <span className="font-medium text-slate-900">
+                  {submissionSummary.status.replaceAll("_", " ")}
+                </span>
+                {` · ${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-44">
