@@ -23,10 +23,12 @@ export async function requireUser() {
 export async function requireAdmin() {
   const session = await requireUser();
   if (session.role !== "admin") {
-    redirect("/dashboard");
+    redirect("/classrooms");
   }
   return session;
 }
+
+
 
 export async function createUserSession(payload: SessionPayload) {
   const token = await encryptSession(payload);

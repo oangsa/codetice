@@ -173,6 +173,13 @@ export async function runSampleSubmission(input: {
     throw new Error("Question not found.");
   }
 
+  if (question.allowedLanguages) {
+    const allowed = JSON.parse(question.allowedLanguages) as string[];
+    if (allowed.length > 0 && !allowed.includes(input.language)) {
+      throw new Error(`Language '${input.language}' is not allowed for this question.`);
+    }
+  }
+
   if (!language || !language.isEnabled) {
     throw new Error("Language not supported.");
   }
@@ -241,6 +248,13 @@ export async function enqueueOfficialSubmission(input: {
 
   if (!question) {
     throw new Error("Question not found.");
+  }
+
+  if (question.allowedLanguages) {
+    const allowed = JSON.parse(question.allowedLanguages) as string[];
+    if (allowed.length > 0 && !allowed.includes(input.language)) {
+      throw new Error(`Language '${input.language}' is not allowed for this question.`);
+    }
   }
 
   if (!language || !language.isEnabled) {

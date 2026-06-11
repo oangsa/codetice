@@ -169,6 +169,7 @@ const statements = [
     sort_order integer not null default 0
   );`,
   `alter table questions add column if not exists starter_code_by_language text;`,
+  `alter table questions add column if not exists allowed_languages text;`,
   `alter table testcases add column if not exists checker_type varchar(50) not null default 'exact';`,
   `alter table testcases add column if not exists float_tolerance decimal(20, 10);`,
   `alter table submissions add column if not exists assignment_id uuid references assignments(id) on delete set null;`,

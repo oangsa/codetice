@@ -33,22 +33,22 @@ export default async function AdminQuestionsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <SurfaceCard title="Total Questions">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600 text-white">
               <FileCode2 className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{questions.length}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Published and draft records</p>
+              <p className="text-2xl font-semibold text-slate-900">{questions.length}</p>
+              <p className="text-sm text-slate-500">Published and draft records</p>
             </div>
           </div>
         </SurfaceCard>
         <SurfaceCard title="Published">
-          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{questions.filter((question) => question.isPublished).length}</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Visible to student-facing workflows.</p>
+          <p className="text-2xl font-semibold text-slate-900">{questions.filter((question) => question.isPublished).length}</p>
+          <p className="mt-1 text-sm text-slate-500">Visible to student-facing workflows.</p>
         </SurfaceCard>
         <SurfaceCard title="Drafts">
-          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{questions.filter((question) => !question.isPublished).length}</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Awaiting testcase completion or publication.</p>
+          <p className="text-2xl font-semibold text-slate-900">{questions.filter((question) => !question.isPublished).length}</p>
+          <p className="mt-1 text-sm text-slate-500">Awaiting testcase completion or publication.</p>
         </SurfaceCard>
       </div>
 
@@ -77,7 +77,7 @@ export default async function AdminQuestionsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/admin/questions/${question.id}/edit`} className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100">
+                  <Link href={`/admin/questions/${question.id}/edit`} className="text-sm font-medium text-slate-700 hover:text-slate-900">
                     Edit
                   </Link>
                 </TableCell>

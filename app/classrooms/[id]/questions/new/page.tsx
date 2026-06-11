@@ -5,13 +5,17 @@ import { ChevronLeft } from "lucide-react";
 import { NewQuestionForm } from "@/components/classrooms/new-question-form";
 import { requireUser } from "@/lib/auth";
 import { getClassroomById } from "@/server/services/classroom-service";
+import { listSupportedLanguages } from "@/server/services/language-service";
 
 export default async function NewClassroomQuestionPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const session = await requireUser();
   const { id } = await props.params;
-  const classroom = await getClassroomById(id);
+  const [classroom, languages] = await Promise.all([
+    getClassroomById(id),
+    listSupportedLanguages(),
+  ]);
 
   if (!classroom) notFound();
 
@@ -38,7 +42,7 @@ export default async function NewClassroomQuestionPage(props: {
         </p>
       </div>
 
-      <NewQuestionForm classroomId={id} />
+      <NewQuestionForm classroomId={id} languages={languages} />
     </div>
   );
 }

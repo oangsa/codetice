@@ -7,6 +7,14 @@ import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import type { SessionUser } from "@/lib/types";
 
+/** Returns true if the user may create/edit/delete the question and its testcases. */
+export function canUserEditQuestion(
+  user: SessionUser,
+  question: { createdBy: string | null },
+): boolean {
+  return user.role === "admin" || (!!question.createdBy && question.createdBy === user.userId);
+}
+
 export async function listQuestionsForUser(user?: SessionUser | null) {
   const db = getDb();
   const publishedFilter = user?.role === "admin" ? undefined : eq(questions.isPublished, true);
@@ -62,6 +70,9 @@ export async function getQuestionBySlug(slug: string, user?: SessionUser | null)
         starterCodeByLanguage: question.starterCodeByLanguage
           ? (JSON.parse(question.starterCodeByLanguage) as Record<string, string>)
           : {},
+        allowedLanguages: question.allowedLanguages
+          ? (JSON.parse(question.allowedLanguages) as string[])
+          : [],
       }
     : null;
 }
@@ -83,6 +94,9 @@ export async function getQuestionById(questionId: string) {
         starterCodeByLanguage: question.starterCodeByLanguage
           ? (JSON.parse(question.starterCodeByLanguage) as Record<string, string>)
           : {},
+        allowedLanguages: question.allowedLanguages
+          ? (JSON.parse(question.allowedLanguages) as string[])
+          : [],
       }
     : null;
 }
@@ -97,6 +111,7 @@ export async function createQuestion(input: {
   memoryLimitMb: number;
   starterCode?: string | null;
   starterCodeByLanguage?: Record<string, string | null> | null;
+  allowedLanguages?: string[] | null;
   isPublished: boolean;
   createdBy: string;
 }) {
@@ -114,6 +129,7 @@ export async function createQuestion(input: {
       memoryLimitMb: input.memoryLimitMb,
       starterCode: input.starterCode ?? "",
       starterCodeByLanguage: JSON.stringify(input.starterCodeByLanguage ?? {}),
+      allowedLanguages: input.allowedLanguages ? JSON.stringify(input.allowedLanguages) : null,
       isPublished: false,
       createdBy: input.createdBy,
     })
@@ -142,6 +158,7 @@ export async function updateQuestion(
     memoryLimitMb: number;
     starterCode?: string | null;
     starterCodeByLanguage?: Record<string, string | null> | null;
+    allowedLanguages?: string[] | null;
     isPublished: boolean;
   },
 ) {
@@ -167,6 +184,7 @@ export async function updateQuestion(
       memoryLimitMb: input.memoryLimitMb,
       starterCode: input.starterCode ?? "",
       starterCodeByLanguage: JSON.stringify(input.starterCodeByLanguage ?? {}),
+      allowedLanguages: input.allowedLanguages ? JSON.stringify(input.allowedLanguages) : null,
       isPublished: input.isPublished,
       updatedAt: new Date(),
     })

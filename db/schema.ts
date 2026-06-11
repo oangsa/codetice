@@ -34,6 +34,7 @@ export const questions = pgTable(
     memoryLimitMb: integer("memory_limit_mb").notNull().default(128),
     starterCode: text("starter_code"),
     starterCodeByLanguage: text("starter_code_by_language"),
+    allowedLanguages: text("allowed_languages"),
     isPublished: boolean("is_published").notNull().default(false),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),

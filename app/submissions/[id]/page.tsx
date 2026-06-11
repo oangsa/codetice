@@ -5,6 +5,7 @@ import { SubmissionStatusBadge } from "@/components/submissions/submission-statu
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
+import { formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 import { formatDate, formatScore } from "@/lib/utils";
 import { getSubmissionDetail } from "@/server/services/submission-service";
 
@@ -63,9 +64,15 @@ export default async function SubmissionDetailPage(props: {
                 </div>
               </div>
               {result.errorMessage ? (
-                <pre className="rounded-md bg-slate-800 p-3 text-xs text-slate-100 whitespace-pre-wrap">
-                  {result.errorMessage}
-                </pre>
+                session.role === "admin" ? (
+                  <pre className="rounded-md bg-slate-800 p-3 text-xs text-slate-100 whitespace-pre-wrap">
+                    {result.errorMessage}
+                  </pre>
+                ) : (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                    {formatSubmissionStatusLabel(result.status)}
+                  </div>
+                )
               ) : null}
             </CardContent>
           </Card>

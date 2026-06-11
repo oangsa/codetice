@@ -32,6 +32,7 @@ const bodySchema = z.object({
   isPublished: z.boolean().default(false),
   assignmentTitle: z.string().min(1).default("General"),
   assignmentDueAt: z.string().nullable().optional(),
+  allowedLanguages: z.array(z.string()).optional().nullable(),
   testcases: z.array(testcaseSchema).default([]),
 });
 
@@ -86,6 +87,7 @@ export async function POST(
       memoryLimitMb: input.memoryLimitMb,
       starterCode: input.starterCode ?? null,
       starterCodeByLanguage: "{}",
+      allowedLanguages: input.allowedLanguages ? JSON.stringify(input.allowedLanguages) : null,
       isPublished: input.isPublished,
       createdBy: session.userId,
     })

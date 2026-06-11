@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Code2, Shield, Users } from "lucide-react";
+import { Shield, Users } from "lucide-react";
 
 import { UserMenu } from "@/components/user-menu";
 import { Badge } from "@/components/ui/badge";
@@ -7,17 +8,17 @@ import { Button } from "@/components/ui/button";
 import type { SessionUser } from "@/lib/types";
 
 const NAV_LINKS = [
-  { href: "/classrooms", label: "Classroom", icon: Users },
+  { href: "/classrooms", label: "Classrooms", icon: Users },
 ];
 
 export function SiteHeader({ user }: { user: SessionUser | null }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
+    <header className="sticky top-0 z-40 border-b border-border bg-background shadow-sm">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-6">
-          <Link href={user ? "/classrooms" : "/"} className="flex items-center gap-3 text-sm font-semibold text-slate-900">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
-              <Code2 className="h-5 w-5" />
+          <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-3 text-sm font-semibold text-slate-900">
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-sky-600">
+              <Image src="/icon.png" alt="Codetice" width={36} height={36} className="h-9 w-9 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Contest Workspace</div>
@@ -63,27 +64,18 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
           {user ? (
             <>
               <Badge
-                variant={user.role === "admin" ? "secondary" : "default"}
+                variant={user.role === "admin" ? "secondary" : "outline"}
                 className="capitalize"
               >
                 {user.role}
               </Badge>
               <UserMenu user={user} />
             </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/register">Register</Link>
-              </Button>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
       {user ? (
-        <div className="mx-auto flex max-w-[1440px] gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 lg:hidden sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1440px] gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden sm:px-6 lg:px-8">
           {NAV_LINKS.map((link) => (
             <Button
               key={link.href}

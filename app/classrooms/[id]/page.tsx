@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, ChevronRight, Plus } from "lucide-react";
+import { Calendar, ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/components/commons/page-header";
 import { SurfaceCard } from "@/components/commons/surface-card";
@@ -48,18 +48,6 @@ export default async function ClassroomDetailPage(props: {
         eyebrow="Classroom Workspace"
         title={classroom.name}
         description={canManage ? "Manage questions, compare scores, and review classroom progress." : undefined}
-        actions={
-          <>
-            {canManage ? (
-              <Button asChild size="sm">
-                <Link href={`/classrooms/${id}/questions/new`}>
-                  <Plus className="h-4 w-4" />
-                  Add question
-                </Link>
-              </Button>
-            ) : null}
-          </>
-        }
       />
 
       {canManage ? (

@@ -36,7 +36,13 @@ function newTestcase(): Testcase {
   };
 }
 
-export function NewQuestionForm({ classroomId }: { classroomId: string }) {
+export function NewQuestionForm({
+  classroomId,
+  languages = [],
+}: {
+  classroomId: string;
+  languages?: Array<{ id: string; slug: string; name: string }>;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [difficulty, setDifficulty] = useState("easy");
@@ -105,6 +111,7 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
 
     const form = e.currentTarget;
     const data = new FormData(form);
+    const allowedLanguages = data.getAll("allowedLanguages").map(String);
 
     const body = {
       title: String(data.get("title") ?? ""),
@@ -118,6 +125,7 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
       isPublished: data.get("isPublished") === "on",
       assignmentTitle: String(data.get("assignmentTitle") ?? "General"),
       assignmentDueAt: String(data.get("assignmentDueAt") ?? "") || null,
+      allowedLanguages,
       testcases: testcases.map((tc, index) => ({
         name: tc.name || undefined,
         input: tc.input,
@@ -214,7 +222,6 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
               <Input id="memoryLimitMb" name="memoryLimitMb" type="number" defaultValue={128} />
             </FormField>
           </div>
-
           <FormField label="Starter code" htmlFor="starterCode">
             <Textarea
               id="starterCode"
@@ -223,6 +230,27 @@ export function NewQuestionForm({ classroomId }: { classroomId: string }) {
               placeholder="Optional starter code for students"
             />
           </FormField>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Accepted Languages</label>
+            <div className="flex flex-wrap gap-6 rounded-md border border-slate-200 p-4 bg-slate-50">
+              {languages.map((lang) => (
+                <label key={lang.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="allowedLanguages"
+                    value={lang.slug}
+                    defaultChecked={true}
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span>{lang.name}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">
+              Select which languages are allowed for this question. If none are selected, all languages will be accepted.
+            </p>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Assignment name" htmlFor="assignmentTitle">

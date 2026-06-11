@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PYTHON_COMPLETIONS } from "@/lib/constants";
+import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
 type ResultRow = {
   testcaseId: string;
@@ -234,10 +235,13 @@ export function CodeEditor({
             description: `Passed ${submission.passedCount}/${submission.totalCount} tests. Score ${submission.score}.`,
           });
         } else {
-          toast.error(submission.status.replaceAll("_", " "), {
-            description:
-              submission.errorMessage ??
-              `Passed ${submission.passedCount}/${submission.totalCount} tests. Score ${submission.score}.`,
+          toast.error(formatSubmissionStatusLabel(submission.status), {
+            description: formatSubmissionFeedback(
+              submission.status,
+              submission.passedCount,
+              submission.totalCount,
+              submission.score,
+            ),
           });
         }
         router.refresh();

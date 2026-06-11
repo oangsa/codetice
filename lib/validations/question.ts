@@ -5,7 +5,7 @@ import { CHECKER_TYPES, QUESTION_DIFFICULTIES } from "@/lib/constants";
 export const testcaseSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().max(255).optional().nullable(),
-  input: z.string().min(1),
+  input: z.string(),
   expectedOutput: z.string(),
   isSample: z.boolean().default(false),
   isHidden: z.boolean().default(true),
@@ -28,15 +28,8 @@ export const questionSchema = z.object({
   timeLimitMs: z.coerce.number().int().positive(),
   memoryLimitMb: z.coerce.number().int().positive(),
   starterCode: z.string().optional().nullable(),
-  starterCodeByLanguage: z
-    .object({
-      python: z.string().optional().nullable(),
-      javascript: z.string().optional().nullable(),
-      typescript: z.string().optional().nullable(),
-    })
-    .optional()
-    .nullable(),
   isPublished: z.boolean().default(false),
+  allowedLanguages: z.array(z.string()).optional().nullable(),
 });
 
 export const questionWithTestcasesSchema = questionSchema.extend({

@@ -1,19 +1,38 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { QuestionForm } from "@/components/questions/question-form";
-import { requireAdmin } from "@/lib/auth";
-import { getQuestionById } from "@/server/services/question-service";
+import { requireUser } from "@/lib/auth";
+import { canUserEditQuestion, getQuestionById } from "@/server/services/question-service";
+import { listSupportedLanguages } from "@/server/services/language-service";
 
 export default async function EditQuestionPage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ classroomId?: string; backUrl?: string }>;
 }) {
-  await requireAdmin();
+  const session = await requireUser();
   const { id } = await props.params;
+  const { classroomId, backUrl } = await props.searchParams;
 
-  const question = await getQuestionById(id);
+  const [question, languages] = await Promise.all([
+    getQuestionById(id),
+    listSupportedLanguages(),
+  ]);
+
   if (!question) {
     notFound();
   }
 
-  return <QuestionForm mode="edit" question={question} />;
+  if (!canUserEditQuestion(session, question)) {
+    redirect("/classrooms");
+  }
+
+  return (
+    <QuestionForm
+      mode="edit"
+      question={question}
+      languages={languages}
+      classroomId={classroomId}
+      backUrl={backUrl}
+    />
+  );
 }

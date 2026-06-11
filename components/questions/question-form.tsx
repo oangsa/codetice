@@ -22,8 +22,14 @@ import { QUESTION_DIFFICULTIES } from "@/lib/constants";
 export function QuestionForm({
   mode,
   question,
+  languages = [],
+  classroomId,
+  backUrl,
 }: {
   mode: "create" | "edit";
+  languages?: Array<{ id: string; slug: string; name: string }>;
+  classroomId?: string;
+  backUrl?: string;
   question?: {
     id: string;
     title: string;
@@ -35,6 +41,7 @@ export function QuestionForm({
     memoryLimitMb: number;
     starterCode: string | null;
     starterCodeByLanguage: Record<string, string>;
+    allowedLanguages?: string[] | null;
     isPublished: boolean;
     testcases: Array<{
       id: string;
@@ -109,6 +116,7 @@ export function QuestionForm({
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
+    const allowedLanguages = formData.getAll("allowedLanguages").map(String);
     const payload = {
       title: String(formData.get("title") ?? ""),
       slug: String(formData.get("slug") ?? ""),
@@ -118,11 +126,7 @@ export function QuestionForm({
       timeLimitMs: Number(formData.get("timeLimitMs") ?? 2000),
       memoryLimitMb: Number(formData.get("memoryLimitMb") ?? 128),
       starterCode: String(formData.get("starterCode") ?? ""),
-      starterCodeByLanguage: {
-        python: String(formData.get("starterCodePython") ?? ""),
-        javascript: String(formData.get("starterCodeJavascript") ?? ""),
-        typescript: String(formData.get("starterCodeTypescript") ?? ""),
-      },
+      allowedLanguages,
       isPublished: formData.get("isPublished") === "on",
     };
 
@@ -143,7 +147,13 @@ export function QuestionForm({
     }
 
     toast.success(mode === "create" ? "Question created." : "Question updated.");
-    router.push(mode === "create" ? `/admin/questions/${data.question?.id}/edit` : "/admin/questions");
+    if (backUrl) {
+      router.push(backUrl);
+    } else if (classroomId) {
+      router.push(`/classrooms/${classroomId}`);
+    } else {
+      router.push(mode === "create" ? `/admin/questions/${data.question?.id}/edit` : "/classrooms");
+    }
     router.refresh();
   }
 
@@ -224,28 +234,32 @@ export function QuestionForm({
             <FormField label="Starter code" htmlFor="starterCode">
               <Textarea id="starterCode" name="starterCode" defaultValue={question?.starterCode ?? ""} />
             </FormField>
-            <div className="grid gap-4 md:grid-cols-3">
-              <FormField label="Python starter" htmlFor="starterCodePython">
-                <Textarea
-                  id="starterCodePython"
-                  name="starterCodePython"
-                  defaultValue={question?.starterCodeByLanguage?.python ?? ""}
-                />
-              </FormField>
-              <FormField label="JavaScript starter" htmlFor="starterCodeJavascript">
-                <Textarea
-                  id="starterCodeJavascript"
-                  name="starterCodeJavascript"
-                  defaultValue={question?.starterCodeByLanguage?.javascript ?? ""}
-                />
-              </FormField>
-              <FormField label="TypeScript starter" htmlFor="starterCodeTypescript">
-                <Textarea
-                  id="starterCodeTypescript"
-                  name="starterCodeTypescript"
-                  defaultValue={question?.starterCodeByLanguage?.typescript ?? ""}
-                />
-              </FormField>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Accepted Languages</label>
+              <div className="flex flex-wrap gap-6 rounded-md border border-slate-200 p-4 bg-slate-50">
+                {languages.map((lang) => {
+                  const isChecked =
+                    !question ||
+                    !question.allowedLanguages ||
+                    question.allowedLanguages.length === 0 ||
+                    question.allowedLanguages.includes(lang.slug);
+                  return (
+                    <label key={lang.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="allowedLanguages"
+                        value={lang.slug}
+                        defaultChecked={isChecked}
+                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      />
+                      <span>{lang.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-500">
+                Select which languages are allowed for this question. If none are selected, all languages will be accepted.
+              </p>
             </div>
             <div className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3">
               <div>
@@ -254,9 +268,26 @@ export function QuestionForm({
               </div>
               <Switch name="isPublished" defaultChecked={question?.isPublished ?? false} />
             </div>
-            <Button type="submit" disabled={pending}>
-              {mode === "create" ? "Create question" : "Save question"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={pending}>
+                {mode === "create" ? "Create question" : "Save question"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (backUrl) {
+                    router.push(backUrl);
+                  } else if (classroomId) {
+                    router.push(`/classrooms/${classroomId}`);
+                  } else {
+                    router.push("/classrooms");
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

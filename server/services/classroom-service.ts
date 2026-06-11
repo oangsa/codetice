@@ -241,9 +241,14 @@ export async function getAssignmentById(assignmentId: string) {
   });
 }
 
-// Get all questions in a classroom (flattened from assignments) with user's scores
-export async function getClassroomQuestionsForUser(classroomId: string, userId: string) {
+// Get all questions in a classroom (flattened from assignments) with user's scores.
+// NOTE: We intentionally avoid nesting questionScores inside the classroom query because
+// Drizzle generates a join alias like "classrooms_assignments_assignmentQuestions_question_questionScores"
+// which exceeds PostgreSQL's 63-character identifier limit and gets silently truncated.
+export async function getClassroomQuestionsForUser(classroomId: string, userId: string, isManager: boolean = false) {
   const db = getDb();
+
+  // Step 1: fetch classroom + assignments + assignmentQuestions + question (no nested questionScores)
   const classroom = await db.query.classrooms.findFirst({
     where: eq(classrooms.id, classroomId),
     with: {
@@ -251,13 +256,7 @@ export async function getClassroomQuestionsForUser(classroomId: string, userId: 
         with: {
           assignmentQuestions: {
             with: {
-              question: {
-                with: {
-                  questionScores: {
-                    where: (qs, { eq: eqFn }) => eqFn(qs.userId, userId),
-                  },
-                },
-              },
+              question: true,
             },
             orderBy: (fields, ops) => [ops.asc(fields.sortOrder)],
           },
@@ -268,6 +267,25 @@ export async function getClassroomQuestionsForUser(classroomId: string, userId: 
   });
 
   if (!classroom) return [];
+
+  // Collect unique question IDs across all assignments
+  const allQuestionIds = [
+    ...new Set(
+      classroom.assignments.flatMap((a) => a.assignmentQuestions.map((aq) => aq.questionId)),
+    ),
+  ];
+
+  // Step 2: fetch questionScores separately to avoid identifier truncation
+  const userScores =
+    allQuestionIds.length > 0
+      ? await db.query.questionScores.findMany({
+          where: (qs, { and: andFn, eq: eqFn, inArray: inArrayFn }) =>
+            andFn(eqFn(qs.userId, userId), inArrayFn(qs.questionId, allQuestionIds)),
+          columns: { questionId: true, bestScore: true, attempts: true },
+        })
+      : [];
+
+  const scoreByQuestionId = new Map(userScores.map((s) => [s.questionId, s]));
 
   const seen = new Set<string>();
   const items: Array<{
@@ -283,15 +301,17 @@ export async function getClassroomQuestionsForUser(classroomId: string, userId: 
     bestScore: string | null;
     attempts: number;
     status: "todo" | "attempted" | "accepted";
+    isPublished: boolean;
   }> = [];
 
   let rowNum = 0;
   for (const assignment of classroom.assignments) {
     for (const aq of assignment.assignmentQuestions) {
+      if (!isManager && !aq.question.isPublished) continue;
       if (seen.has(aq.questionId)) continue;
       seen.add(aq.questionId);
       rowNum++;
-      const score = aq.question.questionScores[0] ?? null;
+      const score = scoreByQuestionId.get(aq.questionId) ?? null;
       const bestScore = score?.bestScore ?? null;
       const attempts = score?.attempts ?? 0;
       const totalScore = parseFloat(aq.question.totalScore);
@@ -311,6 +331,7 @@ export async function getClassroomQuestionsForUser(classroomId: string, userId: 
         bestScore,
         attempts,
         status,
+        isPublished: aq.question.isPublished,
       });
     }
   }

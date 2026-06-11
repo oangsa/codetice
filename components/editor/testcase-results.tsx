@@ -1,6 +1,7 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 
 import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
+import { formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Separator } from "@/components/ui/separator";
@@ -60,7 +61,7 @@ export function TestcaseResults({
             <Separator />
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>Runtime: {result.runtimeMs ?? 0} ms</span>
-              <span>{result.errorMessage ?? "No error output"}</span>
+              <span>{result.passed ? "Passed" : formatSubmissionStatusLabel(result.status)}</span>
             </div>
           </CardContent>
         </Card>
