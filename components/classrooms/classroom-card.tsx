@@ -16,26 +16,16 @@ export function ClassroomCard({
     progressPercent: number;
   };
 }) {
-  const initials = classroom.name.slice(0, 2).toUpperCase();
-
   return (
     <Link
       href={`/classrooms/${classroom.id}`}
       className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
     >
-      <div className="flex items-start gap-4">
-        {/* Avatar */}
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-          {initials}
-        </div>
-
-        {/* Info */}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-slate-900 group-hover:text-sky-700">
-            {classroom.name}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">TA {classroom.creatorName}</p>
-        </div>
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-slate-900 group-hover:text-sky-700">
+          {classroom.name}
+        </p>
+        <p className="mt-0.5 text-xs text-slate-500">TA {classroom.creatorName}</p>
       </div>
 
       {/* Stats row */}

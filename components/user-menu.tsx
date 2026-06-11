@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,9 +31,6 @@ export function UserMenu({ user }: { user: SessionUser }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 rounded-md border border-slate-200 px-2 text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-50">
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-slate-900 text-xs text-white dark:bg-slate-100 dark:text-slate-900">{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
           <span className="hidden text-sm font-medium md:inline">{user.username}</span>
         </Button>
       </DropdownMenuTrigger>
