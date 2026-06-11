@@ -1,5 +1,5 @@
 # Status Badge Reuse
 
-When showing submission status in the editor or submission UI, reuse `SubmissionStatusBadge` from `components/submissions/submission-status-badge.tsx`.
+When showing submission status in the editor, testcase results, or submission UI, reuse `SubmissionStatusBadge` from `components/submissions/submission-status-badge.tsx`.
 
-This keeps status labels and badge variants consistent across the app instead of duplicating string replacement or status-to-color logic inline.
+Status badges should use only shadcn's built-in variants: `default`, `outline`, `secondary`, and `destructive`. Do not use custom `success`, `warning`, or `info` variants for submission statuses.

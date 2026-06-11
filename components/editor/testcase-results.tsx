@@ -1,6 +1,6 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Separator } from "@/components/ui/separator";
@@ -38,9 +38,7 @@ export function TestcaseResults({
               {result.name ?? result.testcaseId}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Badge variant={result.passed ? "success" : "warning"} className="capitalize">
-                {result.status.replaceAll("_", " ")}
-              </Badge>
+              <SubmissionStatusBadge status={result.status} />
               {result.passed ? (
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               ) : (

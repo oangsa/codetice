@@ -1,16 +1,18 @@
 import { Badge } from "@/components/ui/badge";
 
+type BadgeVariant = "default" | "outline" | "secondary" | "destructive";
+
 export function SubmissionStatusBadge({ status }: { status: string }) {
-  const variant =
+  const variant: BadgeVariant =
     status === "accepted"
-      ? "success"
+      ? "default"
       : status === "wrong_answer"
-        ? "warning"
+        ? "secondary"
         : status === "runtime_error" || status === "internal_error"
           ? "destructive"
           : status === "time_limit_exceeded"
-            ? "warning"
-            : "default";
+            ? "secondary"
+            : "outline";
 
   return (
     <Badge variant={variant} className="capitalize">
