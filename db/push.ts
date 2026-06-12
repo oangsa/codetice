@@ -29,6 +29,17 @@ const statements = [
     used_at timestamp,
     created_at timestamp not null default now()
   );`,
+  `create table if not exists idempotency_keys (
+    id uuid primary key default gen_random_uuid(),
+    identifier varchar(255) not null,
+    action varchar(100) not null,
+    key varchar(100) not null,
+    request_hash text not null,
+    response_status integer,
+    response_body text,
+    created_at timestamp not null default now(),
+    completed_at timestamp
+  );`,
   `create table if not exists questions (
     id uuid primary key default gen_random_uuid(),
     title varchar(255) not null,
@@ -197,6 +208,8 @@ const statements = [
   `create unique index if not exists assignment_questions_assignment_question_unique on assignment_questions (assignment_id, question_id);`,
   `create unique index if not exists password_reset_tokens_token_hash_unique on password_reset_tokens (token_hash);`,
   `create index if not exists password_reset_tokens_user_created_at_idx on password_reset_tokens (user_id, created_at);`,
+  `create unique index if not exists idempotency_keys_identifier_action_key_unique on idempotency_keys (identifier, action, key);`,
+  `create index if not exists idempotency_keys_action_created_at_idx on idempotency_keys (action, created_at);`,
   `alter table submissions add column if not exists is_late boolean not null default false;`,
 ];
 

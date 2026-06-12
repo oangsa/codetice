@@ -39,6 +39,29 @@ export const passwordResetTokens = pgTable(
   }),
 );
 
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    identifier: varchar("identifier", { length: 255 }).notNull(),
+    action: varchar("action", { length: 100 }).notNull(),
+    key: varchar("key", { length: 100 }).notNull(),
+    requestHash: text("request_hash").notNull(),
+    responseStatus: integer("response_status"),
+    responseBody: text("response_body"),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: false }),
+  },
+  (table) => ({
+    identifierActionKeyUnique: uniqueIndex("idempotency_keys_identifier_action_key_unique").on(
+      table.identifier,
+      table.action,
+      table.key,
+    ),
+    actionCreatedAtIdx: index("idempotency_keys_action_created_at_idx").on(table.action, table.createdAt),
+  }),
+);
+
 export const questions = pgTable(
   "questions",
   {
@@ -314,6 +337,8 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
   }),
 }));
 
+export const idempotencyKeysRelations = relations(idempotencyKeys, () => ({}));
+
 export const questionsRelations = relations(questions, ({ one, many }) => ({
   author: one(users, { fields: [questions.createdBy], references: [users.id] }),
   testcases: many(testcases),
@@ -441,3 +466,4 @@ export type QuestionScore = typeof questionScores.$inferSelect;
 export type GradingJob = typeof gradingJobs.$inferSelect;
 export type SupportedLanguage = typeof supportedLanguages.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;

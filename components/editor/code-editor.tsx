@@ -11,7 +11,7 @@ import { SubmissionStatusBadge } from "@/components/submissions/submission-statu
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PYTHON_COMPLETIONS } from "@/lib/constants";
+import { IDEMPOTENCY_KEY_HEADER, PYTHON_COMPLETIONS } from "@/lib/constants";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
 type ResultRow = {
@@ -59,6 +59,7 @@ export function CodeEditor({
   } | null>(null);
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
+  const submitIdempotencyKeyRef = useRef<string | null>(null);
   const editorLanguage =
     selectedLanguage === "javascript" ? "javascript" : selectedLanguage === "typescript" ? "typescript" : "python";
   const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? starterCode;
@@ -76,44 +77,54 @@ export function CodeEditor({
   );
 
   async function submitSolution() {
-    setPendingAction("submit");
-
-    const response = await fetch("/api/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        questionId,
-        sourceCode: code,
-        language: selectedLanguage,
-        assignmentId,
-      }),
-    });
-
-    const payload = (await response.json()) as {
-      message?: string;
-      results?: ResultRow[];
-      submission?: { id: string };
-      status?: string;
-      errorMessage?: string | null;
-      passedCount?: number;
-      totalCount?: number;
-      score?: string;
-      runtimeMs?: number | null;
-    };
-
-    if (!response.ok) {
-      toast.error(payload.message ?? "Request failed.");
-      setPendingAction(null);
+    if (pendingAction !== null || submitIdempotencyKeyRef.current) {
       return;
     }
 
-    setSubmissionSummary(null);
-    setActiveSubmissionId(payload.submission?.id ?? null);
-    toast.message("Solution submitted", {
-      description: "Grading is running. Final result will appear here when processing finishes.",
-    });
+    setPendingAction("submit");
+    submitIdempotencyKeyRef.current = crypto.randomUUID();
 
-    setPendingAction(null);
+    try {
+      const response = await fetch("/api/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [IDEMPOTENCY_KEY_HEADER]: submitIdempotencyKeyRef.current,
+        },
+        body: JSON.stringify({
+          questionId,
+          sourceCode: code,
+          language: selectedLanguage,
+          assignmentId,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        message?: string;
+        results?: ResultRow[];
+        submission?: { id: string };
+        status?: string;
+        errorMessage?: string | null;
+        passedCount?: number;
+        totalCount?: number;
+        score?: string;
+        runtimeMs?: number | null;
+      };
+
+      if (!response.ok) {
+        toast.error(payload.message ?? "Request failed.");
+        return;
+      }
+
+      setSubmissionSummary(null);
+      setActiveSubmissionId(payload.submission?.id ?? null);
+      toast.message("Solution submitted", {
+        description: "Grading is running. Final result will appear here when processing finishes.",
+      });
+    } finally {
+      submitIdempotencyKeyRef.current = null;
+      setPendingAction(null);
+    }
   }
 
   useEffect(() => {

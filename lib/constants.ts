@@ -2,6 +2,7 @@ export const SESSION_COOKIE = "vibe_grader_session";
 export const PASSWORD_RESET_TOKEN_TTL_MINUTES = 30;
 export const MAX_SUBMISSION_SOURCE_CHARS = 50000;
 export const MAX_GRADER_OUTPUT_BYTES = 65536;
+export const IDEMPOTENCY_KEY_HEADER = "x-idempotency-key";
 export const USER_ROLES = ["student", "admin"] as const;
 export const QUESTION_DIFFICULTIES = ["easy", "medium", "hard"] as const;
 export const CHECKER_TYPES = [
