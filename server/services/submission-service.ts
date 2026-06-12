@@ -1,6 +1,8 @@
 import "server-only";
 
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import os from "node:os";
+
+import { and, eq, inArray } from "drizzle-orm";
 
 import {
   assignments,
@@ -12,10 +14,94 @@ import {
   supportedLanguages,
   testcaseResults,
 } from "@/db/schema";
-import { getDb } from "@/lib/db";
+import { DEFAULT_GRADING_JOB_LEASE_SECONDS } from "@/lib/constants";
+import { getDb, getSqlClient } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import { gradeCode } from "@/server/services/grading-service";
 import { recomputeLeaderboardForUser } from "@/server/services/leaderboard-service";
+
+type ClaimedJobRow = {
+  id: string;
+  submission_id: string;
+};
+
+function createWorkerId(scope = "worker") {
+  return `${scope}:${os.hostname()}:${process.pid}`;
+}
+
+function getJobLeaseSeconds() {
+  const configured = Number(process.env.GRADING_JOB_LEASE_SECONDS ?? DEFAULT_GRADING_JOB_LEASE_SECONDS);
+  if (!Number.isFinite(configured)) {
+    return DEFAULT_GRADING_JOB_LEASE_SECONDS;
+  }
+
+  return Math.max(60, Math.floor(configured));
+}
+
+async function claimGradingJobById(jobId: string, workerId: string) {
+  const sqlClient = getSqlClient();
+  const leaseSeconds = getJobLeaseSeconds();
+
+  const rows = await sqlClient<ClaimedJobRow[]>`
+    update grading_jobs
+    set
+      status = 'running',
+      attempts = grading_jobs.attempts + 1,
+      locked_by = ${workerId},
+      lease_expires_at = now() + make_interval(secs => ${leaseSeconds}),
+      started_at = now(),
+      completed_at = null,
+      error_message = null
+    where
+      id = ${jobId}
+      and (
+        status = 'queued'
+        or (
+          status = 'running'
+          and completed_at is null
+          and lease_expires_at is not null
+          and lease_expires_at < now()
+        )
+      )
+    returning id, submission_id
+  `;
+
+  return rows[0] ?? null;
+}
+
+async function claimPendingGradingJobs(limit: number, workerId: string) {
+  const sqlClient = getSqlClient();
+  const leaseSeconds = getJobLeaseSeconds();
+
+  return await sqlClient<ClaimedJobRow[]>`
+    with candidate as (
+      select id
+      from grading_jobs
+      where
+        status = 'queued'
+        or (
+          status = 'running'
+          and completed_at is null
+          and lease_expires_at is not null
+          and lease_expires_at < now()
+        )
+      order by created_at asc
+      for update skip locked
+      limit ${limit}
+    )
+    update grading_jobs
+    set
+      status = 'running',
+      attempts = grading_jobs.attempts + 1,
+      locked_by = ${workerId},
+      lease_expires_at = now() + make_interval(secs => ${leaseSeconds}),
+      started_at = now(),
+      completed_at = null,
+      error_message = null
+    where grading_jobs.id in (select id from candidate)
+    returning id, submission_id
+  `;
+}
 
 function deriveSubmissionStatus(
   results: Array<{
@@ -298,7 +384,7 @@ export async function enqueueOfficialSubmission(input: {
   };
 }
 
-export async function processGradingJob(jobId: string) {
+async function processClaimedGradingJob(jobId: string) {
   const db = getDb();
   const job = await db.query.gradingJobs.findFirst({
     where: eq(gradingJobs.id, jobId),
@@ -310,20 +396,6 @@ export async function processGradingJob(jobId: string) {
   if (!job) {
     throw new Error("Grading job not found.");
   }
-
-  if (job.status === "completed") {
-    return job;
-  }
-
-  await db
-    .update(gradingJobs)
-    .set({
-      status: "running",
-      attempts: job.attempts + 1,
-      startedAt: new Date(),
-      errorMessage: null,
-    })
-    .where(eq(gradingJobs.id, jobId));
 
   await db
     .update(submissions)
@@ -339,6 +411,8 @@ export async function processGradingJob(jobId: string) {
       .update(gradingJobs)
       .set({
         status: "completed",
+        lockedBy: null,
+        leaseExpiresAt: null,
         completedAt: new Date(),
         errorMessage: null,
       })
@@ -361,6 +435,8 @@ export async function processGradingJob(jobId: string) {
       .update(gradingJobs)
       .set({
         status: "failed",
+        lockedBy: null,
+        leaseExpiresAt: null,
         completedAt: new Date(),
         errorMessage: message,
       })
@@ -371,19 +447,27 @@ export async function processGradingJob(jobId: string) {
   }
 }
 
-export async function processPendingGradingJobs(limit = 10) {
+export async function processGradingJob(jobId: string, workerId = createWorkerId("direct")) {
   const db = getDb();
-  const pendingJobs = await db.query.gradingJobs.findMany({
-    where: or(eq(gradingJobs.status, "queued"), isNull(gradingJobs.startedAt)),
-    orderBy: (fields, ops) => [ops.asc(fields.createdAt)],
-    limit,
-  });
 
-  for (const job of pendingJobs) {
-    await processGradingJob(job.id);
+  const claimedJob = await claimGradingJobById(jobId, workerId);
+  if (!claimedJob) {
+    return await db.query.gradingJobs.findFirst({
+      where: eq(gradingJobs.id, jobId),
+    });
   }
 
-  return pendingJobs.length;
+  return await processClaimedGradingJob(claimedJob.id);
+}
+
+export async function processPendingGradingJobs(limit = 10, workerId = createWorkerId()) {
+  const claimedJobs = await claimPendingGradingJobs(limit, workerId);
+
+  for (const job of claimedJobs) {
+    await processClaimedGradingJob(job.id);
+  }
+
+  return claimedJobs.length;
 }
 
 export async function rejudgeSubmission(submissionId: string, requestedBy: string) {

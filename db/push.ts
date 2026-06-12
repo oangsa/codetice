@@ -139,6 +139,8 @@ const statements = [
     submission_id uuid not null references submissions(id) on delete cascade,
     status varchar(30) not null default 'queued',
     attempts integer not null default 0,
+    locked_by varchar(255),
+    lease_expires_at timestamp,
     error_message text,
     created_at timestamp not null default now(),
     started_at timestamp,
@@ -202,6 +204,7 @@ const statements = [
   `create index if not exists testcase_results_submission_idx on testcase_results (submission_id);`,
   `create index if not exists grading_jobs_submission_created_at_idx on grading_jobs (submission_id, created_at);`,
   `create index if not exists grading_jobs_status_created_at_idx on grading_jobs (status, created_at);`,
+  `create index if not exists grading_jobs_lease_idx on grading_jobs (status, lease_expires_at, created_at);`,
   `create unique index if not exists rate_limits_identifier_action_window_unique on rate_limits (identifier, action, window_start);`,
   `create unique index if not exists leaderboards_user_unique on leaderboards (user_id);`,
   `create unique index if not exists classroom_members_classroom_user_unique on classroom_members (classroom_id, user_id);`,
@@ -210,6 +213,8 @@ const statements = [
   `create index if not exists password_reset_tokens_user_created_at_idx on password_reset_tokens (user_id, created_at);`,
   `create unique index if not exists idempotency_keys_identifier_action_key_unique on idempotency_keys (identifier, action, key);`,
   `create index if not exists idempotency_keys_action_created_at_idx on idempotency_keys (action, created_at);`,
+  `alter table grading_jobs add column if not exists locked_by varchar(255);`,
+  `alter table grading_jobs add column if not exists lease_expires_at timestamp;`,
   `alter table submissions add column if not exists is_late boolean not null default false;`,
 ];
 

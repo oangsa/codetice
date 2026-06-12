@@ -186,6 +186,8 @@ export const gradingJobs = pgTable("grading_jobs", {
     .references(() => submissions.id, { onDelete: "cascade" }),
   status: varchar("status", { length: 30 }).notNull().default("queued"),
   attempts: integer("attempts").notNull().default(0),
+  lockedBy: varchar("locked_by", { length: 255 }),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: false }),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: false }),
@@ -193,6 +195,7 @@ export const gradingJobs = pgTable("grading_jobs", {
 }, (table) => ({
   submissionCreatedAtIdx: index("grading_jobs_submission_created_at_idx").on(table.submissionId, table.createdAt),
   statusCreatedAtIdx: index("grading_jobs_status_created_at_idx").on(table.status, table.createdAt),
+  leaseIdx: index("grading_jobs_lease_idx").on(table.status, table.leaseExpiresAt, table.createdAt),
 }));
 
 export const rejudgeJobs = pgTable("rejudge_jobs", {

@@ -38,6 +38,18 @@ export function getDb() {
   return globalThis.__vibeGraderDb;
 }
 
+export function getSqlClient() {
+  if (!globalThis.__vibeGraderSqlClient) {
+    getDb();
+  }
+
+  if (!globalThis.__vibeGraderSqlClient) {
+    throw new Error("Database client is unavailable.");
+  }
+
+  return globalThis.__vibeGraderSqlClient;
+}
+
 export async function closeDb() {
   if (globalThis.__vibeGraderSqlClient) {
     await globalThis.__vibeGraderSqlClient.end({ timeout: 5 });
