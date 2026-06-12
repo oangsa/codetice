@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogOut, Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -41,12 +41,6 @@ export function UserMenu({ user }: { user: SessionUser }) {
           <Link href="/settings">
             <Settings className="mr-2 h-4 w-4" />
             Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <KeyRound className="mr-2 h-4 w-4" />
-            Change Password
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
