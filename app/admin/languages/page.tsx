@@ -1,21 +1,31 @@
-import { LanguageSettingsForm } from "@/components/admin/language-settings-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LanguageManager } from "@/components/admin/language-manager";
+import { PageHeader } from "@/components/commons/page-header";
+import { SurfaceCard } from "@/components/commons/surface-card";
 import { requireAdmin } from "@/lib/auth";
 import { listAllSupportedLanguages } from "@/server/services/language-service";
+
+export const metadata = {
+  title: "Language Runtimes – Admin",
+};
 
 export default async function AdminLanguagesPage() {
   await requireAdmin();
   const languages = await listAllSupportedLanguages();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Language runtime settings</CardTitle>
-        <CardDescription>Enable languages and control their runner metadata.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <LanguageSettingsForm languages={languages} />
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Administration"
+        title="Language Runtimes"
+        description="Add, configure, and disable the programming languages available to students."
+      />
+
+      <SurfaceCard
+        title="Configured languages"
+        description="Each language maps to a Docker image and run command used in the grading sandbox."
+      >
+        <LanguageManager languages={languages} />
+      </SurfaceCard>
+    </div>
   );
 }

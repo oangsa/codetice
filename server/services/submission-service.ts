@@ -261,9 +261,7 @@ export async function enqueueOfficialSubmission(input: {
     throw new Error("Selected language is not available.");
   }
 
-  if (assignment?.dueAt && new Date(assignment.dueAt) < new Date()) {
-    throw new Error("Assignment is closed for submissions.");
-  }
+  const isLate = !!(assignment?.dueAt && new Date(assignment.dueAt) < new Date());
 
   if (question.testcases.length === 0) {
     throw new Error("Question has no testcases.");
@@ -278,6 +276,7 @@ export async function enqueueOfficialSubmission(input: {
       language: input.language,
       sourceCode: input.sourceCode,
       status: "queued",
+      isLate,
     })
     .returning();
 

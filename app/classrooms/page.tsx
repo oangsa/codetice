@@ -30,11 +30,6 @@ export default async function ClassroomsDashboardPage() {
         description="Review active classrooms, open a teaching workspace, or join a class with an invite code."
         actions={
           <>
-            {session.role === "admin" ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href="/admin">Admin</Link>
-              </Button>
-            ) : null}
             <Dialog>
               <DialogTrigger asChild>
                 <Button size="sm">

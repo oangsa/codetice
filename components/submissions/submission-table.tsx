@@ -12,6 +12,7 @@ export function SubmissionTable({
   submissions: Array<{
     id: string;
     status: string;
+    isLate: boolean;
     score: string;
     passedCount: number;
     totalCount: number;
@@ -48,7 +49,7 @@ export function SubmissionTable({
               ) : null}
               <TableCell>
                 <Link href={href} className="-m-4 block p-4">
-                  <SubmissionStatusBadge status={submission.status} />
+                  <SubmissionStatusBadge status={submission.status} isLate={submission.isLate} />
                 </Link>
               </TableCell>
               <TableCell>

@@ -52,6 +52,7 @@ export function CodeEditor({
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const [submissionSummary, setSubmissionSummary] = useState<{
     status: string;
+    isLate: boolean;
     score: string;
     passedCount: number;
     totalCount: number;
@@ -209,6 +210,7 @@ export function CodeEditor({
         submission: {
           id: string;
           status: string;
+          isLate: boolean;
           score: string;
           passedCount: number;
           totalCount: number;
@@ -224,6 +226,7 @@ export function CodeEditor({
 
       setSubmissionSummary({
         status: submission.status,
+        isLate: submission.isLate,
         score: submission.score,
         passedCount: submission.passedCount,
         totalCount: submission.totalCount,
@@ -281,7 +284,7 @@ export function CodeEditor({
             {submissionSummary ? (
               <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                 <span>Latest submission:</span>
-                <SubmissionStatusBadge status={submissionSummary.status} />
+                <SubmissionStatusBadge status={submissionSummary.status} isLate={submissionSummary.isLate} />
                 <span>
                   {`${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}
                 </span>

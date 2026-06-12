@@ -197,6 +197,7 @@ const statements = [
   `create unique index if not exists assignment_questions_assignment_question_unique on assignment_questions (assignment_id, question_id);`,
   `create unique index if not exists password_reset_tokens_token_hash_unique on password_reset_tokens (token_hash);`,
   `create index if not exists password_reset_tokens_user_created_at_idx on password_reset_tokens (user_id, created_at);`,
+  `alter table submissions add column if not exists is_late boolean not null default false;`,
 ];
 
 async function main() {

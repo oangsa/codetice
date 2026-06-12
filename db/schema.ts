@@ -105,6 +105,7 @@ export const submissions = pgTable("submissions", {
   runtimeMs: integer("runtime_ms"),
   memoryKb: integer("memory_kb"),
   errorMessage: text("error_message"),
+  isLate: boolean("is_late").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 }, (table) => ({
   userCreatedAtIdx: index("submissions_user_created_at_idx").on(table.userId, table.createdAt),

@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 
 export const verdictVariants = {
   accepted: "bg-green-50 border-green-300 text-green-900",
+  late: "bg-amber-50 border-amber-400 text-amber-800",
   wrong: "bg-red-50 border-red-300 text-red-900",
   tle: "bg-amber-50 border-amber-300 text-amber-900",
   runtime: "bg-orange-50 border-orange-300 text-orange-900",

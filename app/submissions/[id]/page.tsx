@@ -31,7 +31,7 @@ export default async function SubmissionDetailPage(props: {
           {session.role === "admin" ? <RejudgeButton submissionId={submission.id} /> : null}
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
-          <SubmissionStatusBadge status={submission.status} />
+          <SubmissionStatusBadge status={submission.status} isLate={submission.isLate} />
           <Badge variant="secondary">Score {formatScore(submission.score)}</Badge>
           <Badge variant="default">
             Passed {submission.passedCount}/{submission.totalCount}

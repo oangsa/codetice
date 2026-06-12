@@ -24,10 +24,21 @@ function getStatusVerdict(status: string): VerdictVariant {
   return "compile";
 }
 
-export function SubmissionStatusBadge({ status }: { status: string }) {
+export function SubmissionStatusBadge({
+  status,
+  isLate,
+}: {
+  status: string;
+  isLate?: boolean;
+}) {
   return (
-    <VerdictBadge verdict={getStatusVerdict(status)} className="capitalize">
-      {status.replaceAll("_", " ")}
-    </VerdictBadge>
+    <span className="inline-flex items-center gap-1.5">
+      <VerdictBadge verdict={getStatusVerdict(status)} className="capitalize">
+        {status.replaceAll("_", " ")}
+      </VerdictBadge>
+      {isLate ? (
+        <VerdictBadge verdict="late">Late</VerdictBadge>
+      ) : null}
+    </span>
   );
 }

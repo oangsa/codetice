@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -60,6 +61,11 @@ export function QuestionForm({
   const [difficulty, setDifficulty] = useState(question?.difficulty ?? "easy");
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Derive initial allowed languages: empty array means "all languages"
+  const [allowedLangs, setAllowedLangs] = useState<string[]>(
+    question?.allowedLanguages ?? [],
+  );
 
   async function handleTxtUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -116,7 +122,6 @@ export function QuestionForm({
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
-    const allowedLanguages = formData.getAll("allowedLanguages").map(String);
     const payload = {
       title: String(formData.get("title") ?? ""),
       slug: String(formData.get("slug") ?? ""),
@@ -126,7 +131,7 @@ export function QuestionForm({
       timeLimitMs: Number(formData.get("timeLimitMs") ?? 2000),
       memoryLimitMb: Number(formData.get("memoryLimitMb") ?? 128),
       starterCode: String(formData.get("starterCode") ?? ""),
-      allowedLanguages,
+      allowedLanguages: allowedLangs,
       isPublished: formData.get("isPublished") === "on",
     };
 
@@ -235,30 +240,18 @@ export function QuestionForm({
               <Textarea id="starterCode" name="starterCode" defaultValue={question?.starterCode ?? ""} />
             </FormField>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Accepted Languages</label>
-              <div className="flex flex-wrap gap-6 rounded-md border border-slate-200 p-4 bg-slate-50">
-                {languages.map((lang) => {
-                  const isChecked =
-                    !question ||
-                    !question.allowedLanguages ||
-                    question.allowedLanguages.length === 0 ||
-                    question.allowedLanguages.includes(lang.slug);
-                  return (
-                    <label key={lang.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="allowedLanguages"
-                        value={lang.slug}
-                        defaultChecked={isChecked}
-                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                      />
-                      <span>{lang.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              <label className="text-sm font-medium text-slate-700" htmlFor="allowedLanguages">
+                Accepted Languages
+              </label>
+              <MultiSelect
+                id="allowedLanguages"
+                options={languages.map((l) => ({ value: l.slug, label: l.name }))}
+                value={allowedLangs}
+                onChange={setAllowedLangs}
+                placeholder="All languages allowed"
+              />
               <p className="text-xs text-slate-500">
-                Select which languages are allowed for this question. If none are selected, all languages will be accepted.
+                Select which languages are allowed for this question. Leave empty to allow all languages.
               </p>
             </div>
             <div className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3">
