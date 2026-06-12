@@ -8,13 +8,10 @@
 #
 # Usage:
 #   1. Copy .env.example to .env.local and fill in secrets.
-#   2. docker compose up -d
+#   2. docker compose --env-file .env.local up -d
 #   3. docker compose exec web bun db/push.ts   (first run only)
 #   4. docker compose exec web bun db/seed.ts   (optional seed)
 # =============================================================
-
-env_file:
-  - .env.local
 
 services:
   # -------------------------------------------
