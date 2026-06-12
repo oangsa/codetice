@@ -164,9 +164,29 @@ export async function runPythonCode({
   runCommand,
   dockerImage,
 }: RunPythonInput) {
+  let profile = null;
+  try {
+    profile = getRuntimeProfile(language);
+  } catch {
+    // Ignore unsupported language slugs for profiles
+  }
+
+  const extension = fileExtension ?? profile?.fileExtension;
+  if (!extension) {
+    throw new Error(`File extension not specified for language '${language}'.`);
+  }
+
+  const finalDockerImage = dockerImage ?? profile?.dockerImage;
+  if (!finalDockerImage) {
+    throw new Error(`Docker image not specified for language '${language}'.`);
+  }
+
+  const finalRunCommand = runCommand ?? profile?.runCommand;
+  if (!finalRunCommand) {
+    throw new Error(`Run command not specified for language '${language}'.`);
+  }
+
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-grader-"));
-  const profile = getRuntimeProfile(language);
-  const extension = fileExtension ?? profile.fileExtension;
   const fileName = `main.${extension}`;
   const scriptPath = path.join(workspace, fileName);
   await fs.writeFile(scriptPath, sourceCode, "utf8");
@@ -177,24 +197,19 @@ export async function runPythonCode({
       throw new Error("Unsupported grading runtime.");
     }
 
-    const expectedDockerImage = dockerImage ?? profile.dockerImage;
-    const expectedRunCommand = runCommand ?? profile.runCommand;
-    if (
-      expectedDockerImage !== profile.dockerImage ||
-      expectedRunCommand !== profile.runCommand ||
-      extension !== profile.fileExtension
-    ) {
-      throw new Error(`Unsafe runtime configuration for language '${language}'.`);
-    }
+    const resolvedRunCommand = finalRunCommand
+      .replace("main.py", fileName)
+      .replace("main.js", fileName)
+      .replace("main.ts", fileName);
 
     return await runWithDocker(
       workspace,
       stdin,
       timeLimitMs,
       memoryLimitMb,
-      profile.dockerImage,
-      profile.command,
-      profile.args.map((arg) => arg.replace("main.py", fileName).replace("main.js", fileName).replace("main.ts", fileName)),
+      finalDockerImage,
+      "/bin/sh",
+      ["-c", resolvedRunCommand],
     );
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
