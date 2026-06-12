@@ -1,10 +1,10 @@
 # =============================================================
-# vibe-grader – Docker Compose stack
+# vibe-grader - Docker Compose stack
 #
 # Services:
-#   db       – PostgreSQL 16 database
-#   web      – Next.js web application
-#   worker   – Grading-job background worker
+#   db       - PostgreSQL 16 database
+#   web      - Next.js web application
+#   worker   - Grading-job background worker
 #
 # Usage:
 #   1. Copy .env.example to .env and fill in secrets.
@@ -93,5 +93,5 @@ volumes:
   db_data:
 
 networks:
-  internal:   # web ? db ? worker (no external exposure)
-  external:   # web ? internet (for serving the UI)
+  internal:
+  external:
