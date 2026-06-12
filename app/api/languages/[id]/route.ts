@@ -29,16 +29,25 @@ export async function PATCH(
     return fail("Language not found.", 404);
   }
 
-  const body = await request.json() as unknown;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail("Invalid JSON payload.", 400);
+  }
   const parsed = updateSupportedLanguageSchema.safeParse(body);
 
   if (!parsed.success) {
     return fail("Invalid language payload.", 400, { errors: parsed.error.flatten() });
   }
 
-  const language = await updateSupportedLanguage(id, parsed.data);
-  const languages = await listAllSupportedLanguages();
-  return ok({ language, languages });
+  try {
+    const language = await updateSupportedLanguage(id, parsed.data);
+    const languages = await listAllSupportedLanguages();
+    return ok({ language, languages });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Unable to update language.", 400);
+  }
 }
 
 export async function DELETE(

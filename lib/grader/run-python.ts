@@ -6,6 +6,9 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 
+import { MAX_GRADER_OUTPUT_BYTES } from "@/lib/constants";
+import { getRuntimeProfile } from "@/lib/grader/runtime-profiles";
+
 export type PythonRunResult = {
   stdout: string;
   stderr: string;
@@ -40,18 +43,18 @@ async function commandExists(command: string) {
 async function resolveRuntime() {
   const configuredRuntime = process.env.GRADING_RUNTIME ?? "auto";
   if (configuredRuntime === "local") {
-    return "local" as const;
-  }
-
-  if (configuredRuntime === "docker") {
-    return "docker" as const;
+    throw new Error("Local grading runtime is disabled for security reasons.");
   }
 
   if (dockerAvailability === null) {
     dockerAvailability = await commandExists("docker");
   }
 
-  return dockerAvailability ? ("docker" as const) : ("local" as const);
+  if (!dockerAvailability) {
+    throw new Error("Docker grading runtime is unavailable.");
+  }
+
+  return "docker" as const;
 }
 
 async function collectProcessResult(
@@ -65,18 +68,33 @@ async function collectProcessResult(
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let outputLimitExceeded = false;
+
+    const terminate = () => {
+      timedOut = true;
+      processRef.kill("SIGKILL");
+    };
 
     const timer = setTimeout(() => {
-      timedOut = true;
-      processRef.kill();
+      terminate();
     }, timeLimitMs);
 
     processRef.stdout?.on("data", (chunk) => {
       stdout += chunk.toString();
+      if (!outputLimitExceeded && Buffer.byteLength(stdout, "utf8") > MAX_GRADER_OUTPUT_BYTES) {
+        outputLimitExceeded = true;
+        stderr += "\nOutput limit exceeded.";
+        terminate();
+      }
     });
 
     processRef.stderr?.on("data", (chunk) => {
       stderr += chunk.toString();
+      if (!outputLimitExceeded && Buffer.byteLength(stderr, "utf8") > MAX_GRADER_OUTPUT_BYTES) {
+        outputLimitExceeded = true;
+        stderr = stderr.slice(0, MAX_GRADER_OUTPUT_BYTES);
+        terminate();
+      }
     });
 
     processRef.on("close", (code) => {
@@ -95,55 +113,15 @@ async function collectProcessResult(
   });
 }
 
-function buildLocalCommand(language: string, scriptPath: string) {
-  if (language === "javascript") {
-    return {
-      command: "node",
-      args: [scriptPath],
-    };
-  }
-
-  if (language === "typescript") {
-    return {
-      command: "bun",
-      args: [scriptPath],
-    };
-  }
-
-  return {
-    command: "python",
-    args: [scriptPath],
-  };
-}
-
-async function runWithLocalRuntime(
-  language: string,
-  scriptPath: string,
-  workspace: string,
-  stdin: string,
-  timeLimitMs: number,
-) {
-  const localCommand = buildLocalCommand(language, scriptPath);
-  const processRef = spawn(localCommand.command, localCommand.args, {
-    cwd: workspace,
-    stdio: "pipe",
-  });
-
-  return collectProcessResult(processRef, stdin, timeLimitMs);
-}
-
 async function runWithDocker(
   workspace: string,
-  fileName: string,
   stdin: string,
   timeLimitMs: number,
   memoryLimitMb: number | null | undefined,
   dockerImage: string,
-  runCommand: string,
+  command: string,
+  args: string[],
 ) {
-  const stdinPath = path.join(workspace, "stdin.txt");
-  await fs.writeFile(stdinPath, stdin, "utf8");
-
   const memoryLimit = `${memoryLimitMb ?? 128}m`;
 
   const processRef = spawn(
@@ -165,16 +143,15 @@ async function runWithDocker(
       "-w",
       "/workspace",
       dockerImage,
-      "sh",
-      "-lc",
-      `${runCommand.replace("/workspace/main.py", `/workspace/${fileName}`)} < /workspace/stdin.txt`,
+      command,
+      ...args,
     ],
     {
       stdio: "pipe",
     },
   );
 
-  return collectProcessResult(processRef, "", timeLimitMs);
+  return collectProcessResult(processRef, stdin, timeLimitMs);
 }
 
 export async function runPythonCode({
@@ -188,30 +165,37 @@ export async function runPythonCode({
   dockerImage,
 }: RunPythonInput) {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-grader-"));
-  const extension = fileExtension ?? (language === "javascript" ? "js" : language === "typescript" ? "ts" : "py");
+  const profile = getRuntimeProfile(language);
+  const extension = fileExtension ?? profile.fileExtension;
   const fileName = `main.${extension}`;
   const scriptPath = path.join(workspace, fileName);
   await fs.writeFile(scriptPath, sourceCode, "utf8");
 
   try {
     const runtime = await resolveRuntime();
-    if (runtime === "docker") {
-      try {
-        return await runWithDocker(
-          workspace,
-          fileName,
-          stdin,
-          timeLimitMs,
-          memoryLimitMb,
-          dockerImage ?? process.env.PYTHON_DOCKER_IMAGE ?? "python:3.12-alpine",
-          runCommand ?? "python /workspace/main.py",
-        );
-      } catch {
-        return await runWithLocalRuntime(language, scriptPath, workspace, stdin, timeLimitMs);
-      }
+    if (runtime !== "docker") {
+      throw new Error("Unsupported grading runtime.");
     }
 
-    return await runWithLocalRuntime(language, scriptPath, workspace, stdin, timeLimitMs);
+    const expectedDockerImage = dockerImage ?? profile.dockerImage;
+    const expectedRunCommand = runCommand ?? profile.runCommand;
+    if (
+      expectedDockerImage !== profile.dockerImage ||
+      expectedRunCommand !== profile.runCommand ||
+      extension !== profile.fileExtension
+    ) {
+      throw new Error(`Unsafe runtime configuration for language '${language}'.`);
+    }
+
+    return await runWithDocker(
+      workspace,
+      stdin,
+      timeLimitMs,
+      memoryLimitMb,
+      profile.dockerImage,
+      profile.command,
+      profile.args.map((arg) => arg.replace("main.py", fileName).replace("main.js", fileName).replace("main.ts", fileName)),
+    );
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }

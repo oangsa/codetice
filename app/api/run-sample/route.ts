@@ -7,7 +7,12 @@ import { runSampleSubmission } from "@/server/services/submission-service";
 
 export async function POST(request: Request) {
   const session = await requireUser();
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail("Invalid JSON payload.");
+  }
   const parsed = runSampleSchema.safeParse(body);
 
   if (!parsed.success) {

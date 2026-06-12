@@ -15,7 +15,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   await requireAdmin();
-  const body = await request.json() as unknown;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail("Invalid JSON payload.", 400);
+  }
   const parsed = supportedLanguageSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -28,7 +33,11 @@ export async function POST(request: Request) {
     return fail(`A language with slug "${parsed.data.slug}" already exists.`, 409);
   }
 
-  const language = await createSupportedLanguage(parsed.data);
-  const languages = await listAllSupportedLanguages();
-  return ok({ language, languages }, { status: 201 });
+  try {
+    const language = await createSupportedLanguage(parsed.data);
+    const languages = await listAllSupportedLanguages();
+    return ok({ language, languages }, { status: 201 });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Unable to create language.", 400);
+  }
 }

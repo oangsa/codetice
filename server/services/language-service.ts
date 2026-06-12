@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
 import { getDb } from "@/lib/db";
+import { getRuntimeProfile } from "@/lib/grader/runtime-profiles";
 
 export type LanguageInput = {
   name: string;
@@ -14,6 +15,24 @@ export type LanguageInput = {
   defaultStarterCode?: string | null;
   isEnabled: boolean;
 };
+
+function normalizeLanguageInput(input: LanguageInput) {
+  const profile = getRuntimeProfile(input.slug);
+
+  if (input.dockerImage !== profile.dockerImage) {
+    throw new Error(`dockerImage for '${input.slug}' must be '${profile.dockerImage}'.`);
+  }
+
+  if (input.fileExtension !== profile.fileExtension) {
+    throw new Error(`fileExtension for '${input.slug}' must be '${profile.fileExtension}'.`);
+  }
+
+  if (input.runCommand !== profile.runCommand) {
+    throw new Error(`runCommand for '${input.slug}' must be '${profile.runCommand}'.`);
+  }
+
+  return input;
+}
 
 export async function listSupportedLanguages() {
   const db = getDb();
@@ -39,9 +58,10 @@ export async function getSupportedLanguageBySlug(slug: string) {
 
 export async function createSupportedLanguage(input: LanguageInput) {
   const db = getDb();
+  const normalizedInput = normalizeLanguageInput(input);
   const [created] = await db
     .insert(supportedLanguages)
-    .values(input)
+    .values(normalizedInput)
     .returning();
   return created;
 }
@@ -51,15 +71,28 @@ export async function updateSupportedLanguage(
   input: Omit<LanguageInput, "slug">,
 ) {
   const db = getDb();
+  const existing = await db.query.supportedLanguages.findFirst({
+    where: eq(supportedLanguages.id, id),
+  });
+
+  if (!existing) {
+    throw new Error("Language not found.");
+  }
+
+  const normalizedInput = normalizeLanguageInput({
+    ...input,
+    slug: existing.slug,
+  });
+
   const [updated] = await db
     .update(supportedLanguages)
     .set({
-      name: input.name,
-      dockerImage: input.dockerImage,
-      fileExtension: input.fileExtension,
-      runCommand: input.runCommand,
-      defaultStarterCode: input.defaultStarterCode ?? null,
-      isEnabled: input.isEnabled,
+      name: normalizedInput.name,
+      dockerImage: normalizedInput.dockerImage,
+      fileExtension: normalizedInput.fileExtension,
+      runCommand: normalizedInput.runCommand,
+      defaultStarterCode: normalizedInput.defaultStarterCode ?? null,
+      isEnabled: normalizedInput.isEnabled,
     })
     .where(eq(supportedLanguages.id, id))
     .returning();
@@ -73,7 +106,6 @@ export async function deleteSupportedLanguage(id: string) {
 
 /** @deprecated Use createSupportedLanguage / updateSupportedLanguage instead */
 export async function upsertSupportedLanguage(input: LanguageInput) {
-  const db = getDb();
   const existing = await getSupportedLanguageBySlug(input.slug);
 
   if (existing) {

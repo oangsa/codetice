@@ -9,7 +9,12 @@ import { enqueueOfficialSubmission, processGradingJob } from "@/server/services/
 
 export async function POST(request: Request) {
   const session = await requireUser();
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail("Invalid JSON payload.");
+  }
   const parsed = submitSchema.safeParse(body);
 
   if (!parsed.success) {
