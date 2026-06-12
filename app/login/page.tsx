@@ -25,6 +25,13 @@ export default async function LoginPage() {
         />
 
         <p className="mt-6 text-center text-sm text-slate-500">
+          Have a reset link?{" "}
+          <Link href="/reset-password" className="font-medium text-slate-900 underline underline-offset-4 hover:text-slate-700">
+            Reset password
+          </Link>
+        </p>
+
+        <p className="mt-3 text-center text-sm text-slate-500">
           Need an account?{" "}
           <Link href="/register" className="font-medium text-slate-900 underline underline-offset-4 hover:text-slate-700">
             Register

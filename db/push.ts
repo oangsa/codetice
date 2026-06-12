@@ -21,6 +21,14 @@ const statements = [
     created_at timestamp not null default now(),
     updated_at timestamp not null default now()
   );`,
+  `create table if not exists password_reset_tokens (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references users(id) on delete cascade,
+    token_hash text not null,
+    expires_at timestamp not null,
+    used_at timestamp,
+    created_at timestamp not null default now()
+  );`,
   `create table if not exists questions (
     id uuid primary key default gen_random_uuid(),
     title varchar(255) not null,
@@ -187,6 +195,8 @@ const statements = [
   `create unique index if not exists leaderboards_user_unique on leaderboards (user_id);`,
   `create unique index if not exists classroom_members_classroom_user_unique on classroom_members (classroom_id, user_id);`,
   `create unique index if not exists assignment_questions_assignment_question_unique on assignment_questions (assignment_id, question_id);`,
+  `create unique index if not exists password_reset_tokens_token_hash_unique on password_reset_tokens (token_hash);`,
+  `create index if not exists password_reset_tokens_user_created_at_idx on password_reset_tokens (user_id, created_at);`,
 ];
 
 async function main() {

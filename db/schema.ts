@@ -21,6 +21,24 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
 
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: false }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: false }),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    tokenHashUnique: uniqueIndex("password_reset_tokens_token_hash_unique").on(table.tokenHash),
+    userCreatedAtIdx: index("password_reset_tokens_user_created_at_idx").on(table.userId, table.createdAt),
+  }),
+);
+
 export const questions = pgTable(
   "questions",
   {
@@ -285,6 +303,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   leaderboardEntries: many(leaderboards),
   classroomMembers: many(classroomMembers),
   classroomsCreated: many(classrooms),
+  passwordResetTokens: many(passwordResetTokens),
+}));
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResetTokens.userId],
+    references: [users.id],
+  }),
 }));
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -413,3 +439,4 @@ export type TestcaseResult = typeof testcaseResults.$inferSelect;
 export type QuestionScore = typeof questionScores.$inferSelect;
 export type GradingJob = typeof gradingJobs.$inferSelect;
 export type SupportedLanguage = typeof supportedLanguages.$inferSelect;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
