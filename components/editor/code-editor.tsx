@@ -293,13 +293,13 @@ export function CodeEditor({
               {languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"} runtime
             </p>
             {submissionSummary ? (
-              <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                 <span>Latest submission:</span>
                 <SubmissionStatusBadge status={submissionSummary.status} isLate={submissionSummary.isLate} />
                 <span>
                   {`${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}
                 </span>
-              </p>
+              </div>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
