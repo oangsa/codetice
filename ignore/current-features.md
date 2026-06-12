@@ -88,9 +88,9 @@
 
 ## Supported language model currently present
 
-- Python
-- JavaScript
-- TypeScript
+- Supported languages are managed through the `supported_languages` database table.
+- Runtime availability is configuration-driven rather than hardcoded in the feature inventory.
+- The currently configured supported language is Python only.
 
 ## Notes
 
