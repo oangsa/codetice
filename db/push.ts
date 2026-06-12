@@ -194,6 +194,9 @@ const statements = [
   `alter table testcases add column if not exists checker_type varchar(50) not null default 'exact';`,
   `alter table testcases add column if not exists float_tolerance decimal(20, 10);`,
   `alter table submissions add column if not exists assignment_id uuid references assignments(id) on delete set null;`,
+  `alter table grading_jobs add column if not exists locked_by varchar(255);`,
+  `alter table grading_jobs add column if not exists lease_expires_at timestamp;`,
+  `alter table submissions add column if not exists is_late boolean not null default false;`,
   `create unique index if not exists question_scores_user_question_unique on question_scores (user_id, question_id);`,
   `create index if not exists questions_published_created_at_idx on questions (is_published, created_at);`,
   `create index if not exists questions_created_at_idx on questions (created_at);`,
@@ -213,9 +216,6 @@ const statements = [
   `create index if not exists password_reset_tokens_user_created_at_idx on password_reset_tokens (user_id, created_at);`,
   `create unique index if not exists idempotency_keys_identifier_action_key_unique on idempotency_keys (identifier, action, key);`,
   `create index if not exists idempotency_keys_action_created_at_idx on idempotency_keys (action, created_at);`,
-  `alter table grading_jobs add column if not exists locked_by varchar(255);`,
-  `alter table grading_jobs add column if not exists lease_expires_at timestamp;`,
-  `alter table submissions add column if not exists is_late boolean not null default false;`,
 ];
 
 async function main() {
