@@ -1356,17 +1356,51 @@ Build in this order:
 12. Best score tracking
 ```
 
+## Git Workflow
+### Format:
+<type>(<scope>): <short description>
 
-## once you finish doing something (one feat)
+### Types:
 
-### action
-- feat -> feature
-- fix -> fix bugs
-- style -> format the code that DOES NOT EFFECT the meaning of the code
-- refactor -> Code changed that DOES NOT EFFECT the code behavior
-- chore -> update that is not about the code eg. .gitignore
+- feat — new feature
+- fix — bug fix
+- chore — setup, config, dependencies
+- style — CSS/styling only
+- refactor — code restructure, no behavior change
+- docs — documentation
 
-- then, git commit -m "action: commit message"
+
+### Examples:
+
+chore(setup): init Next.js project with shadcn and tailwind
+chore(deps): install react-hook-form zod tanstack-query
+feat(layout): add root layout with IBM Plex Sans Thai and Bungee Outline fonts
+feat(form): add multi-step project registration form
+fix(form): fix step 2 validation not triggering on next
+style(sidebar): update sidebar active color to match MODACT orange
+
+### Branch Strategy:
+
+main          ← production only, never commit directly
+dev            ← integration branch, all features merge here first
+feat/xxx     ← feature branches, branch off dev
+fix/xxx       ← bug fix branches
+
+### Workflow:
+
+*Start a new feature*
+git checkout dev
+git pull origin dev
+git checkout -b feat/registration-form
+
+*Done, merge back*
+git checkout dev
+git merge feat/registration-form
+git push origin dev
+
+*When dev is stable and tested → merge to main*
+git checkout main
+git merge dev
 
 
 ## Rules
