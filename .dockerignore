@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (will be installed inside the image)
+node_modules
+
+# Next.js build output (built inside the image)
+.next
+out
+build
+
+# Local env files (secrets must be passed via env vars or Docker secrets)
+.env
+.env.*
+
+# Development logs
+*.log
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docs & misc
+docs
+README.md
+AGENTS.md
+CLAUDE.md
+
+# Ignored files directory
+ignore
