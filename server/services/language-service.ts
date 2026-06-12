@@ -17,20 +17,6 @@ export type LanguageInput = {
 };
 
 function normalizeLanguageInput(input: LanguageInput) {
-  const profile = getRuntimeProfile(input.slug);
-
-  if (input.dockerImage !== profile.dockerImage) {
-    throw new Error(`dockerImage for '${input.slug}' must be '${profile.dockerImage}'.`);
-  }
-
-  if (input.fileExtension !== profile.fileExtension) {
-    throw new Error(`fileExtension for '${input.slug}' must be '${profile.fileExtension}'.`);
-  }
-
-  if (input.runCommand !== profile.runCommand) {
-    throw new Error(`runCommand for '${input.slug}' must be '${profile.runCommand}'.`);
-  }
-
   return input;
 }
 
