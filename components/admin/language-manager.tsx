@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -55,6 +55,20 @@ export type Language = {
   isEnabled: boolean;
 };
 
+function getCompatibleMonacoLanguage(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (["pyright", "python-lsp", "python-lsp-server", "pylsp"].includes(normalized)) {
+    return "python";
+  }
+
+  if (["c", "cc", "c++", "cplusplus", "clang", "clangd"].includes(normalized)) {
+    return "cpp";
+  }
+
+  return normalized;
+}
+
 // ─── Create / Edit dialog ────────────────────────────────────────────────────
 
 function LanguageDialog({
@@ -68,6 +82,38 @@ function LanguageDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [monacoLanguageIds, setMonacoLanguageIds] = useState<string[]>([]);
+  const monacoLanguageListId = useId();
+
+  const monacoLanguageIdSet = useMemo(
+    () => new Set(monacoLanguageIds),
+    [monacoLanguageIds],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void import("monaco-editor").then((monaco) => {
+      if (cancelled) {
+        return;
+      }
+
+      setMonacoLanguageIds(
+        monaco.languages
+          .getLanguages()
+          .map((item) => item.id)
+          .sort((a, b) => a.localeCompare(b)),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -77,10 +123,17 @@ function LanguageDialog({
       dockerImage: String(formData.get("dockerImage") ?? ""),
       fileExtension: String(formData.get("fileExtension") ?? ""),
       runCommand: String(formData.get("runCommand") ?? ""),
-      editorLanguage: String(formData.get("editorLanguage") ?? "") || "plaintext",
+      editorLanguage: getCompatibleMonacoLanguage(String(formData.get("editorLanguage") ?? "") || "plaintext"),
       defaultStarterCode: String(formData.get("defaultStarterCode") ?? "") || null,
       isEnabled: formData.get("isEnabled") === "on",
     };
+
+    const editorLanguage = String(payload.editorLanguage);
+    if (monacoLanguageIds.length > 0 && !monacoLanguageIdSet.has(editorLanguage)) {
+      toast.error(`Unknown Monaco language id "${editorLanguage}".`);
+      setPending(false);
+      return;
+    }
 
     if (!language) {
       // Create — include slug
@@ -192,15 +245,21 @@ function LanguageDialog({
           <FormField
             label="Editor language"
             htmlFor="editorLanguage"
-            description="Syntax mode only; Python is the only current diagnostics language. pyright maps to python, clang/clangd maps to cpp."
+            description="Stored as a real Monaco language id. Python is the only current diagnostics language."
           >
             <Input
               id="editorLanguage"
               name="editorLanguage"
-              placeholder="e.g. python, pyright, cpp, clangd, plaintext"
-              defaultValue={language?.editorLanguage ?? "plaintext"}
+              list={monacoLanguageListId}
+              placeholder="e.g. python, cpp, javascript, plaintext"
+              defaultValue={getCompatibleMonacoLanguage(language?.editorLanguage ?? "plaintext")}
               required
             />
+            <datalist id={monacoLanguageListId}>
+              {monacoLanguageIds.map((languageId) => (
+                <option key={languageId} value={languageId} />
+              ))}
+            </datalist>
           </FormField>
 
           <FormField

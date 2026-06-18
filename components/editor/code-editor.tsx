@@ -29,6 +29,7 @@ type ResultRow = {
 function resolveMonacoLanguage(language: string) {
   const normalized = language.trim().toLowerCase();
 
+  // Backward compatibility for rows that previously stored tool names instead of Monaco ids.
   if (["pyright", "python-lsp", "python-lsp-server", "pylsp"].includes(normalized)) {
     return "python";
   }
