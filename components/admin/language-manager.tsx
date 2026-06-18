@@ -104,7 +104,7 @@ function LanguageDialog({
       return;
     }
 
-    toast.success(language ? "Language updated." : "Language created.");
+    toast.success(language ? "Language updated and runtime is ready." : "Language created and runtime is ready.");
     setOpen(false);
     setPending(false);
     onSaved();
@@ -120,8 +120,8 @@ function LanguageDialog({
           <DialogTitle>{isEdit ? "Edit language" : "Add language"}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Update the runtime configuration for this language."
-              : "Define a new language runtime. The slug is permanent and cannot be changed later."}
+              ? "Update the runtime configuration for this language. New or re-enabled Docker images are prepared before saving."
+              : "Define a new language runtime. The Docker image is prepared before the language is saved."}
           </DialogDescription>
         </DialogHeader>
 
@@ -242,7 +242,7 @@ function LanguageDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {isEdit ? "Save changes" : "Create language"}
+              {pending ? "Preparing runtime..." : isEdit ? "Save changes" : "Create language"}
             </Button>
           </DialogFooter>
         </form>

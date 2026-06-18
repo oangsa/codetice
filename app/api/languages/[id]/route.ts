@@ -9,6 +9,9 @@ import {
 import { getDb } from "@/lib/db";
 import { supportedLanguages } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { prepareDockerImage } from "@/server/services/docker-image-service";
+
+export const runtime = "nodejs";
 
 async function getLanguageById(id: string) {
   const db = getDb();
@@ -42,6 +45,14 @@ export async function PATCH(
   }
 
   try {
+    const shouldPrepareImage =
+      parsed.data.dockerImage !== existing.dockerImage ||
+      (!existing.isEnabled && parsed.data.isEnabled);
+
+    if (shouldPrepareImage) {
+      await prepareDockerImage(parsed.data.dockerImage);
+    }
+
     const language = await updateSupportedLanguage(id, parsed.data);
     const languages = await listAllSupportedLanguages();
     return ok({ language, languages });

@@ -7,6 +7,9 @@ import {
   listAllSupportedLanguages,
   listSupportedLanguages,
 } from "@/server/services/language-service";
+import { prepareDockerImage } from "@/server/services/docker-image-service";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   const languages = await listSupportedLanguages();
@@ -34,6 +37,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await prepareDockerImage(parsed.data.dockerImage);
     const language = await createSupportedLanguage(parsed.data);
     const languages = await listAllSupportedLanguages();
     return ok({ language, languages }, { status: 201 });
