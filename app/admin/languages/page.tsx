@@ -1,4 +1,4 @@
-import { LanguageManager } from "@/components/admin/language-manager";
+import { LanguageManager, type Language } from "@/components/admin/language-manager";
 import { PageHeader } from "@/components/commons/page-header";
 import { SurfaceCard } from "@/components/commons/surface-card";
 import { requireAdmin } from "@/lib/auth";
@@ -10,7 +10,7 @@ export const metadata = {
 
 export default async function AdminLanguagesPage() {
   await requireAdmin();
-  const languages = await listAllSupportedLanguages();
+  const languages = (await listAllSupportedLanguages()) as Language[];
 
   return (
     <div className="space-y-6">
