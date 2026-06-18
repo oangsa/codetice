@@ -9,6 +9,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SessionUser } from "@/lib/types";
 
+// Resize and compress an image File to a JPEG data URI (max 128x128px)
+function resizeImage(file: File, maxPx = 128, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas unavailable"));
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export function ProfileDetailsForm({ user }: { user: SessionUser }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,25 +60,11 @@ export function ProfileDetailsForm({ user }: { user: SessionUser }) {
 
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      // Upload the image file to get the public URL (saves to disk, but doesn't assign to user in DB yet)
-      const uploadRes = await fetch("/api/me/upload-avatar", {
-        method: "POST",
-        body: formData,
-      });
-
-      const uploadData = (await uploadRes.json()) as { message?: string; url?: string };
-
-      if (!uploadRes.ok || !uploadData.url) {
-        toast.error(uploadData.message ?? "Failed to upload image.");
-        return;
-      }
-
-      setAvatarUrl(uploadData.url);
-      toast.success("Avatar uploaded preview. Click Save Changes to apply permanently.");
+      // Resize + compress client-side, store as data URI (no file upload needed)
+      const dataUri = await resizeImage(file);
+      setAvatarUrl(dataUri);
+      toast.success("Avatar ready. Click Save Changes to apply permanently.");
     } catch {
       toast.error("An unexpected error occurred during upload.");
     } finally {

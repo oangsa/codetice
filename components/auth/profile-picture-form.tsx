@@ -5,6 +5,29 @@ import { useRouter } from "next/navigation";
 import { Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+// Resize and compress an image File to a JPEG data URI (max 128x128px)
+function resizeImage(file: File, maxPx = 128, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas unavailable"));
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export function ProfilePictureForm({ initialAvatar }: { initialAvatar: string }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -27,28 +50,15 @@ export function ProfilePictureForm({ initialAvatar }: { initialAvatar: string })
 
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      // 1. Upload image from device
-      const uploadRes = await fetch("/api/me/upload-avatar", {
-        method: "POST",
-        body: formData,
-      });
+      // 1. Resize + compress to a small JPEG data URI on the client
+      const dataUri = await resizeImage(file);
 
-      const uploadData = (await uploadRes.json()) as { message?: string; url?: string };
-
-      if (!uploadRes.ok || !uploadData.url) {
-        toast.error(uploadData.message ?? "Failed to upload image.");
-        return;
-      }
-
-      // 2. Automatically save the new profile picture URL to the user profile
+      // 2. Save the data URI directly as the profile picture
       const saveRes = await fetch("/api/me/profile-picture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profilePicture: uploadData.url }),
+        body: JSON.stringify({ profilePicture: dataUri }),
       });
 
       const saveData = (await saveRes.json()) as { message?: string };
@@ -58,7 +68,7 @@ export function ProfilePictureForm({ initialAvatar }: { initialAvatar: string })
         return;
       }
 
-      setAvatarUrl(uploadData.url);
+      setAvatarUrl(dataUri);
       toast.success("Profile picture updated successfully.");
       router.refresh();
     } catch {
