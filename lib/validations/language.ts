@@ -10,7 +10,7 @@ export const supportedLanguageSchema = z.object({
     .regex(/^[a-z][a-z0-9_-]*$/, "Slug must be lowercase alphanumeric with hyphens/underscores"),
   dockerImage: z.string().trim().min(1).max(255),
   fileExtension: z.string().trim().min(1).max(20).regex(/^[a-z0-9]+$/, "File extension must be alphanumeric."),
-  runCommand: z.string().trim().min(1).max(100),
+  runCommand: z.string().trim().min(1).max(500),
   editorLanguage: z
     .string()
     .trim()

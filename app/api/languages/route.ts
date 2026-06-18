@@ -11,6 +11,18 @@ import { prepareDockerImage } from "@/server/services/docker-image-service";
 
 export const runtime = "nodejs";
 
+function formatLanguageValidationError(error: { flatten: () => { fieldErrors: Record<string, string[]> } }) {
+  const fieldErrors = error.flatten().fieldErrors;
+  const firstError = Object.entries(fieldErrors).find(([, messages]) => messages.length > 0);
+
+  if (!firstError) {
+    return "Invalid language payload.";
+  }
+
+  const [field, messages] = firstError;
+  return `${field}: ${messages[0]}`;
+}
+
 export async function GET() {
   const languages = await listSupportedLanguages();
   return ok({ languages });
@@ -27,7 +39,7 @@ export async function POST(request: Request) {
   const parsed = supportedLanguageSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid language payload.", 400, { errors: parsed.error.flatten() });
+    return fail(formatLanguageValidationError(parsed.error), 400, { errors: parsed.error.flatten() });
   }
 
   // Reject duplicate slug

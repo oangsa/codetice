@@ -4,27 +4,41 @@ param(
   [string] $Image
 )
 
-$ErrorActionPreference = "Stop"
-if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
-  $PSNativeCommandUseErrorActionPreference = $false
+function Test-DockerImageAvailable {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & docker image inspect $Image 1>$null 2>$null
+    return $LASTEXITCODE -eq 0
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
 }
 
-docker image inspect $Image *> $null
-if ($LASTEXITCODE -eq 0) {
+$ErrorActionPreference = "Stop"
+
+if (Test-DockerImageAvailable) {
   Write-Output "Docker image '$Image' is already available."
   exit 0
 }
 
 Write-Output "Pulling Docker image '$Image'..."
-docker pull $Image
-if ($LASTEXITCODE -ne 0) {
-  Write-Error "Unable to pull Docker image '$Image'."
-  exit $LASTEXITCODE
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+  & docker pull $Image
+  $pullExitCode = $LASTEXITCODE
+} finally {
+  $ErrorActionPreference = $previousErrorActionPreference
 }
 
-docker image inspect $Image *> $null
-if ($LASTEXITCODE -ne 0) {
-  Write-Error "Docker image '$Image' was pulled but cannot be inspected."
+if ($pullExitCode -ne 0) {
+  Write-Output "Unable to pull Docker image '$Image'."
+  exit $pullExitCode
+}
+
+if (-not (Test-DockerImageAvailable)) {
+  Write-Output "Docker image '$Image' was pulled but cannot be inspected."
   exit 1
 }
 

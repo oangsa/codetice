@@ -13,6 +13,18 @@ import { prepareDockerImage } from "@/server/services/docker-image-service";
 
 export const runtime = "nodejs";
 
+function formatLanguageValidationError(error: { flatten: () => { fieldErrors: Record<string, string[]> } }) {
+  const fieldErrors = error.flatten().fieldErrors;
+  const firstError = Object.entries(fieldErrors).find(([, messages]) => messages.length > 0);
+
+  if (!firstError) {
+    return "Invalid language payload.";
+  }
+
+  const [field, messages] = firstError;
+  return `${field}: ${messages[0]}`;
+}
+
 async function getLanguageById(id: string) {
   const db = getDb();
   return db.query.supportedLanguages.findFirst({
@@ -41,7 +53,7 @@ export async function PATCH(
   const parsed = updateSupportedLanguageSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid language payload.", 400, { errors: parsed.error.flatten() });
+    return fail(formatLanguageValidationError(parsed.error), 400, { errors: parsed.error.flatten() });
   }
 
   try {
