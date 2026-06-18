@@ -6,7 +6,7 @@ import { LoaderCircle } from "lucide-react";
 import { SubmissionTable } from "@/components/submissions/submission-table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
 const LOAD_MORE_THRESHOLD_PX = 240;
 
 export type QuestionSubmissionListItem = {
@@ -110,8 +110,8 @@ export function QuestionSubmissionsPanel({
   }, [hasMore, isLoadingMore, loadMore, submissions.length]);
 
   return (
-    <div className="h-full min-h-0">
-      <ScrollArea ref={scrollAreaRef} className="h-full min-h-0 pr-2">
+    <div className="min-h-0">
+      <ScrollArea ref={scrollAreaRef} className="h-[26rem] max-h-[60vh] min-h-0 pr-2">
         {submissions.length > 0 ? (
           <SubmissionTable submissions={submissions} showQuestion={false} />
         ) : (
