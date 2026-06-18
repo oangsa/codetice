@@ -61,18 +61,32 @@ export function MultiSelect({
     onChange([]);
   }
 
+  function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setOpen((prev) => !prev);
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+    }
+  }
+
   const selectedOptions = options.filter((o) => value.includes(o.value));
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       {/* Trigger */}
-      <button
-        type="button"
+      <div
         id={id}
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-controls={id ? `${id}-listbox` : undefined}
+        tabIndex={0}
         onClick={() => setOpen((prev) => !prev)}
+        onKeyDown={handleTriggerKeyDown}
         className={cn(
           "flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
@@ -117,11 +131,12 @@ export function MultiSelect({
             className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
           />
         </div>
-      </button>
+      </div>
 
       {/* Dropdown */}
       {open && (
         <div
+          id={id ? `${id}-listbox` : undefined}
           role="listbox"
           aria-multiselectable="true"
           className={cn(
