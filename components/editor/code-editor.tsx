@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IDEMPOTENCY_KEY_HEADER, PYTHON_COMPLETIONS } from "@/lib/constants";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
+const EDITOR_MARKER_OWNER = "language-diagnostics";
+
 type ResultRow = {
   testcaseId: string;
   name: string | null;
@@ -26,6 +28,21 @@ type ResultRow = {
   isHidden: boolean;
 };
 
+function resolveMonacoLanguage(language: string) {
+  const normalized = language.trim().toLowerCase();
+
+  // Backward compatibility for rows that previously stored tool names instead of Monaco ids.
+  if (["pyright", "python-lsp", "python-lsp-server", "pylsp"].includes(normalized)) {
+    return "python";
+  }
+
+  if (["c", "cc", "c++", "cplusplus", "clang", "clangd"].includes(normalized)) {
+    return "cpp";
+  }
+
+  return normalized || "plaintext";
+}
+
 export function CodeEditor({
   questionId,
   starterCode,
@@ -36,10 +53,40 @@ export function CodeEditor({
   questionId: string;
   starterCode: string;
   starterCodeByLanguage: Record<string, string>;
-  languages: Array<{ slug: string; name: string }>;
+  languages: Array<{ slug: string; name: string; editorLanguage: string }>;
   assignmentId?: string | null;
 }) {
   const router = useRouter();
+
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const updateTheme = () => {
+      setTheme(
+        document.documentElement.classList.contains("dark")
+          ? "dark"
+          : "light"
+      );
+    };
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      updateTheme();
+      setMounted(true);
+    });
+
+    const observer = new MutationObserver(updateTheme);
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
+  }, []);
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.slug ?? "python");
   const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>(() => {
     const initialLanguage = languages[0]?.slug ?? "python";
@@ -48,7 +95,6 @@ export function CodeEditor({
     };
   });
   const [pendingAction, setPendingAction] = useState<"submit" | null>(null);
-  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const [submissionSummary, setSubmissionSummary] = useState<{
     status: string;
@@ -56,18 +102,21 @@ export function CodeEditor({
     score: string;
     passedCount: number;
     totalCount: number;
+    errorMessage?: string | null;
   } | null>(null);
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
   const submitIdempotencyKeyRef = useRef<string | null>(null);
-  const editorLanguage =
-    selectedLanguage === "javascript" ? "javascript" : selectedLanguage === "typescript" ? "typescript" : "python";
+  const editorLanguage = resolveMonacoLanguage(
+    languages.find((language) => language.slug === selectedLanguage)?.editorLanguage ?? "plaintext",
+  );
   const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? starterCode;
 
   const monacoOptions = useMemo(
     () => ({
       minimap: { enabled: false },
       fontSize: 14,
+      fontFamily: "Agave, 'Agave Nerd Font', 'Cascadia Code', 'Fira Code', ui-monospace, monospace",
       automaticLayout: true,
       roundedSelection: false,
       scrollBeyondLastLine: false,
@@ -75,6 +124,19 @@ export function CodeEditor({
     }),
     [],
   );
+
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+
+    void import("monaco-editor").then((monaco) => {
+      const model = editorRef.current?.getModel();
+      if (model) {
+        monaco.editor.setModelLanguage(model, editorLanguage);
+      }
+    });
+  }, [editorLanguage]);
 
   async function submitSolution() {
     if (pendingAction !== null || submitIdempotencyKeyRef.current) {
@@ -132,32 +194,25 @@ export function CodeEditor({
       return;
     }
 
-    if (selectedLanguage !== "python") {
-      diagnosticsAbortRef.current?.abort();
-      void import("monaco-editor").then((monaco) => {
-        const model = editorRef.current?.getModel();
-        if (model) {
-          monaco.editor.setModelMarkers(model, "pyright", []);
-        }
-      });
-      return;
-    }
-
     diagnosticsAbortRef.current?.abort();
     const controller = new AbortController();
     diagnosticsAbortRef.current = controller;
 
     const timeout = setTimeout(async () => {
-      setDiagnosticsLoading(true);
       try {
-        const response = await fetch("/api/python/diagnostics", {
+        const response = await fetch("/api/languages/diagnostics", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sourceCode: code }),
+          body: JSON.stringify({ sourceCode: code, language: selectedLanguage }),
           signal: controller.signal,
         });
 
         if (!response.ok) {
+          const monaco = await import("monaco-editor");
+          const model = editorRef.current?.getModel();
+          if (model) {
+            monaco.editor.setModelMarkers(model, EDITOR_MARKER_OWNER, []);
+          }
           return;
         }
 
@@ -177,7 +232,7 @@ export function CodeEditor({
         if (model) {
           monaco.editor.setModelMarkers(
             model,
-            "pyright",
+            EDITOR_MARKER_OWNER,
             payload.diagnostics.map((diagnostic) => ({
               message: diagnostic.message,
               startLineNumber: diagnostic.line,
@@ -195,8 +250,6 @@ export function CodeEditor({
         }
       } catch {
         // Ignore transient diagnostics failures in the editor.
-      } finally {
-        setDiagnosticsLoading(false);
       }
     }, 500);
 
@@ -241,6 +294,7 @@ export function CodeEditor({
         score: submission.score,
         passedCount: submission.passedCount,
         totalCount: submission.totalCount,
+        errorMessage: submission.errorMessage,
       });
 
       if (!["queued", "running"].includes(submission.status)) {
@@ -272,6 +326,23 @@ export function CodeEditor({
   function handleMount(editor: monacoEditor.editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;
 
+    monaco.editor.defineTheme("codetice-dark", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [],
+      colors: {
+        "editor.background": "#0d0e12",
+        "editorGutter.background": "#0d0e12",
+        "editorLineNumber.foreground": "#6b7280",
+        "editor.lineHighlightBackground": "#13151b",
+        "editorCursor.foreground": "#ffffff",
+      },
+    });
+
+    // Explicitly apply the correct theme after defining it to ensure it takes effect
+    const currentTheme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+    monaco.editor.setTheme(currentTheme === "dark" ? "codetice-dark" : "vs");
+
     monaco.languages.registerCompletionItemProvider("python", {
       provideCompletionItems: () => ({
         suggestions: PYTHON_COMPLETIONS.map((item) => ({
@@ -284,28 +355,16 @@ export function CodeEditor({
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 border-b border-slate-100 pb-4 xl:flex-row xl:items-center xl:justify-between xl:space-y-0">
-          <div>
-            <CardTitle className="text-base">Solution editor</CardTitle>
-            <p className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
-              {languages.find((language) => language.slug === selectedLanguage)?.name ?? "Editor"} runtime
-            </p>
-            {submissionSummary ? (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                <span>Latest submission:</span>
-                <SubmissionStatusBadge status={submissionSummary.status} isLate={submissionSummary.isLate} />
-                <span>
-                  {`${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}
-                </span>
-              </div>
-            ) : null}
+    <div className="h-full flex flex-col">
+      <Card className="rounded-[30px] border shadow-sm h-full flex flex-col">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 p-2 shrink-0">
+          <div className="pl-2 pt-[9px]">
+            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Solution editor</CardTitle>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <div className="w-44">
               <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,6 +378,7 @@ export function CodeEditor({
             </div>
             <Button
               type="button"
+              className="rounded-full"
               disabled={pendingAction !== null}
               onClick={() => void submitSolution()}
             >
@@ -327,32 +387,41 @@ export function CodeEditor({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Judge output normalization enabled</span>
-            <span>
-              {selectedLanguage === "python"
-                ? diagnosticsLoading
-                  ? "Running Pyright diagnostics..."
-                  : "Pyright diagnostics ready"
-                : "Diagnostics available for Python"}
-            </span>
-          </div>
-          <div className="overflow-hidden rounded-md border border-slate-200">
-            <Editor
-              height="620px"
-              language={editorLanguage}
-              value={code}
-              onChange={(value) =>
-                setCodeByLanguage((current) => ({
-                  ...current,
-                  [selectedLanguage]: value ?? "",
-                }))
-              }
-              onMount={handleMount}
-              options={monacoOptions}
-              theme="vs"
-            />
+
+        <CardContent className="p-2 flex-1 flex flex-col min-h-0">
+          {submissionSummary ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 pl-2 mb-3 shrink-0">
+              <span>Latest submission:</span>
+              <SubmissionStatusBadge status={submissionSummary.status} isLate={submissionSummary.isLate} />
+              <span>{`${submissionSummary.passedCount}/${submissionSummary.totalCount} tests · ${submissionSummary.score} points`}</span>
+            </div>
+          ) : null}
+          {submissionSummary?.errorMessage ? (
+            <pre className="rounded-[16px] bg-slate-100 dark:bg-slate-900 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono mb-3 shrink-0 max-h-40 overflow-y-auto">
+              {submissionSummary.errorMessage}
+            </pre>
+          ) : null}
+          <div className="overflow-hidden rounded-[22px] border border-slate-200 flex-1 min-h-0">
+            {mounted ? (
+              <Editor
+                height="100%"
+                language={editorLanguage}
+                value={code}
+                onChange={(value) =>
+                  setCodeByLanguage((current) => ({
+                    ...current,
+                    [selectedLanguage]: value ?? "",
+                  }))
+                }
+                onMount={handleMount}
+                options={monacoOptions}
+                theme={theme === "dark" ? "codetice-dark" : "vs"}
+              />
+            ) : (
+              <div className="h-full bg-white dark:bg-[#0d0e12] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

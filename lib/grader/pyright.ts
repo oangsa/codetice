@@ -14,15 +14,37 @@ export type PyrightDiagnostic = {
   severity: "error" | "warning" | "information";
 };
 
+async function resolvePyrightExecutable() {
+  const candidates =
+    process.platform === "win32"
+      ? [
+          path.join(process.cwd(), "node_modules/.bin/pyright.exe"),
+          path.join(process.cwd(), "node_modules/.bin/pyright.cmd"),
+        ]
+      : [path.join(process.cwd(), "node_modules/.bin/pyright")];
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  return candidates[0];
+}
+
 export async function getPyrightDiagnostics(sourceCode: string) {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-pyright-"));
   const filePath = path.join(workspace, "main.py");
   await fs.writeFile(filePath, sourceCode, "utf8");
 
   try {
+    const executable = await resolvePyrightExecutable();
     const output = await new Promise<string>((resolve) => {
       const child = spawn(
-        process.platform === "win32" ? "node_modules/.bin/pyright.cmd" : "node_modules/.bin/pyright",
+        executable,
         ["--outputjson", filePath],
         { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"] },
       );
@@ -40,6 +62,10 @@ export async function getPyrightDiagnostics(sourceCode: string) {
 
       child.on("close", () => {
         resolve(stdout || stderr);
+      });
+
+      child.on("error", () => {
+        resolve(stderr || stdout);
       });
     });
 

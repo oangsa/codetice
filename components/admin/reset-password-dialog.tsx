@@ -49,8 +49,8 @@ export function ResetPasswordDialog({ userId, username }: ResetPasswordDialogPro
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (newPassword.length < 1) {
+      setError("Password cannot be empty.");
       return;
     }
 
@@ -117,7 +117,6 @@ export function ResetPasswordDialog({ userId, username }: ResetPasswordDialogPro
                 className="pl-9"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                minLength={8}
                 maxLength={100}
                 required
               />
@@ -135,7 +134,6 @@ export function ResetPasswordDialog({ userId, username }: ResetPasswordDialogPro
                 className="pl-9"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                minLength={8}
                 maxLength={100}
                 required
               />

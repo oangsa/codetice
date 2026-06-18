@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, Loader2, Lock } from "lucide-react";
+import { CheckCircle, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ onCancel }: { onCancel?: () => void }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -16,6 +17,10 @@ export function ChangePasswordForm() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,8 +32,8 @@ export function ChangePasswordForm() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
+    if (newPassword.length < 1) {
+      setError("New password cannot be empty.");
       return;
     }
 
@@ -61,7 +66,7 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {error ? (
         <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
@@ -82,16 +87,25 @@ export function ChangePasswordForm() {
           <Input
             id="current-password"
             name="currentPassword"
-            type="password"
+            type={showCurrentPassword ? "text" : "password"}
             placeholder="Enter your current password"
-            className="pl-9"
+            className="pl-9 pr-10"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
             autoComplete="current-password"
           />
+          <button
+            type="button"
+            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none cursor-pointer"
+          >
+            {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
       </div>
+
+      <Separator className="bg-black/10 dark:bg-white/10 my-2" />
 
       <div className="space-y-2">
         <Label htmlFor="new-password">New Password</Label>
@@ -100,18 +114,23 @@ export function ChangePasswordForm() {
           <Input
             id="new-password"
             name="newPassword"
-            type="password"
+            type={showNewPassword ? "text" : "password"}
             placeholder="Enter your new password"
-            className="pl-9"
+            className="pl-9 pr-10"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            minLength={8}
             maxLength={100}
             required
             autoComplete="new-password"
           />
+          <button
+            type="button"
+            onClick={() => setShowNewPassword(!showNewPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none cursor-pointer"
+          >
+            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
-        <p className="text-xs text-muted-foreground">Must be at least 8 characters.</p>
       </div>
 
       <div className="space-y-2">
@@ -121,23 +140,34 @@ export function ChangePasswordForm() {
           <Input
             id="confirm-password"
             name="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? "text" : "password"}
             placeholder="Confirm your new password"
-            className="pl-9"
+            className="pl-9 pr-10"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            minLength={8}
             maxLength={100}
             required
             autoComplete="new-password"
           />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none cursor-pointer"
+          >
+            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
       </div>
 
-      <div className="pt-1">
-        <Button type="submit" disabled={pending} className="gap-1.5">
+      <div className="pt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800/80 mt-1">
+        {onCancel && (
+          <Button type="button" variant="ghost" className="rounded-md" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" disabled={pending} className="gap-1.5 rounded-md">
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Change Password
+          Update Password
         </Button>
       </div>
     </form>

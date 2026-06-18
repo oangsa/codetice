@@ -9,11 +9,14 @@ export default async function QuestionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Problemset"
-        title="Questions"
-        description="Open a problem, run sample tests, and submit solutions from a contest-style workspace."
-      />
+      <div>
+        <div className="h-5 mb-3" />
+        <PageHeader
+          eyebrow="Problemset"
+          title="Questions"
+          description="Open a problem, run sample tests, and submit solutions from a contest-style workspace."
+        />
+      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {questions.map((question) => (
           <QuestionCard

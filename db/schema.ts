@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   username: varchar("username", { length: 50 }).notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: varchar("role", { length: 20 }).notNull().default("student"),
+  profilePicture: varchar("profile_picture", { length: 255 }).default("/avatars/avatar-1.png").notNull(),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
@@ -318,6 +319,9 @@ export const supportedLanguages = pgTable("supported_languages", {
   dockerImage: varchar("docker_image", { length: 255 }).notNull(),
   fileExtension: varchar("file_extension", { length: 20 }).notNull(),
   runCommand: text("run_command").notNull(),
+  editorLanguage: varchar("editor_language", { length: 50 }).notNull().default("plaintext"),
+  diagnosticsFormat: varchar("diagnostics_format", { length: 30 }).notNull().default("none"),
+  diagnosticsCommand: text("diagnostics_command"),
   defaultStarterCode: text("default_starter_code"),
   isEnabled: boolean("is_enabled").notNull().default(true),
 });

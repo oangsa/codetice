@@ -197,7 +197,9 @@ export async function runPythonCode({
       throw new Error("Unsupported grading runtime.");
     }
 
+    const workspaceFileName = `/workspace/${fileName}`;
     const resolvedRunCommand = finalRunCommand
+      .replaceAll("{file}", workspaceFileName)
       .replace("main.py", fileName)
       .replace("main.js", fileName)
       .replace("main.ts", fileName);

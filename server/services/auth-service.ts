@@ -14,11 +14,13 @@ function toSessionUser(user: {
   id: string;
   username: string;
   role: string;
+  profilePicture: string;
 }): SessionUser {
   return {
     userId: user.id,
     username: user.username,
     role: user.role as SessionUser["role"],
+    profilePicture: user.profilePicture,
   };
 }
 
@@ -49,6 +51,7 @@ export async function registerUser(input: { username: string; password: string }
       id: users.id,
       username: users.username,
       role: users.role,
+      profilePicture: users.profilePicture,
     });
 
   if (!user) {
@@ -85,6 +88,7 @@ export async function getUserById(userId: string) {
       id: true,
       username: true,
       role: true,
+      profilePicture: true,
       createdAt: true,
     },
   });
@@ -232,4 +236,63 @@ async function updateUserPassword(userId: string, newPassword: string) {
     .update(passwordResetTokens)
     .set({ usedAt: new Date() })
     .where(and(eq(passwordResetTokens.userId, userId), isNull(passwordResetTokens.usedAt)));
+}
+
+export async function updateProfilePicture(userId: string, profilePicture: string) {
+  const db = getDb();
+  
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      profilePicture,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      profilePicture: users.profilePicture,
+    });
+
+  if (!updatedUser) {
+    throw new Error("User not found.");
+  }
+
+  return toSessionUser(updatedUser);
+}
+
+export async function updateUsername(userId: string, newUsername: string) {
+  const db = getDb();
+  
+  const existing = await db.query.users.findFirst({
+    where: eq(users.username, newUsername),
+  });
+  
+  if (existing) {
+    if (existing.id === userId) {
+      return toSessionUser(existing);
+    }
+    throw new Error("Username already exists.");
+  }
+
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      username: newUsername,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      profilePicture: users.profilePicture,
+    });
+
+  if (!updatedUser) {
+    throw new Error("User not found.");
+  }
+
+  return toSessionUser(updatedUser);
 }

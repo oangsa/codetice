@@ -27,8 +27,8 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (newPassword.length < 1) {
+      setError("Password cannot be empty.");
       return;
     }
 
@@ -59,8 +59,8 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
   }
 
   return (
-    <Card className="mx-auto w-full max-w-sm rounded-xl border-slate-200 shadow-sm">
-      <CardHeader className="border-b border-slate-200 bg-slate-50/70 pb-5">
+    <Card className="mx-auto w-full max-w-sm rounded-xl border-slate-200 dark:border-slate-800 shadow-sm">
+      <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-800 pb-5">
         <CardTitle className="text-xl">Reset Password</CardTitle>
         <CardDescription>Use the one-time reset link or paste the reset token below.</CardDescription>
       </CardHeader>
@@ -104,7 +104,6 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="pl-9"
-                minLength={8}
                 maxLength={100}
                 autoComplete="new-password"
                 placeholder="Enter your new password"
@@ -123,7 +122,6 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pl-9"
-                minLength={8}
                 maxLength={100}
                 autoComplete="new-password"
                 placeholder="Confirm your new password"

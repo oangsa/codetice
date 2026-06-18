@@ -9,7 +9,6 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { SUPPORTED_LANGUAGE_SLUGS } from "@/lib/constants";
 
 export function LanguageSettingsForm({
   languages,
@@ -21,6 +20,7 @@ export function LanguageSettingsForm({
     dockerImage: string;
     fileExtension: string;
     runCommand: string;
+    editorLanguage: string;
     defaultStarterCode: string | null;
     isEnabled: boolean;
   }>;
@@ -40,6 +40,7 @@ export function LanguageSettingsForm({
         dockerImage: String(formData.get("dockerImage") ?? ""),
         fileExtension: String(formData.get("fileExtension") ?? ""),
         runCommand: String(formData.get("runCommand") ?? ""),
+        editorLanguage: String(formData.get("editorLanguage") ?? "") || "plaintext",
         defaultStarterCode: String(formData.get("defaultStarterCode") ?? ""),
         isEnabled: formData.get("isEnabled") === "on",
       }),
@@ -59,12 +60,8 @@ export function LanguageSettingsForm({
 
   return (
     <div className="grid gap-4">
-      {SUPPORTED_LANGUAGE_SLUGS.map((slug) => {
-        const language = languages.find((item) => item.slug === slug);
-        if (!language) {
-          return null;
-        }
-
+      {languages.map((language) => {
+        const slug = language.slug;
         return (
           <form
             key={slug}
@@ -90,6 +87,9 @@ export function LanguageSettingsForm({
                 <Input id={`run-${slug}`} name="runCommand" defaultValue={language.runCommand} />
               </FormField>
             </div>
+            <FormField label="Editor language" htmlFor={`editor-${slug}`}>
+              <Input id={`editor-${slug}`} name="editorLanguage" defaultValue={language.editorLanguage} />
+            </FormField>
             <FormField label="Default starter code" htmlFor={`starter-${slug}`}>
               <Textarea id={`starter-${slug}`} name="defaultStarterCode" defaultValue={language.defaultStarterCode ?? ""} />
             </FormField>

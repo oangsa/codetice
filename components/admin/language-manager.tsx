@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -42,6 +42,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type Language = {
   id: string;
@@ -50,9 +51,26 @@ export type Language = {
   dockerImage: string;
   fileExtension: string;
   runCommand: string;
+  editorLanguage: string;
+  diagnosticsFormat: "none" | "pyright" | "compiler";
+  diagnosticsCommand: string | null;
   defaultStarterCode: string | null;
   isEnabled: boolean;
 };
+
+function getCompatibleMonacoLanguage(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (["pyright", "python-lsp", "python-lsp-server", "pylsp"].includes(normalized)) {
+    return "python";
+  }
+
+  if (["c", "cc", "c++", "cplusplus", "clang", "clangd"].includes(normalized)) {
+    return "cpp";
+  }
+
+  return normalized;
+}
 
 // ─── Create / Edit dialog ────────────────────────────────────────────────────
 
@@ -67,6 +85,41 @@ function LanguageDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [monacoLanguageIds, setMonacoLanguageIds] = useState<string[]>([]);
+  const [diagnosticsFormat, setDiagnosticsFormat] = useState<"none" | "pyright" | "compiler">(
+    language?.diagnosticsFormat ?? "none",
+  );
+  const monacoLanguageListId = useId();
+
+  const monacoLanguageIdSet = useMemo(
+    () => new Set(monacoLanguageIds),
+    [monacoLanguageIds],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void import("monaco-editor").then((monaco) => {
+      if (cancelled) {
+        return;
+      }
+
+      setMonacoLanguageIds(
+        monaco.languages
+          .getLanguages()
+          .map((item) => item.id)
+          .sort((a, b) => a.localeCompare(b)),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -76,9 +129,19 @@ function LanguageDialog({
       dockerImage: String(formData.get("dockerImage") ?? ""),
       fileExtension: String(formData.get("fileExtension") ?? ""),
       runCommand: String(formData.get("runCommand") ?? ""),
+      editorLanguage: getCompatibleMonacoLanguage(String(formData.get("editorLanguage") ?? "") || "plaintext"),
+      diagnosticsFormat: String(formData.get("diagnosticsFormat") ?? "none"),
+      diagnosticsCommand: String(formData.get("diagnosticsCommand") ?? "") || null,
       defaultStarterCode: String(formData.get("defaultStarterCode") ?? "") || null,
       isEnabled: formData.get("isEnabled") === "on",
     };
+
+    const editorLanguage = String(payload.editorLanguage);
+    if (monacoLanguageIds.length > 0 && !monacoLanguageIdSet.has(editorLanguage)) {
+      toast.error(`Unknown Monaco language id "${editorLanguage}".`);
+      setPending(false);
+      return;
+    }
 
     if (!language) {
       // Create — include slug
@@ -102,7 +165,7 @@ function LanguageDialog({
       return;
     }
 
-    toast.success(language ? "Language updated." : "Language created.");
+    toast.success(language ? "Language updated and runtime is ready." : "Language created and runtime is ready.");
     setOpen(false);
     setPending(false);
     onSaved();
@@ -110,16 +173,23 @@ function LanguageDialog({
 
   const isEdit = !!language;
 
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (nextOpen) {
+      setDiagnosticsFormat(language?.diagnosticsFormat ?? "none");
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit language" : "Add language"}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Update the runtime configuration for this language."
-              : "Define a new language runtime. The slug is permanent and cannot be changed later."}
+              ? "Update the runtime configuration for this language. New or re-enabled Docker images are prepared before saving."
+              : "Define a new language runtime. The Docker image is prepared before the language is saved."}
           </DialogDescription>
         </DialogHeader>
 
@@ -188,6 +258,26 @@ function LanguageDialog({
           </div>
 
           <FormField
+            label="Editor language"
+            htmlFor="editorLanguage"
+            description="Stored as a real Monaco language id. Diagnostics can come from Pyright or compiler output."
+          >
+            <Input
+              id="editorLanguage"
+              name="editorLanguage"
+              list={monacoLanguageListId}
+              placeholder="e.g. python, cpp, javascript, plaintext"
+              defaultValue={getCompatibleMonacoLanguage(language?.editorLanguage ?? "plaintext")}
+              required
+            />
+            <datalist id={monacoLanguageListId}>
+              {monacoLanguageIds.map((languageId) => (
+                <option key={languageId} value={languageId} />
+              ))}
+            </datalist>
+          </FormField>
+
+          <FormField
             label="Run command"
             htmlFor="runCommand"
             description="Command executed inside the container. Use {file} as the script placeholder."
@@ -200,6 +290,46 @@ function LanguageDialog({
               required
             />
           </FormField>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              label="Diagnostics format"
+              htmlFor="diagnosticsFormat"
+              description="Choose how editor diagnostics are produced for this language."
+            >
+              <input type="hidden" name="diagnosticsFormat" value={diagnosticsFormat} />
+              <Select value={diagnosticsFormat} onValueChange={(value) => setDiagnosticsFormat(value as "none" | "pyright" | "compiler")}>
+                <SelectTrigger id="diagnosticsFormat" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="pyright">Pyright</SelectItem>
+                  <SelectItem value="compiler">Compiler</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Diagnostics command"
+              htmlFor="diagnosticsCommand"
+              description="Optional for Pyright, required for compiler diagnostics. Use {file} as the placeholder."
+            >
+              <Input
+                id="diagnosticsCommand"
+                name="diagnosticsCommand"
+                placeholder={
+                  diagnosticsFormat === "compiler"
+                    ? "e.g. gcc -fsyntax-only -x c {file}"
+                    : diagnosticsFormat === "pyright"
+                      ? "Usually not needed for Pyright"
+                      : "Optional"
+                }
+                defaultValue={language?.diagnosticsCommand ?? ""}
+                required={diagnosticsFormat === "compiler"}
+              />
+            </FormField>
+          </div>
 
           <FormField label="Default starter code" htmlFor="defaultStarterCode">
             <Textarea
@@ -226,7 +356,7 @@ function LanguageDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {isEdit ? "Save changes" : "Create language"}
+              {pending ? "Preparing runtime..." : isEdit ? "Save changes" : "Create language"}
             </Button>
           </DialogFooter>
         </form>
@@ -259,6 +389,9 @@ function LanguageCard({
         dockerImage: language.dockerImage,
         fileExtension: language.fileExtension,
         runCommand: language.runCommand,
+        editorLanguage: language.editorLanguage,
+        diagnosticsFormat: language.diagnosticsFormat,
+        diagnosticsCommand: language.diagnosticsCommand,
         defaultStarterCode: language.defaultStarterCode,
         isEnabled: !language.isEnabled,
       }),
@@ -406,6 +539,21 @@ function LanguageCard({
               <code className="text-foreground">{language.runCommand}</code>
             </div>
           </div>
+          <div className="flex items-start gap-2">
+            <Terminal className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-muted-foreground">Diagnostics</p>
+              <code className="text-foreground">{language.diagnosticsFormat}</code>
+              {language.diagnosticsCommand ? <p className="mt-1"><code className="text-foreground">{language.diagnosticsCommand}</code></p> : null}
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <FileCode className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-muted-foreground">Editor language</p>
+              <code className="text-foreground">{language.editorLanguage}</code>
+            </div>
+          </div>
           {language.defaultStarterCode && (
             <div className="flex items-start gap-2">
               <FileCode className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -482,7 +630,7 @@ export function LanguageManager({
 
       {/* Language cards */}
       {languages.length === 0 ? (
-        <div className="rounded-xl border border-dashed py-16 text-center text-muted-foreground">
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-900/40 py-16 text-center text-muted-foreground">
           <FileCode className="mx-auto mb-3 h-10 w-10 opacity-40" />
           <p className="text-sm">No languages configured yet.</p>
           <p className="mt-1 text-xs">Add the first language to get started.</p>

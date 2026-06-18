@@ -79,6 +79,9 @@ const statements = [
     docker_image varchar(255) not null,
     file_extension varchar(20) not null,
     run_command text not null,
+    editor_language varchar(50) not null default 'plaintext',
+    diagnostics_format varchar(30) not null default 'none',
+    diagnostics_command text,
     default_starter_code text,
     is_enabled boolean not null default true
   );`,
@@ -197,6 +200,9 @@ const statements = [
   `alter table grading_jobs add column if not exists locked_by varchar(255);`,
   `alter table grading_jobs add column if not exists lease_expires_at timestamp;`,
   `alter table submissions add column if not exists is_late boolean not null default false;`,
+  `alter table supported_languages add column if not exists editor_language varchar(50) not null default 'plaintext';`,
+  `alter table supported_languages add column if not exists diagnostics_format varchar(30) not null default 'none';`,
+  `alter table supported_languages add column if not exists diagnostics_command text;`,
   `create unique index if not exists question_scores_user_question_unique on question_scores (user_id, question_id);`,
   `create index if not exists questions_published_created_at_idx on questions (is_published, created_at);`,
   `create index if not exists questions_created_at_idx on questions (created_at);`,
@@ -216,6 +222,7 @@ const statements = [
   `create index if not exists password_reset_tokens_user_created_at_idx on password_reset_tokens (user_id, created_at);`,
   `create unique index if not exists idempotency_keys_identifier_action_key_unique on idempotency_keys (identifier, action, key);`,
   `create index if not exists idempotency_keys_action_created_at_idx on idempotency_keys (action, created_at);`,
+  `alter table users add column if not exists profile_picture varchar(255) not null default '/avatars/avatar-1.png';`,
 ];
 
 async function main() {

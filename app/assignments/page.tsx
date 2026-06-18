@@ -16,7 +16,7 @@ export default async function AssignmentsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-950">Assignments</h1>
-          <p className="text-sm text-slate-500">Track classroom-specific question sets and due dates.</p>
+          <p className="text-sm text-slate-500">Track workspace-specific question sets and due dates.</p>
         </div>
         {session.role === "admin" ? (
           <Button asChild>
@@ -32,7 +32,7 @@ export default async function AssignmentsPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <CardTitle>{assignment.title}</CardTitle>
-                  <CardDescription>{assignment.classroom?.name ?? "No classroom"}</CardDescription>
+                  <CardDescription>{assignment.classroom?.name ?? "No workspace"}</CardDescription>
                 </div>
                 {assignment.dueAt ? <Badge variant="secondary">Due {formatDate(assignment.dueAt)}</Badge> : null}
               </div>

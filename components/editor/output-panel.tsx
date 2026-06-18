@@ -7,7 +7,7 @@ export function OutputPanel({ title, value }: { title: string; value: string }) 
         <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
-        <pre className="min-h-36 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+        <pre className="min-h-36 whitespace-pre-wrap rounded-md border border-slate-200 dark:border-slate-800 bg-slate-800 p-4 text-sm text-slate-900">
           {value || "No output yet."}
         </pre>
       </CardContent>

@@ -2,6 +2,7 @@ export type SessionUser = {
   userId: string;
   username: string;
   role: "student" | "admin";
+  profilePicture: string;
 };
 
 export type VisibleTestcaseResult = {

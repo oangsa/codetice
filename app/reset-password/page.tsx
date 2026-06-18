@@ -24,7 +24,7 @@ export default async function ResetPasswordPage({
     : resolvedSearchParams.token ?? "";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Codetice</h1>

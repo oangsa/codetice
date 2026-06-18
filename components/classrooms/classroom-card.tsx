@@ -19,10 +19,10 @@ export function ClassroomCard({
   return (
     <Link
       href={`/classrooms/${classroom.id}`}
-      className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+      className="group block rounded-[30px] border bg-card p-6 text-card-foreground shadow-sm transition-all duration-300 ease-in-out hover:bg-[#dcdce3] dark:hover:bg-slate-900/20"
     >
       <div className="min-w-0">
-        <p className="truncate font-semibold text-slate-900 group-hover:text-sky-700">
+        <p className="truncate font-semibold text-slate-900 dark:text-white">
           {classroom.name}
         </p>
         <p className="mt-0.5 text-xs text-slate-500">TA {classroom.creatorName}</p>
@@ -38,7 +38,7 @@ export function ClassroomCard({
           <BookOpen className="h-3.5 w-3.5" />
           {classroom.questionCount}
         </span>
-        <span className="ml-auto font-medium text-slate-700">{classroom.progressPercent}%</span>
+        <span className="ml-auto font-medium text-slate-700 dark:text-slate-300">{classroom.progressPercent}%</span>
       </div>
 
       {/* Progress bar */}
@@ -46,3 +46,4 @@ export function ClassroomCard({
     </Link>
   );
 }
+
