@@ -60,7 +60,7 @@ USER nextjs
 EXPOSE 3000
 
 # standalone mode emits a self-contained server.js
-CMD ["node", "server.js"]
+CMD ["bun", "server.js"]
 
 # =============================================================
 # Stage 4 - worker

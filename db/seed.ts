@@ -22,6 +22,8 @@ async function main() {
       fileExtension: "py",
       runCommand: "python /workspace/main.py",
       editorLanguage: "python",
+      diagnosticsFormat: "pyright",
+      diagnosticsCommand: null,
       defaultStarterCode: "print('')",
       isEnabled: true,
     },
@@ -32,6 +34,8 @@ async function main() {
       fileExtension: "js",
       runCommand: "node /workspace/main.js",
       editorLanguage: "javascript",
+      diagnosticsFormat: "none",
+      diagnosticsCommand: null,
       defaultStarterCode: "console.log('');",
       isEnabled: true,
     },
@@ -42,6 +46,8 @@ async function main() {
       fileExtension: "ts",
       runCommand: "bun /workspace/main.ts",
       editorLanguage: "typescript",
+      diagnosticsFormat: "none",
+      diagnosticsCommand: null,
       defaultStarterCode: "console.log('');",
       isEnabled: true,
     },
@@ -57,7 +63,11 @@ async function main() {
     } else if (existingLanguage.editorLanguage === "plaintext") {
       await db
         .update(supportedLanguages)
-        .set({ editorLanguage: language.editorLanguage })
+        .set({
+          editorLanguage: language.editorLanguage,
+          diagnosticsFormat: language.diagnosticsFormat,
+          diagnosticsCommand: language.diagnosticsCommand,
+        })
         .where(eq(supportedLanguages.id, existingLanguage.id));
     }
   }

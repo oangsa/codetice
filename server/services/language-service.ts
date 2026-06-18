@@ -11,6 +11,8 @@ export type LanguageInput = {
   fileExtension: string;
   runCommand: string;
   editorLanguage?: string | null;
+  diagnosticsFormat?: "none" | "pyright" | "compiler" | null;
+  diagnosticsCommand?: string | null;
   defaultStarterCode?: string | null;
   isEnabled: boolean;
 };
@@ -19,6 +21,8 @@ function normalizeLanguageInput(input: LanguageInput) {
   return {
     ...input,
     editorLanguage: input.editorLanguage?.trim() || "plaintext",
+    diagnosticsFormat: input.diagnosticsFormat ?? "none",
+    diagnosticsCommand: input.diagnosticsCommand?.trim() || null,
   };
 }
 
@@ -80,6 +84,8 @@ export async function updateSupportedLanguage(
       fileExtension: normalizedInput.fileExtension,
       runCommand: normalizedInput.runCommand,
       editorLanguage: normalizedInput.editorLanguage,
+      diagnosticsFormat: normalizedInput.diagnosticsFormat,
+      diagnosticsCommand: normalizedInput.diagnosticsCommand,
       defaultStarterCode: normalizedInput.defaultStarterCode ?? null,
       isEnabled: normalizedInput.isEnabled,
     })

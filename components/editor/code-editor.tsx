@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IDEMPOTENCY_KEY_HEADER, PYTHON_COMPLETIONS } from "@/lib/constants";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
+const EDITOR_MARKER_OWNER = "language-diagnostics";
+
 type ResultRow = {
   testcaseId: string;
   name: string | null;
@@ -114,6 +116,7 @@ export function CodeEditor({
     () => ({
       minimap: { enabled: false },
       fontSize: 14,
+      fontFamily: "Agave, 'Agave Nerd Font', 'Cascadia Code', 'Fira Code', ui-monospace, monospace",
       automaticLayout: true,
       roundedSelection: false,
       scrollBeyondLastLine: false,
@@ -191,31 +194,25 @@ export function CodeEditor({
       return;
     }
 
-    if (editorLanguage !== "python") {
-      diagnosticsAbortRef.current?.abort();
-      void import("monaco-editor").then((monaco) => {
-        const model = editorRef.current?.getModel();
-        if (model) {
-          monaco.editor.setModelMarkers(model, "pyright", []);
-        }
-      });
-      return;
-    }
-
     diagnosticsAbortRef.current?.abort();
     const controller = new AbortController();
     diagnosticsAbortRef.current = controller;
 
     const timeout = setTimeout(async () => {
       try {
-        const response = await fetch("/api/python/diagnostics", {
+        const response = await fetch("/api/languages/diagnostics", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sourceCode: code }),
+          body: JSON.stringify({ sourceCode: code, language: selectedLanguage }),
           signal: controller.signal,
         });
 
         if (!response.ok) {
+          const monaco = await import("monaco-editor");
+          const model = editorRef.current?.getModel();
+          if (model) {
+            monaco.editor.setModelMarkers(model, EDITOR_MARKER_OWNER, []);
+          }
           return;
         }
 
@@ -235,7 +232,7 @@ export function CodeEditor({
         if (model) {
           monaco.editor.setModelMarkers(
             model,
-            "pyright",
+            EDITOR_MARKER_OWNER,
             payload.diagnostics.map((diagnostic) => ({
               message: diagnostic.message,
               startLineNumber: diagnostic.line,
@@ -260,7 +257,7 @@ export function CodeEditor({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [code, editorLanguage]);
+  }, [code, selectedLanguage]);
 
   useEffect(() => {
     if (!activeSubmissionId) {

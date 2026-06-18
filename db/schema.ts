@@ -320,6 +320,8 @@ export const supportedLanguages = pgTable("supported_languages", {
   fileExtension: varchar("file_extension", { length: 20 }).notNull(),
   runCommand: text("run_command").notNull(),
   editorLanguage: varchar("editor_language", { length: 50 }).notNull().default("plaintext"),
+  diagnosticsFormat: varchar("diagnostics_format", { length: 30 }).notNull().default("none"),
+  diagnosticsCommand: text("diagnostics_command"),
   defaultStarterCode: text("default_starter_code"),
   isEnabled: boolean("is_enabled").notNull().default(true),
 });

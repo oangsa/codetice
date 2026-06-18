@@ -2,6 +2,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: "Agave";
+  src: local("Agave"), local("Agave Nerd Font");
+  font-display: swap;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -211,7 +217,7 @@ a {
 
 pre,
 code {
-  font-family: ui-monospace, "Fira Code", "Cascadia Code", monospace;
+  font-family: "Agave", "Agave Nerd Font", ui-monospace, "Fira Code", "Cascadia Code", monospace;
 }
 
 ::selection {
