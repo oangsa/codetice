@@ -232,8 +232,8 @@ export function NewQuestionForm({
           </FormField>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Accepted Languages</label>
-            <div className="flex flex-wrap gap-6 rounded-md border border-slate-200 p-4 bg-slate-50">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Accepted Languages</label>
+            <div className="flex flex-wrap gap-6 rounded-md border border-slate-200 dark:border-slate-800 p-4 bg-slate-800">
               {languages.map((lang) => (
                 <label key={lang.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                   <input
@@ -266,9 +266,9 @@ export function NewQuestionForm({
             </FormField>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-slate-900">Published</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">Published</p>
               <p className="text-xs text-slate-500">Visible to students immediately.</p>
             </div>
             <Switch name="isPublished" />
@@ -289,7 +289,7 @@ export function NewQuestionForm({
                 className="sr-only"
                 onChange={handleTxtUpload}
               />
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-100 px-3 text-xs font-medium text-slate-700 dark:text-slate-300 shadow-sm hover:bg-slate-800">
                 <Upload className="h-3.5 w-3.5" />
                 Upload .txt
               </span>

@@ -1,19 +1,10 @@
 import Link from "next/link";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 import { ClassroomCard } from "@/components/classrooms/classroom-card";
 import { CreateClassroomForm } from "@/components/classrooms/create-classroom-form";
 import { PageHeader } from "@/components/commons/page-header";
-import { SurfaceCard } from "@/components/commons/surface-card";
 import { JoinClassroomForm } from "@/components/classrooms/join-classroom-form";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth";
 import { listClassroomsWithStats } from "@/server/services/classroom-service";
 
@@ -24,50 +15,31 @@ export default async function ClassroomsDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Workspace"
-        title="Classrooms"
-        description="Review active classrooms, open a teaching workspace, or join a class with an invite code."
-        actions={
-          <>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4" />
-                  {isAdmin ? "Create Classroom" : "Join classroom"}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{isAdmin ? "Create a classroom" : "Join a classroom"}</DialogTitle>
-                </DialogHeader>
-                {isAdmin ? <CreateClassroomForm /> : <JoinClassroomForm />}
-              </DialogContent>
-            </Dialog>
-          </>
-        }
-      />
+      <div>
+        <div className="h-5 mb-3" />
+        <PageHeader
+          eyebrow="Overview"
+          title="Workspaces"
+          description="Review active workspaces, open a teaching workspace, or join a workspace with an invite code."
+          actions={isAdmin ? <CreateClassroomForm /> : <JoinClassroomForm />}
+        />
+      </div>
 
-      <SurfaceCard
-        title="Workspace Directory"
-        description={`${classrooms.length} classroom${classrooms.length === 1 ? "" : "s"} available in your account.`}
-      >
-        {classrooms.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 py-16 text-center">
-            <BookOpen className="mb-3 h-10 w-10 text-slate-300" />
-            <p className="font-medium text-slate-600">No classrooms yet</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Join a classroom with an invite code to get started.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {classrooms.map((classroom) => (
-              <ClassroomCard key={classroom.id} classroom={classroom} />
-            ))}
-          </div>
-        )}
-      </SurfaceCard>
+      {classrooms.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg py-16 text-center">
+          <BookOpen className="mb-3 h-10 w-10 text-slate-300" />
+          <p className="font-medium text-slate-600">No workspaces yet</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Join a workspace with an invite code to get started.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {classrooms.map((classroom) => (
+            <ClassroomCard key={classroom.id} classroom={classroom} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

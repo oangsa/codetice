@@ -5,6 +5,7 @@ import { Check, ChevronDown, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface MultiSelectOption {
   value: string;
@@ -131,37 +132,39 @@ export function MultiSelect({
           {options.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">No options available.</div>
           ) : (
-            <ul className="max-h-60 overflow-y-auto p-1">
-              {options.map((opt) => {
-                const isSelected = value.includes(opt.value);
-                return (
-                  <li
-                    key={opt.value}
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => toggle(opt.value)}
-                    className={cn(
-                      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "focus:bg-accent focus:text-accent-foreground",
-                      isSelected && "bg-accent/50",
-                    )}
-                  >
-                    <span
+            <ScrollArea className="max-h-60">
+              <ul className="p-1">
+                {options.map((opt) => {
+                  const isSelected = value.includes(opt.value);
+                  return (
+                    <li
+                      key={opt.value}
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => toggle(opt.value)}
                       className={cn(
-                        "mr-2 flex h-4 w-4 items-center justify-center rounded border transition-colors",
-                        isSelected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-muted-foreground/40",
+                        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
+                        "hover:bg-accent hover:text-accent-foreground",
+                        "focus:bg-accent focus:text-accent-foreground",
+                        isSelected && "bg-accent/50",
                       )}
                     >
-                      {isSelected && <Check className="h-3 w-3" />}
-                    </span>
-                    {opt.label}
-                  </li>
-                );
-              })}
-            </ul>
+                      <span
+                        className={cn(
+                          "mr-2 flex h-4 w-4 items-center justify-center rounded border transition-colors",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-muted-foreground/40",
+                        )}
+                      >
+                        {isSelected && <Check className="h-3 w-3" />}
+                      </span>
+                      {opt.label}
+                    </li>
+                  );
+                })}
+              </ul>
+            </ScrollArea>
           )}
         </div>
       )}

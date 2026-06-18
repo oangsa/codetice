@@ -18,7 +18,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200 bg-white p-5 shadow-sm",
+        "rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-800 p-5 shadow-sm",
         className,
       )}
     >
@@ -28,7 +28,7 @@ export function MetricCard({
           <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{value}</p>
           {hint ? <p className="mt-1 text-sm text-slate-400">{hint}</p> : null}
         </div>
-        {icon ? <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-slate-600">{icon}</div> : null}
+        {icon ? <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-slate-100 p-2 text-slate-600 dark:text-slate-400">{icon}</div> : null}
       </div>
     </div>
   );

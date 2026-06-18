@@ -13,6 +13,7 @@ export type SessionPayload = {
   userId: string;
   username: string;
   role: "student" | "admin";
+  profilePicture: string;
 };
 
 export async function encryptSession(payload: SessionPayload) {

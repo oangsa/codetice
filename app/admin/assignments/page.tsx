@@ -16,7 +16,7 @@ export default async function AdminAssignmentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Create assignment</CardTitle>
-          <CardDescription>Attach published questions to a classroom with schedule controls.</CardDescription>
+          <CardDescription>Attach published questions to a workspace with schedule controls.</CardDescription>
         </CardHeader>
         <CardContent>
           <CreateAssignmentForm classrooms={classrooms.map((item) => ({ id: item.id, name: item.name }))} questions={questions.map((item) => ({ id: item.id, title: item.title }))} />
@@ -31,7 +31,7 @@ export default async function AdminAssignmentsPage() {
           {assignments.map((assignment) => (
             <div key={assignment.id} className="rounded-md border border-slate-200 px-4 py-3">
               <p className="font-medium text-slate-900">{assignment.title}</p>
-              <p className="text-sm text-slate-500">{assignment.classroom?.name ?? "No classroom"}</p>
+              <p className="text-sm text-slate-500">{assignment.classroom?.name ?? "No workspace"}</p>
             </div>
           ))}
         </CardContent>

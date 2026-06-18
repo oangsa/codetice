@@ -43,9 +43,9 @@ export function AdminDropdown() {
           // Base
           "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium outline-none transition-colors",
           // Idle
-          "bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800",
+          "bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-900/30",
           // Active (we're somewhere inside /admin)
-          isActive && "bg-amber-100 text-amber-900 ring-1 ring-amber-300",
+          isActive && "bg-amber-100 text-amber-900 ring-1 ring-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:ring-amber-800/80",
           // Focus-visible ring
           "focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1",
         )}
@@ -80,7 +80,7 @@ export function AdminDropdown() {
                   className={cn(
                     "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors",
                     active
-                      ? "bg-amber-50 text-amber-900"
+                      ? "bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
                       : "text-foreground hover:bg-accent",
                   )}
                 >
@@ -88,7 +88,7 @@ export function AdminDropdown() {
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
                       active
-                        ? "bg-amber-200/60 text-amber-700"
+                        ? "bg-amber-200/60 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                         : "bg-muted text-muted-foreground",
                     )}
                   >

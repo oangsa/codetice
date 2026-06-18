@@ -29,33 +29,46 @@ export function AuthForm({
     setPending(true);
     setError(null);
 
-    const payload = {
-      username: String(formData.get("username") ?? ""),
-      password: String(formData.get("password") ?? ""),
-    };
+    try {
+      const payload = {
+        username: String(formData.get("username") ?? "").trim(),
+        password: String(formData.get("password") ?? ""),
+      };
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const data = (await response.json()) as { message?: string };
+      let data: { message?: string } = {};
+      const responseText = await response.text();
+      try {
+        if (responseText) {
+          data = JSON.parse(responseText);
+        }
+      } catch (e) {
+        // Safe fallback for non-JSON responses
+      }
 
-    if (!response.ok) {
-      setError(data.message ?? "Request failed.");
+      if (!response.ok) {
+        setError(data.message ?? (responseText || "Request failed."));
+        setPending(false);
+        return;
+      }
+
+      toast.success(endpoint.includes("register") ? "Account created." : "Logged in.");
+      router.push("/classrooms");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected network error occurred.");
       setPending(false);
-      return;
     }
-
-    toast.success(endpoint.includes("register") ? "Account created." : "Logged in.");
-    router.push("/classrooms");
-    router.refresh();
   }
 
   return (
-    <Card className="mx-auto w-full max-w-sm rounded-xl border-slate-200 shadow-sm">
-      <CardHeader className="border-b border-slate-200 bg-slate-50/70 pb-5">
+    <Card className="mx-auto w-full max-w-sm rounded-[30px] border bg-card shadow-sm">
+      <CardHeader className="border-b pb-5">
         <CardTitle className="text-xl">{title}</CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
@@ -67,7 +80,7 @@ export function AuthForm({
           }}
         >
           {error ? (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+            <div className="rounded-md bg-red-50 dark:bg-red-950/20 px-3 py-2 text-sm text-red-600 dark:text-red-400">
               {error}
             </div>
           ) : null}
@@ -92,7 +105,6 @@ export function AuthForm({
                 id="password"
                 name="password"
                 type="password"
-                minLength={8}
                 required
                 className="pl-9"
                 placeholder="Enter your password"

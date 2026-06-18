@@ -482,7 +482,7 @@ export function LanguageManager({
 
       {/* Language cards */}
       {languages.length === 0 ? (
-        <div className="rounded-xl border border-dashed py-16 text-center text-muted-foreground">
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-900/40 py-16 text-center text-muted-foreground">
           <FileCode className="mx-auto mb-3 h-10 w-10 opacity-40" />
           <p className="text-sm">No languages configured yet.</p>
           <p className="mt-1 text-xs">Add the first language to get started.</p>

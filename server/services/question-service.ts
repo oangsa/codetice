@@ -47,7 +47,7 @@ export async function listQuestionsForUser(user?: SessionUser | null) {
 }
 
 export async function listAdminQuestions() {
-  return listQuestionsForUser({ userId: "", username: "admin", role: "admin" });
+  return listQuestionsForUser({ userId: "", username: "admin", role: "admin", profilePicture: "" });
 }
 
 export async function getQuestionBySlug(slug: string, user?: SessionUser | null) {

@@ -65,11 +65,11 @@ export default async function SubmissionDetailPage(props: {
               </div>
               {result.errorMessage ? (
                 session.role === "admin" ? (
-                  <pre className="rounded-md bg-slate-800 p-3 text-xs text-slate-100 whitespace-pre-wrap">
+                  <pre className="rounded-md bg-slate-800 p-3 text-xs text-white whitespace-pre-wrap">
                     {result.errorMessage}
                   </pre>
                 ) : (
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                  <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-slate-800 p-3 text-xs text-slate-700 dark:text-slate-300">
                     {formatSubmissionStatusLabel(result.status)}
                   </div>
                 )

@@ -1,19 +1,81 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
-    <table
-      ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
-      {...props}
-    />
-  </div>
-))
+>(({ className, ...props }, ref) => {
+  const [showRightShadow, setShowRightShadow] = React.useState(false)
+  const [showLeftShadow, setShowLeftShadow] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  const checkScroll = React.useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const viewport = container.querySelector("[data-radix-scroll-area-viewport]")
+    if (!viewport) return
+
+    const { scrollLeft, scrollWidth, clientWidth } = viewport
+    const isScrollable = scrollWidth > clientWidth
+
+    setShowLeftShadow(isScrollable && scrollLeft > 0)
+    // Use a 2px threshold for scroll precision
+    setShowRightShadow(isScrollable && scrollLeft + clientWidth < scrollWidth - 2)
+  }, [])
+
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const viewport = container.querySelector("[data-radix-scroll-area-viewport]")
+    if (!viewport) return
+
+    checkScroll()
+
+    viewport.addEventListener("scroll", checkScroll)
+    const resizeObserver = new ResizeObserver(() => {
+      checkScroll()
+    })
+    resizeObserver.observe(viewport)
+    resizeObserver.observe(container)
+
+    return () => {
+      viewport.removeEventListener("scroll", checkScroll)
+      resizeObserver.disconnect()
+    }
+  }, [checkScroll])
+
+  return (
+    <div ref={containerRef} className="relative w-full overflow-hidden">
+      <ScrollArea className="w-full">
+        <table
+          ref={ref}
+          className={cn("w-full caption-bottom text-sm", className)}
+          {...props}
+        />
+      </ScrollArea>
+
+      {/* Left scroll shadow indicator */}
+      <div
+        className={cn(
+          "absolute left-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-r from-slate-900/[0.08] dark:from-black/40 to-transparent z-10 transition-opacity duration-300",
+          showLeftShadow ? "opacity-100" : "opacity-0"
+        )}
+      />
+
+      {/* Right scroll shadow indicator */}
+      <div
+        className={cn(
+          "absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-slate-900/[0.08] dark:from-black/40 to-transparent z-10 transition-opacity duration-300",
+          showRightShadow ? "opacity-100" : "opacity-0"
+        )}
+      />
+    </div>
+  )
+})
 Table.displayName = "Table"
 
 const TableHeader = React.forwardRef<

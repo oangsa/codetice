@@ -60,7 +60,7 @@ export function CreateAssignmentForm({
         <Textarea id="description" name="description" />
       </FormField>
       <div className="grid gap-4 md:grid-cols-3">
-        <FormField label="Classroom" htmlFor="classroomId">
+        <FormField label="Workspace" htmlFor="classroomId">
           <select id="classroomId" name="classroomId" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm">
             {classrooms.map((classroom) => (
               <option key={classroom.id} value={classroom.id}>

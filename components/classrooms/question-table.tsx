@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -186,13 +187,15 @@ export function QuestionTable({
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+      <div className="rounded-[30px] border bg-[var(--tint-sm)] p-2 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-slate-200 dark:border-slate-800/60">
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm font-semibold text-slate-700 mr-1">
-            Questions ({filtered.length})
+          <p className="pl-2 mr-1 text-sm font-semibold text-slate-700">
+            Questions
           </p>
+
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
             <Input
               placeholder="Search by name"
               value={search}
@@ -200,43 +203,43 @@ export function QuestionTable({
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-48 pl-8 h-9 bg-white shadow-sm"
+              className="h-9 w-64 pl-8 pr-24 rounded-full"
             />
-          </div>
 
-          <Button
-            type="button"
-            variant={activeFilterCount > 0 ? "default" : "outline"}
-            size="sm"
-            onClick={handleFilterDialogOpen}
-            className="h-9 shadow-sm gap-1.5 data-[state=active]:text-primary-foreground"
-          >
-            <Filter className="h-4 w-4" />
-            Filter
-            {activeFilterCount > 0 && (
-              <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
+            <Button
+              type="button"
+              variant={activeFilterCount > 0 ? "default" : "outline"}
+              size="sm"
+              onClick={handleFilterDialogOpen}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 rounded-full px-3 gap-1.5"
+            >
+              <Filter className="h-3.5 w-3.5" />
+
+              {activeFilterCount > 0 && (
+                <span className="bg-white/20 text-[11px] font-semibold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div>
           {canManage ? (
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={editMode ? "default" : "outline"}
-                onClick={() => setEditMode(!editMode)}
-                className="h-9 shadow-sm"
-              >
-                {editMode ? "Edit Mode: ON" : "Edit Mode: OFF"}
-              </Button>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Edit Mode
+                </span>
+                <Switch
+                  checked={editMode}
+                  onCheckedChange={setEditMode}
+                />
+              </div>
               <Button
                 asChild
                 size="sm"
-                className="h-9 !text-primary-foreground hover:!text-primary-foreground"
+                className="rounded-full h-9 !text-primary-foreground hover:!text-primary-foreground"
               >
                 <Link href={`/classrooms/${classroomId}/questions/new`}>
                   <Plus className="h-4 w-4" />
@@ -283,7 +286,7 @@ export function QuestionTable({
       <div className="overflow-hidden rounded-lg border border-slate-200">
         <Table>
           <TableHeader>
-                      <TableRow className="bg-slate-50">
+            <TableRow className="bg-[var(--tint-sm)] border-slate-200">
               <TableHead className="w-12">No.</TableHead>
               <TableHead>Name</TableHead>
               <TableHead className="w-24">Level</TableHead>
@@ -297,13 +300,13 @@ export function QuestionTable({
           <TableBody>
             {pageItems.length === 0 ? (
               <TableRow>
-              <TableCell colSpan={editMode ? 8 : 7} className="py-10 text-center text-sm text-slate-400">
+                <TableCell colSpan={editMode ? 8 : 7} className="py-10 text-center text-sm text-slate-400">
                   {search ? "No questions match your search." : "No questions in this classroom yet."}
                 </TableCell>
               </TableRow>
             ) : (
               pageItems.map((q) => (
-                <TableRow key={q.questionId} className="hover:bg-slate-50">
+                <TableRow key={q.questionId}>
                   <TableCell className="text-slate-400 tabular-nums">{q.rowNumber}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

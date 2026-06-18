@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Calendar, ChevronRight, Info } from "lucide-react";
 
 import { PageHeader } from "@/components/commons/page-header";
 import { SurfaceCard } from "@/components/commons/surface-card";
-import { QuestionTable } from "@/components/classrooms/question-table";
+import { ClassroomTabs } from "@/components/classrooms/classroom-tabs";
+import { InviteCodeSection } from "@/components/classrooms/invite-code-section";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { requireUser } from "@/lib/auth";
-import { formatDate, formatScore } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getClassroomById, getClassroomQuestionsForUser } from "@/server/services/classroom-service";
 import { getClassroomLeaderboard } from "@/server/services/leaderboard-service";
 
@@ -36,167 +35,112 @@ export default async function ClassroomDetailPage(props: {
 
   return (
     <div className="space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/classrooms" className="hover:text-slate-900">
-          Classrooms
-        </Link>
-        <ChevronRight className="h-4 w-4" />
-        <span className="truncate text-slate-900">{classroom.name}</span>
-      </nav>
+      <div>
+        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+          <Link href="/classrooms" className="hover:text-slate-900">
+            Workspaces
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="truncate text-slate-900">{classroom.name}</span>
+        </nav>
 
-      <PageHeader
-        eyebrow="Classroom Workspace"
-        title={classroom.name}
-        description={canManage ? "Manage questions, compare scores, and review classroom progress." : undefined}
-      />
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <PageHeader
+            eyebrow="Workspace"
+            title={classroom.name}
+            description={canManage ? "Manage questions, compare scores, and review workspace progress." : undefined}
+          />
 
-      {canManage ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <SurfaceCard title="Invite Code">
-            <p className="font-mono text-xl font-semibold text-slate-900">{classroom.inviteCode}</p>
-            <p className="mt-1 text-sm text-slate-500">Share this code with students to join the workspace.</p>
-          </SurfaceCard>
-          <SurfaceCard title="Question Progress">
-            <p className="text-2xl font-semibold text-slate-900">{totalQuestions}</p>
-            <p className="mt-1 text-sm text-slate-500">Published and draft questions attached to this classroom.</p>
-          </SurfaceCard>
-          <SurfaceCard title="Membership">
-            {membership ? (
-              <div className="space-y-2">
-                <Badge variant={membership.role === "teacher" ? "default" : "secondary"} className="capitalize">
-                  {membership.role}
-                </Badge>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>Joined {formatDate(membership.joinedAt)}</span>
+          {canManage ? (
+            <div className="pl-1 pr-4 py-4 shrink-0 relative -top-[1px]">
+              <div className="flex items-start gap-5">
+                <div className="relative pr-6">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1 leading-4">Invite code</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white leading-8 select-all">{classroom.inviteCode}</p>
+                  <InviteCodeSection inviteCode={classroom.inviteCode} className="absolute right-0 top-[28px]" />
                 </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">This workspace is visible through administrative access.</p>
-            )}
-          </SurfaceCard>
-        </div>
-      ) : (
-        <SurfaceCard title="Progress">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">{totalQuestions}</p>
-              <p className="mt-1 text-sm text-slate-500">Total questions</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-slate-900">{incompleteCount}</p>
-              <p className="mt-1 text-sm text-slate-500">Incomplete</p>
-            </div>
-            <div>
-              {membership ? (
-                <div className="space-y-2">
-                  <Badge variant="secondary" className="capitalize">
-                    {membership.role}
-                  </Badge>
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Joined {formatDate(membership.joinedAt)}</span>
-                  </div>
+                <div className="self-stretch w-px bg-slate-200 dark:bg-slate-800" />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1 leading-4">Questions</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white leading-8">{totalQuestions}</p>
                 </div>
-              ) : (
-                <p className="text-sm text-slate-500">Classroom participant</p>
-              )}
-            </div>
-          </div>
-        </SurfaceCard>
-      )}
-
-      <Tabs defaultValue="assignments">
-        <div className="flex items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="assignments">Questions</TabsTrigger>
-            <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
-            {canManage ? <TabsTrigger value="participants">Participant</TabsTrigger> : null}
-          </TabsList>
-        </div>
-
-        <TabsContent value="assignments" className="mt-4">
-          <QuestionTable questions={questionRows} classroomId={id} canManage={canManage} />
-        </TabsContent>
-
-        <TabsContent value="scoreboard" className="mt-4">
-          <SurfaceCard title="Classroom Leaderboard" description="Best recorded score totals for members of this classroom.">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead className="w-12">Rank</TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead className="w-24">Role</TableHead>
-                  <TableHead className="w-28 text-right">Solved</TableHead>
-                  <TableHead className="w-32 text-right">Total score</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {leaderboard.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-sm text-slate-400">
-                      No submissions yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  leaderboard.map((entry, index) => (
-                    <TableRow key={entry.userId}>
-                      <TableCell className="font-medium tabular-nums text-slate-500">
-                        {index + 1}
-                      </TableCell>
-                      <TableCell className="font-medium">{entry.username}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={entry.role === "teacher" ? "default" : "secondary"}
-                          className="capitalize"
-                        >
-                          {entry.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-slate-600">
-                        {entry.solved}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold text-slate-900">
-                        {formatScore(entry.totalScore.toString())}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                {membership && (
+                  <>
+                    <div className="self-stretch w-px bg-slate-200 dark:bg-slate-800" />
+                    <div className="flex flex-col items-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-transparent select-none mb-1 leading-4">Info</p>
+                      <div className="h-8 flex items-center justify-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                              >
+                                <Info className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="end">
+                              <span>Joined {formatDate(membership.joinedAt)}</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+                  </>
                 )}
-              </TableBody>
-            </Table>
-          </SurfaceCard>
-        </TabsContent>
+              </div>
+            </div>
+          ) : (
+            <div className="pl-1 pr-4 py-4 shrink-0 relative -top-[1px]">
+              <div className="flex items-start gap-5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1 leading-4">Total questions</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white leading-8">{totalQuestions}</p>
+                </div>
+                <div className="self-stretch w-px bg-slate-200 dark:bg-slate-800" />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1 leading-4">Incomplete</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white leading-8">{incompleteCount}</p>
+                </div>
+                {membership && (
+                  <>
+                    <div className="self-stretch w-px bg-slate-200 dark:bg-slate-800" />
+                    <div className="flex flex-col items-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-transparent select-none mb-1 leading-4">Info</p>
+                      <div className="h-8 flex items-center justify-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                              >
+                                <Info className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="end">
+                              <span>Joined {formatDate(membership.joinedAt)}</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
-        <TabsContent value="participants" className="mt-4">
-          <SurfaceCard title="Participants" description="Members currently attached to this classroom workspace.">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>Username</TableHead>
-                  <TableHead className="w-24">Role</TableHead>
-                  <TableHead className="w-40">Joined</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {classroom.members.map((member) => (
-                  <TableRow key={member.id}>
-                    <TableCell className="font-medium">{member.user.username}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={member.role === "teacher" ? "default" : "secondary"}
-                        className="capitalize"
-                      >
-                        {member.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-500">{formatDate(member.joinedAt)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </SurfaceCard>
-        </TabsContent>
-      </Tabs>
+      <ClassroomTabs
+        questions={questionRows}
+        leaderboard={leaderboard}
+        members={classroom.members}
+        classroomId={id}
+        canManage={canManage}
+      />
     </div>
   );
 }

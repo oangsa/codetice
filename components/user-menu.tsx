@@ -1,52 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
-import { toast } from "sonner";
+import { Settings, Shield, Languages } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import type { SessionUser } from "@/lib/types";
 
 export function UserMenu({ user }: { user: SessionUser }) {
-  const router = useRouter();
-
-  async function handleLogout() {
-    const response = await fetch("/api/auth/logout", { method: "POST" });
-    if (!response.ok) {
-      toast.error("Unable to log out.");
-      return;
-    }
-    toast.success("Logged out.");
-    router.push("/login");
-    router.refresh();
-  }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 rounded-md border border-border px-2 text-foreground hover:bg-accent hover:text-accent-foreground">
-          <span className="text-sm font-medium">{user.username}</span>
-        </Button>
+        <button className="h-[40px] rounded-full bg-[#f5f5f7] dark:bg-[#121318] p-[2px] pl-[14px] hover:bg-[#e8e8ec] dark:hover:bg-[#1c1d22] transition-all flex items-center gap-2.5 cursor-pointer">
+          <span className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[100px] leading-none select-none">
+            {user.username}
+          </span>
+          <div className="h-[36px] w-[36px] rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-black/5 dark:border-white/10">
+            <img
+              src={user.profilePicture || "/avatars/avatar-1.png"}
+              alt={user.username}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-[--radix-dropdown-menu-trigger-width] min-w-[160px]">
+        {user.role === "admin" ? (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/admin">
+                <Shield className="mr-2 h-4 w-4" />
+                Admin Panel
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/languages">
+                <Languages className="mr-2 h-4 w-4" />
+                Languages
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem asChild>
           <Link href="/settings">
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-700">
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
