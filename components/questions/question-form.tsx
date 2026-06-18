@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Upload } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 import { TestcaseDialog } from "@/components/questions/testcase-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +20,26 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { QUESTION_DIFFICULTIES } from "@/lib/constants";
+
+type CreateTestcase = {
+  id: string;
+  name: string;
+  input: string;
+  expectedOutput: string;
+  isSample: boolean;
+  isHidden: boolean;
+};
+
+function newCreateTestcase(): CreateTestcase {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    input: "",
+    expectedOutput: "",
+    isSample: false,
+    isHidden: true,
+  };
+}
 
 export function QuestionForm({
   mode,
@@ -61,15 +82,37 @@ export function QuestionForm({
   const [difficulty, setDifficulty] = useState(question?.difficulty ?? "easy");
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [createTestcases, setCreateTestcases] = useState<CreateTestcase[]>([newCreateTestcase()]);
+  const [assignmentTitle, setAssignmentTitle] = useState("General");
+  const [assignmentDueAt, setAssignmentDueAt] = useState("");
 
   // Derive initial allowed languages: empty array means "all languages"
   const [allowedLangs, setAllowedLangs] = useState<string[]>(
     question?.allowedLanguages ?? [],
   );
+  const isClassroomCreate = mode === "create" && Boolean(classroomId);
+
+  function addCreateTestcase() {
+    setCreateTestcases((prev) => [...prev, newCreateTestcase()]);
+  }
+
+  function removeCreateTestcase(id: string) {
+    setCreateTestcases((prev) => prev.filter((tc) => tc.id !== id));
+  }
+
+  function updateCreateTestcase(
+    id: string,
+    field: keyof CreateTestcase,
+    value: string | boolean,
+  ) {
+    setCreateTestcases((prev) =>
+      prev.map((tc) => (tc.id === id ? { ...tc, [field]: value } : tc)),
+    );
+  }
 
   async function handleTxtUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (!files.length || !question?.id) return;
+    if (!files.length) return;
     setUploading(true);
 
     const inputs: Record<string, string> = {};
@@ -91,6 +134,33 @@ export function QuestionForm({
 
     if (allNums.length === 0) {
       toast.error("No valid files found. Name files like '1in.txt' and '1out.txt'.");
+      setUploading(false);
+      e.target.value = "";
+      return;
+    }
+
+    if (isClassroomCreate) {
+      const importedCases: CreateTestcase[] = allNums.map((num) => ({
+        id: crypto.randomUUID(),
+        name: `Test ${num}`,
+        input: inputs[num] ?? "",
+        expectedOutput: outputs[num] ?? "",
+        isSample: false,
+        isHidden: true,
+      }));
+
+      setCreateTestcases((prev) => {
+        const nonEmpty = prev.filter((tc) => tc.input.trim() || tc.expectedOutput.trim());
+        return [...nonEmpty, ...importedCases];
+      });
+
+      toast.success(`Imported ${importedCases.length} testcase(s).`);
+      setUploading(false);
+      e.target.value = "";
+      return;
+    }
+
+    if (!question?.id) {
       setUploading(false);
       e.target.value = "";
       return;
@@ -135,13 +205,34 @@ export function QuestionForm({
       isPublished: formData.get("isPublished") === "on",
     };
 
-    const endpoint = mode === "create" ? "/api/questions" : `/api/questions/${question?.id}`;
+    const endpoint =
+      mode === "create"
+        ? classroomId
+          ? `/api/classrooms/${classroomId}/questions`
+          : "/api/questions"
+        : `/api/questions/${question?.id}`;
     const method = mode === "create" ? "POST" : "PATCH";
+    const finalPayload =
+      isClassroomCreate
+        ? {
+            ...payload,
+            assignmentTitle,
+            assignmentDueAt: assignmentDueAt || null,
+            testcases: createTestcases.map((tc, index) => ({
+              name: tc.name || undefined,
+              input: tc.input,
+              expectedOutput: tc.expectedOutput,
+              isSample: tc.isSample,
+              isHidden: tc.isHidden,
+              sortOrder: index,
+            })),
+          }
+        : payload;
 
     const response = await fetch(endpoint, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(finalPayload),
     });
     const data = (await response.json()) as { message?: string; question?: { id: string } };
 
@@ -192,7 +283,30 @@ export function QuestionForm({
           >
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Title" htmlFor="title">
-                <Input id="title" name="title" defaultValue={question?.title ?? ""} required />
+                <Input
+                  id="title"
+                  name="title"
+                  defaultValue={question?.title ?? ""}
+                  required
+                  onChange={(event) => {
+                    if (mode !== "create") {
+                      return;
+                    }
+
+                    const form = event.currentTarget.form;
+                    const slugInput = form?.elements.namedItem("slug") as HTMLInputElement | null;
+                    if (!slugInput || slugInput.value.trim().length > 0) {
+                      return;
+                    }
+
+                    slugInput.value = event.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9\s-]/g, "")
+                      .replace(/\s+/g, "-")
+                      .replace(/-+/g, "-")
+                      .slice(0, 100);
+                  }}
+                />
               </FormField>
               <FormField label="Slug" htmlFor="slug">
                 <Input id="slug" name="slug" defaultValue={question?.slug ?? ""} required />
@@ -254,6 +368,28 @@ export function QuestionForm({
                 Select which languages are allowed for this question. Leave empty to allow all languages.
               </p>
             </div>
+            {isClassroomCreate ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField label="Assignment name" htmlFor="assignmentTitle">
+                  <Input
+                    id="assignmentTitle"
+                    name="assignmentTitle"
+                    value={assignmentTitle}
+                    onChange={(event) => setAssignmentTitle(event.target.value)}
+                    required
+                  />
+                </FormField>
+                <FormField label="Due date (optional)" htmlFor="assignmentDueAt">
+                  <Input
+                    id="assignmentDueAt"
+                    name="assignmentDueAt"
+                    type="datetime-local"
+                    value={assignmentDueAt}
+                    onChange={(event) => setAssignmentDueAt(event.target.value)}
+                  />
+                </FormField>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-slate-900">Published</p>
@@ -284,6 +420,133 @@ export function QuestionForm({
           </form>
         </CardContent>
       </Card>
+
+      {isClassroomCreate ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Testcases</CardTitle>
+              <CardDescription>Add the visible and hidden checks used when this question is assigned.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className={uploading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}>
+                <input
+                  type="file"
+                  multiple
+                  accept=".txt"
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={handleTxtUpload}
+                />
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? "Uploading…" : "Upload .txt"}
+                </span>
+              </label>
+              <Button type="button" variant="secondary" size="sm" onClick={addCreateTestcase}>
+                <Plus className="h-4 w-4" />
+                Add testcase
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {createTestcases.map((testcase, index) => (
+              <div key={testcase.id} className="space-y-3 rounded-lg border border-slate-200 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-700">
+                    Testcase {index + 1}
+                    {testcase.isSample ? (
+                      <Badge variant="secondary" className="ml-2">
+                        Sample
+                      </Badge>
+                    ) : null}
+                    {!testcase.isHidden ? (
+                      <Badge variant="default" className="ml-2">
+                        Visible
+                      </Badge>
+                    ) : null}
+                  </p>
+                  {createTestcases.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => removeCreateTestcase(testcase.id)}
+                      className="text-slate-400 hover:text-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Input
+                    </Label>
+                    <Textarea
+                      rows={3}
+                      value={testcase.input}
+                      onChange={(event) =>
+                        updateCreateTestcase(testcase.id, "input", event.target.value)
+                      }
+                      placeholder="stdin input"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Expected output
+                    </Label>
+                    <Textarea
+                      rows={3}
+                      value={testcase.expectedOutput}
+                      onChange={(event) =>
+                        updateCreateTestcase(testcase.id, "expectedOutput", event.target.value)
+                      }
+                      placeholder="expected stdout"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 pt-1">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={testcase.isSample}
+                      onCheckedChange={(checked) =>
+                        updateCreateTestcase(testcase.id, "isSample", checked)
+                      }
+                      id={`create-sample-${testcase.id}`}
+                    />
+                    <Label htmlFor={`create-sample-${testcase.id}`} className="cursor-pointer text-sm">
+                      Sample (visible to students)
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!testcase.isHidden}
+                      onCheckedChange={(checked) =>
+                        updateCreateTestcase(testcase.id, "isHidden", !checked)
+                      }
+                      id={`create-hidden-${testcase.id}`}
+                    />
+                    <Label htmlFor={`create-hidden-${testcase.id}`} className="cursor-pointer text-sm">
+                      Show output to students
+                    </Label>
+                  </div>
+                  <Input
+                    className="w-40"
+                    placeholder="Name (optional)"
+                    value={testcase.name}
+                    onChange={(event) =>
+                      updateCreateTestcase(testcase.id, "name", event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {question ? (
         <Card>

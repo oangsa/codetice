@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
-import { NewQuestionForm } from "@/components/classrooms/new-question-form";
+import { QuestionForm } from "@/components/questions/question-form";
 import { requireUser } from "@/lib/auth";
 import { getClassroomById } from "@/server/services/classroom-service";
 import { listSupportedLanguages } from "@/server/services/language-service";
@@ -42,7 +42,12 @@ export default async function NewClassroomQuestionPage(props: {
         </p>
       </div>
 
-      <NewQuestionForm classroomId={id} languages={languages} />
+      <QuestionForm
+        mode="create"
+        classroomId={id}
+        backUrl={`/classrooms/${id}`}
+        languages={languages}
+      />
     </div>
   );
 }
