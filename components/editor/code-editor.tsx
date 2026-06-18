@@ -29,7 +29,11 @@ type ResultRow = {
 function resolveMonacoLanguage(language: string) {
   const normalized = language.trim().toLowerCase();
 
-  if (["c", "cc", "c++", "cplusplus"].includes(normalized)) {
+  if (["pyright", "python-lsp", "python-lsp-server", "pylsp"].includes(normalized)) {
+    return "python";
+  }
+
+  if (["c", "cc", "c++", "cplusplus", "clang", "clangd"].includes(normalized)) {
     return "cpp";
   }
 
@@ -116,6 +120,19 @@ export function CodeEditor({
     }),
     [],
   );
+
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+
+    void import("monaco-editor").then((monaco) => {
+      const model = editorRef.current?.getModel();
+      if (model) {
+        monaco.editor.setModelLanguage(model, editorLanguage);
+      }
+    });
+  }, [editorLanguage]);
 
   async function submitSolution() {
     if (pendingAction !== null || submitIdempotencyKeyRef.current) {

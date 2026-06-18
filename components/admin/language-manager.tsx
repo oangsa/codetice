@@ -192,12 +192,12 @@ function LanguageDialog({
           <FormField
             label="Editor language"
             htmlFor="editorLanguage"
-            description="Monaco syntax id only; Python is the only current LSP/diagnostics language. Use cpp for C and C++."
+            description="Syntax mode only; Python is the only current diagnostics language. pyright maps to python, clang/clangd maps to cpp."
           >
             <Input
               id="editorLanguage"
               name="editorLanguage"
-              placeholder="e.g. python, javascript, cpp, plaintext"
+              placeholder="e.g. python, pyright, cpp, clangd, plaintext"
               defaultValue={language?.editorLanguage ?? "plaintext"}
               required
             />
