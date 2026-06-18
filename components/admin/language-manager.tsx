@@ -50,6 +50,7 @@ export type Language = {
   dockerImage: string;
   fileExtension: string;
   runCommand: string;
+  editorLanguage: string;
   defaultStarterCode: string | null;
   isEnabled: boolean;
 };
@@ -76,6 +77,7 @@ function LanguageDialog({
       dockerImage: String(formData.get("dockerImage") ?? ""),
       fileExtension: String(formData.get("fileExtension") ?? ""),
       runCommand: String(formData.get("runCommand") ?? ""),
+      editorLanguage: String(formData.get("editorLanguage") ?? "") || "plaintext",
       defaultStarterCode: String(formData.get("defaultStarterCode") ?? "") || null,
       isEnabled: formData.get("isEnabled") === "on",
     };
@@ -188,6 +190,20 @@ function LanguageDialog({
           </div>
 
           <FormField
+            label="Editor language"
+            htmlFor="editorLanguage"
+            description="Monaco language id for highlighting. Use plaintext when no syntax mode is available."
+          >
+            <Input
+              id="editorLanguage"
+              name="editorLanguage"
+              placeholder="e.g. python, javascript, cpp, plaintext"
+              defaultValue={language?.editorLanguage ?? "plaintext"}
+              required
+            />
+          </FormField>
+
+          <FormField
             label="Run command"
             htmlFor="runCommand"
             description="Command executed inside the container. Use {file} as the script placeholder."
@@ -259,6 +275,7 @@ function LanguageCard({
         dockerImage: language.dockerImage,
         fileExtension: language.fileExtension,
         runCommand: language.runCommand,
+        editorLanguage: language.editorLanguage,
         defaultStarterCode: language.defaultStarterCode,
         isEnabled: !language.isEnabled,
       }),
@@ -404,6 +421,13 @@ function LanguageCard({
             <div>
               <p className="font-medium text-muted-foreground">Run command</p>
               <code className="text-foreground">{language.runCommand}</code>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <FileCode className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-muted-foreground">Editor language</p>
+              <code className="text-foreground">{language.editorLanguage}</code>
             </div>
           </div>
           {language.defaultStarterCode && (

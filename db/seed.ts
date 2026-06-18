@@ -21,6 +21,7 @@ async function main() {
       dockerImage: "python:3.12-alpine",
       fileExtension: "py",
       runCommand: "python /workspace/main.py",
+      editorLanguage: "python",
       defaultStarterCode: "print('')",
       isEnabled: true,
     },
@@ -30,6 +31,7 @@ async function main() {
       dockerImage: "node:22-alpine",
       fileExtension: "js",
       runCommand: "node /workspace/main.js",
+      editorLanguage: "javascript",
       defaultStarterCode: "console.log('');",
       isEnabled: true,
     },
@@ -39,6 +41,7 @@ async function main() {
       dockerImage: "node:22-alpine",
       fileExtension: "ts",
       runCommand: "bun /workspace/main.ts",
+      editorLanguage: "typescript",
       defaultStarterCode: "console.log('');",
       isEnabled: true,
     },
@@ -51,6 +54,11 @@ async function main() {
 
     if (!existingLanguage) {
       await db.insert(supportedLanguages).values(language);
+    } else if (existingLanguage.editorLanguage === "plaintext") {
+      await db
+        .update(supportedLanguages)
+        .set({ editorLanguage: language.editorLanguage })
+        .where(eq(supportedLanguages.id, existingLanguage.id));
     }
   }
 

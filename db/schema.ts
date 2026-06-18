@@ -319,6 +319,7 @@ export const supportedLanguages = pgTable("supported_languages", {
   dockerImage: varchar("docker_image", { length: 255 }).notNull(),
   fileExtension: varchar("file_extension", { length: 20 }).notNull(),
   runCommand: text("run_command").notNull(),
+  editorLanguage: varchar("editor_language", { length: 50 }).notNull().default("plaintext"),
   defaultStarterCode: text("default_starter_code"),
   isEnabled: boolean("is_enabled").notNull().default(true),
 });

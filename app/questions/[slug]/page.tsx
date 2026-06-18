@@ -114,7 +114,11 @@ export default async function QuestionDetailPage(props: {
             assignmentId={assignmentId ?? null}
             starterCode={question.starterCode || "print('')"}
             starterCodeByLanguage={question.starterCodeByLanguage}
-            languages={languages.map((language) => ({ slug: language.slug, name: language.name }))}
+            languages={languages.map((language) => ({
+              slug: language.slug,
+              name: language.name,
+              editorLanguage: language.editorLanguage,
+            }))}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

@@ -36,7 +36,7 @@ export function CodeEditor({
   questionId: string;
   starterCode: string;
   starterCodeByLanguage: Record<string, string>;
-  languages: Array<{ slug: string; name: string }>;
+  languages: Array<{ slug: string; name: string; editorLanguage: string }>;
   assignmentId?: string | null;
 }) {
   const router = useRouter();
@@ -53,8 +53,10 @@ export function CodeEditor({
       );
     };
 
-    updateTheme();
-    setMounted(true);
+    const animationFrame = window.requestAnimationFrame(() => {
+      updateTheme();
+      setMounted(true);
+    });
 
     const observer = new MutationObserver(updateTheme);
 
@@ -63,7 +65,10 @@ export function CodeEditor({
       attributeFilter: ["class"],
     });
 
-    return () => observer.disconnect();
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
   }, []);
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.slug ?? "python");
   const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>(() => {
@@ -73,7 +78,6 @@ export function CodeEditor({
     };
   });
   const [pendingAction, setPendingAction] = useState<"submit" | null>(null);
-  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const [submissionSummary, setSubmissionSummary] = useState<{
     status: string;
@@ -86,8 +90,7 @@ export function CodeEditor({
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
   const submitIdempotencyKeyRef = useRef<string | null>(null);
-  const editorLanguage =
-    selectedLanguage === "javascript" ? "javascript" : selectedLanguage === "typescript" ? "typescript" : "python";
+  const editorLanguage = languages.find((language) => language.slug === selectedLanguage)?.editorLanguage ?? "plaintext";
   const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? starterCode;
 
   const monacoOptions = useMemo(
@@ -158,7 +161,7 @@ export function CodeEditor({
       return;
     }
 
-    if (selectedLanguage !== "python") {
+    if (editorLanguage !== "python") {
       diagnosticsAbortRef.current?.abort();
       void import("monaco-editor").then((monaco) => {
         const model = editorRef.current?.getModel();
@@ -174,7 +177,6 @@ export function CodeEditor({
     diagnosticsAbortRef.current = controller;
 
     const timeout = setTimeout(async () => {
-      setDiagnosticsLoading(true);
       try {
         const response = await fetch("/api/python/diagnostics", {
           method: "POST",
@@ -221,8 +223,6 @@ export function CodeEditor({
         }
       } catch {
         // Ignore transient diagnostics failures in the editor.
-      } finally {
-        setDiagnosticsLoading(false);
       }
     }, 500);
 
@@ -230,7 +230,7 @@ export function CodeEditor({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [code, selectedLanguage]);
+  }, [code, editorLanguage]);
 
   useEffect(() => {
     if (!activeSubmissionId) {

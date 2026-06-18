@@ -4,20 +4,22 @@ import { eq } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
 import { getDb } from "@/lib/db";
-import { getRuntimeProfile } from "@/lib/grader/runtime-profiles";
-
 export type LanguageInput = {
   name: string;
   slug: string;
   dockerImage: string;
   fileExtension: string;
   runCommand: string;
+  editorLanguage?: string | null;
   defaultStarterCode?: string | null;
   isEnabled: boolean;
 };
 
 function normalizeLanguageInput(input: LanguageInput) {
-  return input;
+  return {
+    ...input,
+    editorLanguage: input.editorLanguage?.trim() || "plaintext",
+  };
 }
 
 export async function listSupportedLanguages() {
@@ -77,6 +79,7 @@ export async function updateSupportedLanguage(
       dockerImage: normalizedInput.dockerImage,
       fileExtension: normalizedInput.fileExtension,
       runCommand: normalizedInput.runCommand,
+      editorLanguage: normalizedInput.editorLanguage,
       defaultStarterCode: normalizedInput.defaultStarterCode ?? null,
       isEnabled: normalizedInput.isEnabled,
     })

@@ -79,6 +79,7 @@ const statements = [
     docker_image varchar(255) not null,
     file_extension varchar(20) not null,
     run_command text not null,
+    editor_language varchar(50) not null default 'plaintext',
     default_starter_code text,
     is_enabled boolean not null default true
   );`,
@@ -197,6 +198,7 @@ const statements = [
   `alter table grading_jobs add column if not exists locked_by varchar(255);`,
   `alter table grading_jobs add column if not exists lease_expires_at timestamp;`,
   `alter table submissions add column if not exists is_late boolean not null default false;`,
+  `alter table supported_languages add column if not exists editor_language varchar(50) not null default 'plaintext';`,
   `create unique index if not exists question_scores_user_question_unique on question_scores (user_id, question_id);`,
   `create index if not exists questions_published_created_at_idx on questions (is_published, created_at);`,
   `create index if not exists questions_created_at_idx on questions (created_at);`,
