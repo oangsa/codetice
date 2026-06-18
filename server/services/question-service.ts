@@ -7,6 +7,9 @@ import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import type { SessionUser } from "@/lib/types";
 
+const DEFAULT_QUESTION_SUBMISSIONS_PAGE_SIZE = 20;
+const MAX_QUESTION_SUBMISSIONS_PAGE_SIZE = 100;
+
 /** Returns true if the user may create/edit/delete the question and its testcases. */
 export function canUserEditQuestion(
   user: SessionUser,
@@ -284,6 +287,38 @@ export async function listQuestionSubmissions(questionId: string, userId: string
     where: and(eq(submissions.questionId, questionId), eq(submissions.userId, userId)),
     orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
   });
+}
+
+export async function listQuestionSubmissionsPage(
+  questionId: string,
+  userId: string,
+  input?: {
+    limit?: number;
+    offset?: number;
+  },
+) {
+  const db = getDb();
+  const limit = Math.min(
+    Math.max(input?.limit ?? DEFAULT_QUESTION_SUBMISSIONS_PAGE_SIZE, 1),
+    MAX_QUESTION_SUBMISSIONS_PAGE_SIZE,
+  );
+  const offset = Math.max(input?.offset ?? 0, 0);
+
+  const rows = await db.query.submissions.findMany({
+    where: and(eq(submissions.questionId, questionId), eq(submissions.userId, userId)),
+    orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
+    limit: limit + 1,
+    offset,
+  });
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+
+  return {
+    submissions: page,
+    hasMore,
+    nextOffset: hasMore ? offset + page.length : null,
+  };
 }
 
 export async function getQuestionStats(userId: string) {

@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/components/commons/page-header";
-import { SurfaceCard } from "@/components/commons/surface-card";
 import { CodeEditor } from "@/components/editor/code-editor";
 import { ProblemTabs } from "@/components/questions/problem-tabs";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,11 @@ import { requireUser } from "@/lib/auth";
 import { formatScore } from "@/lib/utils";
 import { getClassroomById } from "@/server/services/classroom-service";
 import { listSupportedLanguages } from "@/server/services/language-service";
-import { canUserEditQuestion, getQuestionBySlug, listQuestionSubmissions } from "@/server/services/question-service";
+import {
+  canUserEditQuestion,
+  getQuestionBySlug,
+  listQuestionSubmissionsPage,
+} from "@/server/services/question-service";
 
 export default async function QuestionDetailPage(props: {
   params: Promise<{ slug: string }>;
@@ -28,8 +31,8 @@ export default async function QuestionDetailPage(props: {
     notFound();
   }
 
-  const [submissions, allLanguages, classroom] = await Promise.all([
-    listQuestionSubmissions(question.id, session.userId),
+  const [submissionPage, allLanguages, classroom] = await Promise.all([
+    listQuestionSubmissionsPage(question.id, session.userId),
     listSupportedLanguages(),
     classroomId ? getClassroomById(classroomId) : Promise.resolve(null),
   ]);
@@ -96,9 +99,12 @@ export default async function QuestionDetailPage(props: {
       <ResizablePanelGroup orientation="horizontal" className="min-h-[720px] gap-1">
         <ResizablePanel defaultSize={40} minSize={40} className="pr-1">
           <ProblemTabs
+            questionId={question.id}
             description={question.description}
             sampleCases={sampleCases}
-            submissions={submissions}
+            initialSubmissions={submissionPage.submissions}
+            initialHasMore={submissionPage.hasMore}
+            initialNextOffset={submissionPage.nextOffset}
           />
         </ResizablePanel>
         <ResizableHandle className="relative bg-transparent after:absolute after:left-1/2 after:top-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:h-12 after:w-1 after:rounded-full after:bg-slate-500/20 hover:after:bg-slate-500/60 after:transition-colors" />

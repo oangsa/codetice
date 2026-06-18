@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/ui/markdown";
-import { SubmissionTable } from "@/components/submissions/submission-table";
+import { QuestionSubmissionsPanel, type QuestionSubmissionListItem } from "@/components/questions/question-submissions-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Testcase = {
@@ -16,16 +14,20 @@ type Testcase = {
   isSample: boolean;
 };
 
-type Submission = any;
-
 export function ProblemTabs({
+  questionId,
   description,
   sampleCases,
-  submissions,
+  initialSubmissions,
+  initialHasMore,
+  initialNextOffset,
 }: {
+  questionId: string;
   description: string;
   sampleCases: Testcase[];
-  submissions: Submission[];
+  initialSubmissions: QuestionSubmissionListItem[];
+  initialHasMore: boolean;
+  initialNextOffset: number | null;
 }) {
   const [activeTab, setActiveTab] = useState<"description" | "samples" | "submissions">(
     "description"
@@ -159,9 +161,12 @@ export function ProblemTabs({
         )}
 
         {activeTab === "submissions" && (
-          <ScrollArea className="h-full">
-            <SubmissionTable submissions={submissions} showQuestion={false} />
-          </ScrollArea>
+          <QuestionSubmissionsPanel
+            questionId={questionId}
+            initialSubmissions={initialSubmissions}
+            initialHasMore={initialHasMore}
+            initialNextOffset={initialNextOffset}
+          />
         )}
       </CardContent>
     </Card>
