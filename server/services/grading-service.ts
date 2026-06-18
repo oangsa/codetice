@@ -1,5 +1,3 @@
-import "server-only";
-
 import { compareOutput } from "@/lib/grader/compare-output";
 import { runPythonCode } from "@/lib/grader/run-python";
 

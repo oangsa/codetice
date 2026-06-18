@@ -1,5 +1,3 @@
-import "server-only";
-
 import os from "node:os";
 
 import { and, eq, inArray } from "drizzle-orm";
