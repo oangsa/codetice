@@ -26,6 +26,16 @@ type ResultRow = {
   isHidden: boolean;
 };
 
+function resolveMonacoLanguage(language: string) {
+  const normalized = language.trim().toLowerCase();
+
+  if (["c", "cc", "c++", "cplusplus"].includes(normalized)) {
+    return "cpp";
+  }
+
+  return normalized || "plaintext";
+}
+
 export function CodeEditor({
   questionId,
   starterCode,
@@ -90,7 +100,9 @@ export function CodeEditor({
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
   const submitIdempotencyKeyRef = useRef<string | null>(null);
-  const editorLanguage = languages.find((language) => language.slug === selectedLanguage)?.editorLanguage ?? "plaintext";
+  const editorLanguage = resolveMonacoLanguage(
+    languages.find((language) => language.slug === selectedLanguage)?.editorLanguage ?? "plaintext",
+  );
   const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? starterCode;
 
   const monacoOptions = useMemo(

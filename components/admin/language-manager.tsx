@@ -192,7 +192,7 @@ function LanguageDialog({
           <FormField
             label="Editor language"
             htmlFor="editorLanguage"
-            description="Monaco language id for highlighting. Use plaintext when no syntax mode is available."
+            description="Monaco syntax id only; Python is the only current LSP/diagnostics language. Use cpp for C and C++."
           >
             <Input
               id="editorLanguage"

@@ -45,11 +45,7 @@ export async function PATCH(
   }
 
   try {
-    const shouldPrepareImage =
-      parsed.data.dockerImage !== existing.dockerImage ||
-      (!existing.isEnabled && parsed.data.isEnabled);
-
-    if (shouldPrepareImage) {
+    if (parsed.data.isEnabled) {
       await prepareDockerImage(parsed.data.dockerImage);
     }
 
