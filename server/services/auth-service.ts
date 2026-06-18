@@ -96,6 +96,21 @@ export async function getUserById(userId: string) {
   return user ?? null;
 }
 
+export async function getSessionUserById(userId: string) {
+  const db = getDb();
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: {
+      id: true,
+      username: true,
+      role: true,
+      profilePicture: true,
+    },
+  });
+
+  return user ? toSessionUser(user) : null;
+}
+
 export async function listAllUsers() {
   const db = getDb();
   return db

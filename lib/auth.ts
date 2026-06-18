@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { buildSessionCookie, decryptSession, encryptSession, type SessionPayload } from "@/lib/session";
 import { SESSION_COOKIE } from "@/lib/constants";
+import { getSessionUserById } from "@/server/services/auth-service";
 
 export async function getSession() {
   const cookieStore = await cookies();
@@ -28,7 +29,22 @@ export async function requireAdmin() {
   return session;
 }
 
+export async function getCurrentUser() {
+  const session = await getSession();
+  if (!session) {
+    return null;
+  }
 
+  return getSessionUserById(session.userId);
+}
+
+export async function requireCurrentUser() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+  return user;
+}
 
 export async function createUserSession(payload: SessionPayload) {
   const token = await encryptSession(payload);

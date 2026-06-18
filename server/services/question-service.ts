@@ -5,20 +5,20 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { leaderboards, questionScores, questions, submissions, testcases } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
-import type { SessionUser } from "@/lib/types";
+import type { AuthSession, SessionUser } from "@/lib/types";
 
 const DEFAULT_QUESTION_SUBMISSIONS_PAGE_SIZE = 20;
 const MAX_QUESTION_SUBMISSIONS_PAGE_SIZE = 100;
 
 /** Returns true if the user may create/edit/delete the question and its testcases. */
 export function canUserEditQuestion(
-  user: SessionUser,
+  user: AuthSession,
   question: { createdBy: string | null },
 ): boolean {
   return user.role === "admin" || (!!question.createdBy && question.createdBy === user.userId);
 }
 
-export async function listQuestionsForUser(user?: SessionUser | null) {
+export async function listQuestionsForUser(user?: AuthSession | null) {
   const db = getDb();
   const publishedFilter = user?.role === "admin" ? undefined : eq(questions.isPublished, true);
   const includeUserScores = Boolean(user && user.role !== "admin");
@@ -50,10 +50,10 @@ export async function listQuestionsForUser(user?: SessionUser | null) {
 }
 
 export async function listAdminQuestions() {
-  return listQuestionsForUser({ userId: "", username: "admin", role: "admin", profilePicture: "" });
+  return listQuestionsForUser({ userId: "", role: "admin" });
 }
 
-export async function getQuestionBySlug(slug: string, user?: SessionUser | null) {
+export async function getQuestionBySlug(slug: string, user?: AuthSession | null) {
   const db = getDb();
   const question = await db.query.questions.findFirst({
     where:

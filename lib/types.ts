@@ -1,3 +1,8 @@
+export type AuthSession = {
+  userId: string;
+  role: "student" | "admin";
+};
+
 export type SessionUser = {
   userId: string;
   username: string;

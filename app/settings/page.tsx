@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireCurrentUser } from "@/lib/auth";
 import { SettingsContainer } from "@/components/settings/settings-container";
 
 export const metadata = {
@@ -8,10 +7,6 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const session = await getSession();
-  if (!session) {
-    redirect("/login");
-  }
-
+  const session = await requireCurrentUser();
   return <SettingsContainer session={session} />;
 }

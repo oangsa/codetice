@@ -5,7 +5,7 @@ import "./globals.css";
 
 import { Providers } from "@/components/providers";
 import { SiteHeader } from "@/components/site-header";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,7 +23,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getSession();
+  const session = await getCurrentUser();
 
   return (
     <html lang="en" className={inter.variable}>
