@@ -2,9 +2,15 @@ import { requireUser } from "@/lib/auth";
 import { fail, ok } from "@/lib/api";
 import { getSubmissionDetail } from "@/server/services/submission-service";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await requireUser();
   const { id } = await context.params;
+
+  if (!UUID_RE.test(id)) {
+    return fail("Invalid submission ID.", 400);
+  }
 
   const submission = await getSubmissionDetail(id, session.userId, session.role);
 

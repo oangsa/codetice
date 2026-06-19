@@ -9,11 +9,17 @@ import { formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 import { formatDate, formatScore } from "@/lib/utils";
 import { getSubmissionDetail } from "@/server/services/submission-service";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function SubmissionDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const session = await requireUser();
   const { id } = await props.params;
+
+  if (!UUID_RE.test(id)) {
+    notFound();
+  }
 
   const submission = await getSubmissionDetail(id, session.userId, session.role);
   if (!submission) {
