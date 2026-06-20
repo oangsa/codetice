@@ -51,11 +51,11 @@ export function TestcaseResults({
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Expected</p>
-                <pre className="whitespace-pre-wrap rounded-md border border-slate-200 dark:border-slate-800 bg-slate-800 p-3 text-slate-900">{result.expectedOutput ?? "Hidden"}</pre>
+                <pre className="whitespace-pre-wrap rounded-[16px] bg-white dark:bg-[#0d0e12] border border-black/5 dark:border-white/10 p-3 font-mono text-xs !text-zinc-800 dark:!text-zinc-200 min-h-[48px]">{result.expectedOutput ?? "Hidden"}</pre>
               </div>
               <div>
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Actual</p>
-                <pre className="whitespace-pre-wrap rounded-md border border-slate-200 dark:border-slate-800 bg-slate-800 p-3 text-slate-900">{result.actualOutput ?? "Hidden"}</pre>
+                <pre className="whitespace-pre-wrap rounded-[16px] bg-white dark:bg-[#0d0e12] border border-black/5 dark:border-white/10 p-3 font-mono text-xs !text-zinc-800 dark:!text-zinc-200 min-h-[48px]">{result.actualOutput ?? "Hidden"}</pre>
               </div>
             </div>
             <Separator />

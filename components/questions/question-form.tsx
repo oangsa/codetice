@@ -269,7 +269,7 @@ export function QuestionForm({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-card text-card-foreground shadow-sm overflow-hidden">
         <CardHeader>
           <CardTitle>{mode === "create" ? "Create question" : "Edit question"}</CardTitle>
           <CardDescription>Define the prompt, limits, score, starter code, and publish state.</CardDescription>
@@ -323,7 +323,7 @@ export function QuestionForm({
             <div className="grid gap-4 md:grid-cols-4">
               <FormField label="Difficulty" htmlFor="difficulty">
                 <Select value={difficulty} onValueChange={setDifficulty}>
-                  <SelectTrigger id="difficulty">
+                  <SelectTrigger id="difficulty" className="w-full bg-background border border-input rounded-full h-9 font-semibold">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -397,32 +397,33 @@ export function QuestionForm({
               </div>
               <Switch name="isPublished" defaultChecked={question?.isPublished ?? false} />
             </div>
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={pending}>
-                {mode === "create" ? "Create question" : "Save question"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  if (backUrl) {
-                    router.push(backUrl);
-                  } else if (classroomId) {
-                    router.push(`/classrooms/${classroomId}`);
-                  } else {
-                    router.push("/classrooms");
-                  }
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
+             <div className="flex items-center gap-3">
+               <Button type="submit" disabled={pending} className="rounded-full h-9 font-semibold">
+                 {mode === "create" ? "Create question" : "Save question"}
+               </Button>
+               <Button
+                 type="button"
+                 variant="outline"
+                 onClick={() => {
+                   if (backUrl) {
+                     router.push(backUrl);
+                   } else if (classroomId) {
+                     router.push(`/classrooms/${classroomId}`);
+                   } else {
+                     router.push("/classrooms");
+                   }
+                 }}
+                 className="rounded-full h-9 font-semibold"
+               >
+                 Cancel
+               </Button>
+             </div>
           </form>
         </CardContent>
       </Card>
 
       {isClassroomCreate ? (
-        <Card>
+        <Card className="rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-card text-card-foreground shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Testcases</CardTitle>
@@ -549,7 +550,7 @@ export function QuestionForm({
       ) : null}
 
       {question ? (
-        <Card>
+        <Card className="rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-card text-card-foreground shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Testcases</CardTitle>

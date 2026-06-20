@@ -359,7 +359,7 @@ export function CodeEditor({
       <Card className="rounded-[30px] border shadow-sm h-full flex flex-col">
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 p-2 shrink-0">
           <div className="pl-2 pt-[9px]">
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Solution editor</CardTitle>
+            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Editor</CardTitle>
           </div>
           <div className="flex flex-nowrap items-center gap-2">
             <div className="w-44">
@@ -397,7 +397,7 @@ export function CodeEditor({
             </div>
           ) : null}
           {submissionSummary?.errorMessage ? (
-            <pre className="rounded-[16px] bg-slate-100 dark:bg-slate-900 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono mb-3 shrink-0 max-h-40 overflow-y-auto">
+            <pre className="rounded-[16px] bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 px-4 py-3 text-xs font-mono mb-3 shrink-0 max-h-40 overflow-y-auto whitespace-pre-wrap">
               {submissionSummary.errorMessage}
             </pre>
           ) : null}

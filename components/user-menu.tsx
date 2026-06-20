@@ -16,11 +16,11 @@ export function UserMenu({ user }: { user: SessionUser }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-[40px] rounded-full bg-[#f5f5f7] dark:bg-[#121318] p-[2px] pl-[14px] hover:bg-[#e8e8ec] dark:hover:bg-[#1c1d22] transition-all flex items-center gap-2.5 cursor-pointer">
-          <span className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[100px] leading-none select-none">
+        <button className=" rounded-full bg-[#f5f5f7] dark:bg-[#121318] p-1 pl-[14px] hover:bg-[#e8e8ec] dark:hover:bg-[#1c1d22] transition-all flex items-center gap-2.5 cursor-pointer">
+          <span className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[100px] leading-normal select-none">
             {user.username}
           </span>
-          <div className="h-[36px] w-[36px] rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-black/5 dark:border-white/10">
+          <div className="h-[32px] w-[32px] rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-black/5 dark:border-white/10">
             <img
               src={user.profilePicture || "/avatars/avatar-1.png"}
               alt={user.username}
@@ -29,7 +29,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
           </div>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[--radix-dropdown-menu-trigger-width] min-w-[160px]">
+      <DropdownMenuContent align="end" className="w-[--radix-dropdown-menu-trigger-width] min-w-[160px] mt-[2px]">
         {user.role === "admin" ? (
           <>
             <DropdownMenuItem asChild>
