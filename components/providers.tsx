@@ -16,5 +16,5 @@ export function Providers() {
     }
   }, []);
 
-  return <Toaster richColors position="top-right" />;
+  return <Toaster richColors position="bottom-right" />;
 }

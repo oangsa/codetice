@@ -48,7 +48,6 @@ export default async function ClassroomDetailPage(props: {
           <PageHeader
             eyebrow="Workspace"
             title={classroom.name}
-            description={canManage ? "Manage questions, compare scores, and review workspace progress." : undefined}
           />
 
           {canManage ? (

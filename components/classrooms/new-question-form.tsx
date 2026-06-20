@@ -170,7 +170,7 @@ export function NewQuestionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Question details */}
-      <Card>
+      <Card className="rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-card text-card-foreground shadow-sm overflow-hidden">
         <CardHeader>
           <CardTitle>Question details</CardTitle>
         </CardHeader>
@@ -202,7 +202,7 @@ export function NewQuestionForm({
           <div className="grid gap-4 md:grid-cols-4">
             <FormField label="Difficulty" htmlFor="difficulty">
               <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger id="difficulty">
+                <SelectTrigger id="difficulty" className="w-full bg-background border border-input rounded-full h-9 font-semibold">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -277,7 +277,7 @@ export function NewQuestionForm({
       </Card>
 
       {/* Testcases */}
-      <Card>
+      <Card className="rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-card text-card-foreground shadow-sm overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Testcases</CardTitle>
           <div className="flex items-center gap-2">
@@ -390,11 +390,11 @@ export function NewQuestionForm({
 
       {/* Submit */}
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="rounded-full h-9 font-semibold">
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Create question
         </Button>
-        <Button type="button" variant="secondary" onClick={() => router.back()}>
+        <Button type="button" variant="outline" onClick={() => router.back()} className="rounded-full h-9 font-semibold">
           Cancel
         </Button>
       </div>

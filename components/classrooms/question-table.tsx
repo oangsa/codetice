@@ -43,17 +43,17 @@ const statusVariants: Record<QuestionRow["status"], { label: string; dotClassNam
   todo: {
     label: "Todo",
     dotClassName: "bg-amber-400",
-    textClassName: "text-slate-950",
+    textClassName: "text-slate-900",
   },
   attempted: {
     label: "Failed",
     dotClassName: "bg-red-500",
-    textClassName: "text-slate-950",
+    textClassName: "text-slate-900",
   },
   accepted: {
     label: "Passed",
     dotClassName: "bg-green-500",
-    textClassName: "text-slate-950",
+    textClassName: "text-slate-900",
   },
 };
 
@@ -186,111 +186,104 @@ export function QuestionTable({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="rounded-[30px] border bg-[var(--tint-sm)] p-2 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-slate-200 dark:border-slate-800/60">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="pl-2 mr-1 text-sm font-semibold text-slate-700">
-            Questions
-          </p>
+      {/* Single merged card: toolbar + table */}
+      <div className="overflow-hidden rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-[var(--tint-sm)] shadow-sm">
+        {/* Toolbar */}
+        <div className="p-2 flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Left — title + search */}
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="pl-2 w-24 text-sm font-semibold text-slate-700">
+              Questions
+            </p>
 
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search by name"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="h-9 w-64 pl-8 pr-10 rounded-full"
+              />
+              <Button
+                type="button"
+                variant={activeFilterCount > 0 ? "default" : "outline"}
+                size="sm"
+                onClick={handleFilterDialogOpen}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2.5 rounded-xl"
+              >
+                <Filter className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
 
-            <Input
-              placeholder="Search by name"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="h-9 w-64 pl-8 pr-24 rounded-full"
-            />
+          {/* Middle — spacer */}
+          <div className="hidden sm:block flex-1" />
 
-            <Button
-              type="button"
-              variant={activeFilterCount > 0 ? "default" : "outline"}
-              size="sm"
-              onClick={handleFilterDialogOpen}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 rounded-full px-3 gap-1.5"
-            >
-              <Filter className="h-3.5 w-3.5" />
-
-              {activeFilterCount > 0 && (
-                <span className="bg-white/20 text-[11px] font-semibold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
+          {/* Right — edit mode + add */}
+          <div>
+            {canManage ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-slate-700">
+                    Edit Mode
+                  </span>
+                  <Switch checked={editMode} onCheckedChange={setEditMode} />
+                </div>
+                <Button
+                  asChild
+                  size="sm"
+                  className="rounded-full h-9 w-[150px] !text-primary-foreground hover:!text-primary-foreground"
+                >
+                  <Link href={`/classrooms/${classroomId}/questions/new`}>
+                    <Plus className="h-4 w-4" />
+                    Add question
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div>
-          {canManage ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Edit Mode
-                </span>
-                <Switch
-                  checked={editMode}
-                  onCheckedChange={setEditMode}
-                />
-              </div>
+        {/* Active Filter Badges */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+            <span className="text-xs font-medium uppercase tracking-[0.05em] pl-1 text-slate-400">
+              Filters:
+            </span>
+            {activeFilters.map(({ displayValue, field }) => (
               <Button
-                asChild
+                key={field.key}
+                variant="outline"
                 size="sm"
-                className="rounded-full h-9 !text-primary-foreground hover:!text-primary-foreground"
+                className="h-7 text-xs gap-1.5 rounded-full px-3 text-slate-700 border-slate-200"
+                onClick={() => handleClearSingleFilter(field.key)}
               >
-                <Link href={`/classrooms/${classroomId}/questions/new`}>
-                  <Plus className="h-4 w-4" />
-                  Add question
-                </Link>
+                <span>{field.label}: {displayValue}</span>
+                <X className="h-3 w-3 text-slate-400 hover:text-slate-600" />
               </Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Active Filter Badges */}
-      {activeFilterCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2 py-1">
-          <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-            Filters:
-          </span>
-          {activeFilters.map(({ displayValue, field }) => (
+            ))}
             <Button
-              key={field.key}
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-7 text-xs gap-1.5 rounded-full px-3 text-slate-700 border-slate-200"
-              onClick={() => handleClearSingleFilter(field.key)}
+              className="h-7 text-xs px-2 text-slate-500 hover:text-slate-950"
+              onClick={handleResetFilters}
             >
-              <span>
-                {field.label}: {displayValue}
-              </span>
-              <X className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+              Clear all
             </Button>
-          ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs px-2 text-slate-500 hover:text-slate-950"
-            onClick={handleResetFilters}
-          >
-            Clear all
-          </Button>
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-slate-200">
+        {/* Table */}
         <Table>
           <TableHeader>
-            <TableRow className="bg-[var(--tint-sm)] border-slate-200">
+            <TableRow className="bg-[var(--tint-sm)] border-slate-200 dark:border-slate-800/60">
               <TableHead className="w-12">No.</TableHead>
               <TableHead>Name</TableHead>
               <TableHead className="w-24">Level</TableHead>
-              <TableHead className="w-40">Due date</TableHead>
+              <TableHead className="w-44 whitespace-nowrap">Due date</TableHead>
               <TableHead className="w-24 text-right">Submission</TableHead>
               <TableHead className="w-24 text-right">Score</TableHead>
               <TableHead className="w-24 text-right">Status</TableHead>
@@ -306,16 +299,17 @@ export function QuestionTable({
               </TableRow>
             ) : (
               pageItems.map((q) => (
-                <TableRow key={q.questionId}>
+                <TableRow
+                  key={q.questionId}
+                  className="cursor-pointer hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors"
+                  onClick={() => router.push(`/questions/${q.slug}?assignmentId=${q.assignmentId}&classroomId=${classroomId}`)}
+                >
                   <TableCell className="text-slate-400 tabular-nums">{q.rowNumber}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Link
-                        href={`/questions/${q.slug}?assignmentId=${q.assignmentId}&classroomId=${classroomId}`}
-                        className="font-medium text-slate-900 hover:text-sky-700"
-                      >
+                      <span className="font-medium text-slate-900">
                         {q.title}
-                      </Link>
+                      </span>
                       {!q.isPublished && (
                         <Badge variant="default" className="bg-slate-100 text-slate-500 hover:bg-slate-100 py-0 text-[10px]">
                           Hidden
@@ -334,11 +328,9 @@ export function QuestionTable({
                       {q.difficulty}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm text-slate-500">
+                  <TableCell className="text-sm text-slate-500 whitespace-nowrap">
                     {q.dueAt ? (
-                      <span className="flex flex-col gap-0.5">
-                        <span>{formatDate(q.dueAt)}</span>
-                      </span>
+                      <span>{formatDate(q.dueAt)}</span>
                     ) : (
                       <span className="text-slate-400">No due date</span>
                     )}
@@ -363,18 +355,19 @@ export function QuestionTable({
                     </span>
                   </TableCell>
                   {editMode && (
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <Link
                           href={`/admin/questions/${q.questionId}/edit?classroomId=${classroomId}&backUrl=${encodeURIComponent(`/classrooms/${classroomId}`)}`}
                           className="inline-flex items-center justify-center h-8 w-8 rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
                           title="Edit question"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button
                           type="button"
-                          onClick={() => handleDelete(q.questionId)}
+                          onClick={(e) => { e.stopPropagation(); void handleDelete(q.questionId); }}
                           className="inline-flex items-center justify-center h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors"
                           title="Delete question"
                         >
@@ -417,26 +410,28 @@ export function QuestionTable({
 
       {/* Filter Dialog */}
       <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Filter Questions</DialogTitle>
+        <DialogContent className="sm:max-w-md p-4 rounded-[30px] sm:rounded-[30px]">
+          <DialogHeader className="pl-2">
+            <DialogTitle className="text-sm font-semibold text-[var(--text-main)]">Filter Questions</DialogTitle>
           </DialogHeader>
-
-          <div className="grid gap-4 py-4">
+ 
+          <div className="grid gap-3 py-2">
             {FILTER_FIELDS.map((field) => (
               <div className="grid gap-2" key={field.key}>
-                <Label htmlFor={`filter-${field.key}`}>{field.label}</Label>
+                <Label htmlFor={`filter-${field.key}`} className="pl-2 text-slate-700">{field.label}</Label>
                 <Select
                   value={filterDraft[field.key] || "all"}
                   onValueChange={(value) =>
                     handleFilterDraftChange(field.key, value === "all" ? "" : value)
                   }
                 >
-                  <SelectTrigger id={`filter-${field.key}`} className="w-full bg-white">
+                  <SelectTrigger id={`filter-${field.key}`} className="w-full bg-background border border-input rounded-full h-9 font-semibold">
                     <SelectValue placeholder={`Select ${field.label.toLowerCase()}...`} />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All {field.label}s</SelectItem>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="all">
+                      {field.label === "Status" ? "All Statuses" : `All ${field.label}s`}
+                    </SelectItem>
                     {field.options.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
@@ -447,18 +442,33 @@ export function QuestionTable({
               </div>
             ))}
           </div>
-
-          <DialogFooter className="border-t border-slate-100 pt-4 flex justify-end gap-2">
-            <Button variant="ghost" onClick={handleResetFilters}>
+ 
+          <div className="border-t border-slate-100 dark:border-slate-800/60 pt-2 flex flex-row items-center justify-between gap-2">
+            <Button
+              variant="ghost"
+              onClick={handleResetFilters}
+              className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-full h-9 font-semibold"
+            >
               Reset
             </Button>
-            <Button variant="outline" onClick={() => setIsFilterDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleApplyFilters}>
-              Apply Filters
-            </Button>
-          </DialogFooter>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsFilterDialogOpen(false)}
+                className="rounded-full h-9 font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c1c1e] text-slate-900 px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleApplyFilters}
+                className="rounded-full h-9 font-semibold bg-black dark:bg-black !text-white hover:bg-zinc-900/90 dark:hover:bg-zinc-900/90 transition-colors px-4"
+              >
+                Apply Filters
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

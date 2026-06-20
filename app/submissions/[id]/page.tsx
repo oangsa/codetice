@@ -1,11 +1,11 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 
 import { RejudgeButton } from "@/components/submissions/rejudge-button";
 import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
-import { formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 import { formatDate, formatScore } from "@/lib/utils";
 import { getSubmissionDetail } from "@/server/services/submission-service";
 
@@ -26,63 +26,116 @@ export default async function SubmissionDetailPage(props: {
     notFound();
   }
 
+  const classroom = submission.assignment?.classroom;
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-          <div>
-            <CardTitle>{submission.question.title}</CardTitle>
-            <CardDescription>Submitted {formatDate(submission.createdAt)}</CardDescription>
-          </div>
-          {session.role === "admin" ? <RejudgeButton submissionId={submission.id} /> : null}
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <SubmissionStatusBadge status={submission.status} isLate={submission.isLate} />
-          <Badge variant="secondary">Score {formatScore(submission.score)}</Badge>
-          <Badge variant="default">
-            Passed {submission.passedCount}/{submission.totalCount}
-          </Badge>
-          {submission.gradingJobs[0] ? (
-            <Badge variant="outline">job {submission.gradingJobs[0].status}</Badge>
-          ) : null}
-        </CardContent>
-      </Card>
+      {/* Breadcrumb Navigation */}
+      <div>
+        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+          {classroom ? (
+            <>
+              <Link href="/classrooms" className="hover:text-slate-900">
+                Workspaces
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+              <Link href={`/classrooms/${classroom.id}`} className="hover:text-slate-900">
+                {classroom.name}
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+              <Link
+                href={`/questions/${submission.question.slug}?assignmentId=${submission.assignmentId}&classroomId=${classroom.id}`}
+                className="hover:text-slate-900 font-medium"
+              >
+                {submission.question.title}
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+            </>
+          ) : (
+            <>
+              <Link href="/questions" className="hover:text-slate-900">
+                Problems
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+              <Link href={`/questions/${submission.question.slug}`} className="hover:text-slate-900 font-medium">
+                {submission.question.title}
+              </Link>
+              <ChevronRight className="h-4 w-4" />
+            </>
+          )}
+          <span className="truncate text-slate-900 dark:text-slate-200">Submission Details</span>
+        </nav>
 
-      <div className="grid gap-4">
-        {submission.testcaseResults.map((result) => (
-          <Card key={result.id}>
-            <CardHeader>
-              <CardTitle className="text-sm">{result.testcase.name ?? result.testcase.id}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <SubmissionStatusBadge status={result.status} />
-                <span className="text-xs text-slate-500">{result.runtimeMs ?? 0} ms</span>
+        {/* Header Panel */}
+        <div className="overflow-hidden rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-[var(--tint-sm)] shadow-sm p-5 space-y-4 mt-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="pl-2">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {submission.question.title}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Submitted {formatDate(submission.createdAt)}
+              </p>
+            </div>
+            {session.role === "admin" && (
+              <div className="pr-2">
+                <RejudgeButton submissionId={submission.id} />
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Expected</p>
-                  <pre className="rounded-md bg-slate-100 p-3 whitespace-pre-wrap">{result.expectedOutput ?? "Hidden"}</pre>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Actual</p>
-                  <pre className="rounded-md bg-slate-100 p-3 whitespace-pre-wrap">{result.actualOutput ?? "Hidden"}</pre>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <SubmissionStatusBadge status={submission.status} isLate={submission.isLate} />
+            <Badge variant="default" className="rounded-full font-semibold">
+              Passed {submission.passedCount}/{submission.totalCount}
+            </Badge>
+            <Badge variant="secondary" className="rounded-full font-semibold">
+              Score {formatScore(submission.score)}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* Testcase Results */}
+      <div className="overflow-hidden rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-[var(--tint-sm)] shadow-sm p-4">
+        <div className="space-y-6">
+          {submission.testcaseResults.map((result, index) => (
+            <div key={result.id} className="space-y-3">
+              {/* Header: title + status/runtime */}
+              <div className="flex flex-row items-center justify-between gap-4 pb-1">
+                <h3 className="text-sm font-bold pl-2 text-slate-900 dark:text-white">
+                  {result.testcase.name ?? result.testcase.id}
+                </h3>
+                <div className="flex items-center gap-2 pr-2">
+                  <SubmissionStatusBadge status={result.status} />
+                  <span className="text-xs text-slate-500 font-semibold">{result.runtimeMs ?? 0} ms</span>
                 </div>
               </div>
-              {result.errorMessage ? (
-                session.role === "admin" ? (
-                  <pre className="rounded-md bg-slate-800 p-3 text-xs text-white whitespace-pre-wrap">
+
+              {/* Content: Expected & Actual Outputs */}
+              <div className="space-y-3 text-sm">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex flex-col h-full">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400 pl-2">Expected</p>
+                    <pre className="flex-grow rounded-[16px] bg-white dark:bg-[#0d0e12] border border-black/5 dark:border-white/10 p-3 font-mono text-xs !text-zinc-800 dark:!text-zinc-200 whitespace-pre-wrap min-h-[48px]">
+                      {result.expectedOutput || " "}
+                    </pre>
+                  </div>
+                  <div className="flex flex-col h-full">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400 pl-2">Actual</p>
+                    <pre className="flex-grow rounded-[16px] bg-white dark:bg-[#0d0e12] border border-black/5 dark:border-white/10 p-3 font-mono text-xs !text-zinc-800 dark:!text-zinc-200 whitespace-pre-wrap min-h-[48px]">
+                      {result.actualOutput || " "}
+                    </pre>
+                  </div>
+                </div>
+                {result.errorMessage && session.role === "admin" ? (
+                  <pre className="rounded-[16px] bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 p-3 text-xs font-mono whitespace-pre-wrap mt-2">
                     {result.errorMessage}
                   </pre>
-                ) : (
-                  <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-slate-800 p-3 text-xs text-slate-700 dark:text-slate-300">
-                    {formatSubmissionStatusLabel(result.status)}
-                  </div>
-                )
-              ) : null}
-            </CardContent>
-          </Card>
-        ))}
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

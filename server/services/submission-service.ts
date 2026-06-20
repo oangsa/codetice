@@ -575,7 +575,11 @@ export async function getSubmissionDetail(submissionId: string, userId: string, 
         : and(eq(submissions.id, submissionId), eq(submissions.userId, userId)),
     with: {
       question: true,
-      assignment: true,
+      assignment: {
+        with: {
+          classroom: true,
+        },
+      },
       gradingJobs: {
         orderBy: (fields, ops) => [ops.desc(fields.createdAt)],
         limit: 5,

@@ -26,28 +26,25 @@ export default async function NewClassroomQuestionPage(props: {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
+      {/* Breadcrumb Navigation & Form */}
       <div>
-        <Link
-          href={`/classrooms/${id}`}
-          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to {classroom.name}
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Add new question</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Create a question with testcases and add it to{" "}
-          <strong>{classroom.name}</strong>.
-        </p>
-      </div>
+        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+          <Link
+            href={`/classrooms/${id}`}
+            className="inline-flex items-center gap-1 hover:text-slate-900"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to {classroom.name}
+          </Link>
+        </nav>
 
-      <QuestionForm
-        mode="create"
-        classroomId={id}
-        backUrl={`/classrooms/${id}`}
-        languages={languages}
-      />
+        <QuestionForm
+          mode="create"
+          classroomId={id}
+          backUrl={`/classrooms/${id}`}
+          languages={languages}
+        />
+      </div>
     </div>
   );
 }
