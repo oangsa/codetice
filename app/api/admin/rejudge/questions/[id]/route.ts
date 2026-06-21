@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok } from "@/lib/api";
-import { completeRejudgeJob, processPendingGradingJobs, rejudgeQuestion } from "@/server/services/submission-service";
+import { completeRejudgeJob, processGradingJob, rejudgeQuestion } from "@/server/services/submission-service";
 
 export async function POST(
   _request: Request,
@@ -11,10 +11,17 @@ export async function POST(
 
   let rejudgeJob: { id: string } | null = null;
   try {
-    rejudgeJob = await rejudgeQuestion(id, session.userId);
-    await processPendingGradingJobs(50);
-    await completeRejudgeJob(rejudgeJob.id, "completed");
-    return ok({ rejudgeJob });
+    const result = await rejudgeQuestion(id, session.userId);
+    rejudgeJob = result.rejudgeJob;
+    const processedJobs = [];
+
+    for (const gradingJob of result.gradingJobs) {
+      processedJobs.push(await processGradingJob(gradingJob.id));
+    }
+
+    const rejudgeStatus = processedJobs.some((job) => job?.status !== "completed") ? "failed" : "completed";
+    await completeRejudgeJob(rejudgeJob.id, rejudgeStatus);
+    return ok({ rejudgeJob, gradingJobs: processedJobs });
   } catch (error) {
     if (rejudgeJob) {
       await completeRejudgeJob(rejudgeJob.id, "failed");

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { idempotencyKeys } from "@/db/schema";
 import { getDb } from "@/lib/db";
@@ -86,7 +86,13 @@ export async function beginIdempotentRequest<T>(input: {
         completedAt: null,
         createdAt: new Date(),
       })
-      .where(eq(idempotencyKeys.id, existing.id))
+      .where(
+        and(
+          eq(idempotencyKeys.id, existing.id),
+          eq(idempotencyKeys.createdAt, existing.createdAt),
+          isNull(idempotencyKeys.completedAt),
+        ),
+      )
       .returning({ id: idempotencyKeys.id });
 
     if (reclaimed) {

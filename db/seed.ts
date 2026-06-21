@@ -42,7 +42,7 @@ async function main() {
     {
       name: "TypeScript",
       slug: "typescript",
-      dockerImage: "node:22-alpine",
+      dockerImage: "oven/bun:1-alpine",
       fileExtension: "ts",
       runCommand: "bun {file}",
       editorLanguage: "typescript",
@@ -60,10 +60,13 @@ async function main() {
 
     if (!existingLanguage) {
       await db.insert(supportedLanguages).values(language);
-    } else if (existingLanguage.editorLanguage === "plaintext") {
+    } else {
       await db
         .update(supportedLanguages)
         .set({
+          dockerImage: language.dockerImage,
+          fileExtension: language.fileExtension,
+          runCommand: language.runCommand,
           editorLanguage: language.editorLanguage,
           diagnosticsFormat: language.diagnosticsFormat,
           diagnosticsCommand: language.diagnosticsCommand,

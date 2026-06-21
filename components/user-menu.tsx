@@ -1,5 +1,6 @@
 "use client";
 
+import NextImage from "next/image";
 import Link from "next/link";
 import { Settings, Shield, Languages } from "lucide-react";
 
@@ -21,9 +22,12 @@ export function UserMenu({ user }: { user: SessionUser }) {
             {user.username}
           </span>
           <div className="h-[32px] w-[32px] rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-black/5 dark:border-white/10">
-            <img
+            <NextImage
               src={user.profilePicture || "/avatars/avatar-1.png"}
               alt={user.username}
+              width={32}
+              height={32}
+              unoptimized
               className="h-full w-full object-cover"
             />
           </div>

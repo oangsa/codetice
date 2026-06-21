@@ -26,7 +26,7 @@ export const RUNTIME_PROFILES: Record<SupportedLanguageSlug, RuntimeProfile> = {
     args: ["/workspace/main.js"],
   },
   typescript: {
-    dockerImage: "node:22-alpine",
+    dockerImage: "oven/bun:1-alpine",
     fileExtension: "ts",
     runCommand: "bun {file}",
     command: "bun",
@@ -44,4 +44,8 @@ export function getRuntimeProfile(slug: string) {
   }
 
   return RUNTIME_PROFILES[slug];
+}
+
+export function hasRuntimeProfile(slug: string) {
+  return isSupportedLanguageSlug(slug);
 }

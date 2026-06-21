@@ -19,19 +19,6 @@ export async function assertRateLimit(input: {
   const db = getDb();
   const windowCutoff = new Date(Date.now() - input.windowMinutes * 60 * 1000);
 
-  const existingRows = await db.query.rateLimits.findMany({
-    where: and(
-      eq(rateLimits.identifier, input.identifier),
-      eq(rateLimits.action, input.action),
-      gte(rateLimits.windowStart, windowCutoff),
-    ),
-  });
-
-  const count = existingRows.reduce((sum, row) => sum + row.count, 0);
-  if (count >= input.limit) {
-    throw new RateLimitError();
-  }
-
   const bucketedWindowStart = bucketToMinute(new Date());
 
   await db
@@ -46,6 +33,19 @@ export async function assertRateLimit(input: {
       target: [rateLimits.identifier, rateLimits.action, rateLimits.windowStart],
       set: { count: sql`${rateLimits.count} + 1` },
     });
+
+  const existingRows = await db.query.rateLimits.findMany({
+    where: and(
+      eq(rateLimits.identifier, input.identifier),
+      eq(rateLimits.action, input.action),
+      gte(rateLimits.windowStart, windowCutoff),
+    ),
+  });
+
+  const count = existingRows.reduce((sum, row) => sum + row.count, 0);
+  if (count > input.limit) {
+    throw new RateLimitError();
+  }
 }
 
 export async function cleanupOldRateLimits() {

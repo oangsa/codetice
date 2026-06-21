@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2, Pencil, User } from "lucide-react";
 import { toast } from "sonner";
@@ -156,9 +157,12 @@ export function ProfileDetailsForm({ user }: { user: SessionUser }) {
           />
           <div className="relative h-20 w-20 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm bg-slate-50 dark:bg-slate-900 flex items-center justify-center shrink-0">
             <div className="h-full w-full rounded-full overflow-hidden">
-              <img
+              <NextImage
                 src={avatarUrl}
                 alt="Profile Avatar"
+                width={80}
+                height={80}
+                unoptimized
                 className="h-full w-full object-cover"
               />
             </div>
