@@ -1,0 +1,1 @@
+Classroom participants and scoreboards should show student participants only. Filter out classroom teachers and global `admin` users before rendering participant rows or aggregating classroom leaderboard scores.

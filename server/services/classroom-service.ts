@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import {
   assignmentQuestions,
@@ -8,7 +8,6 @@ import {
   classroomMembers,
   classrooms,
   questions,
-  questionScores,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
 

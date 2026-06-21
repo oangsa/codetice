@@ -58,8 +58,8 @@ export function ProblemTabs({
   } as React.CSSProperties;
 
   return (
-    <Card className="rounded-[30px] h-full flex flex-col">
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 p-2">
+    <Card className="rounded-[30px] h-full min-h-0 flex flex-col overflow-hidden">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 p-2 shrink-0">
         <div className="pl-2 pt-[9px]">
           <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Problem</CardTitle>
         </div>
@@ -118,15 +118,15 @@ export function ProblemTabs({
 
 
       {/* Tabs Content */}
-      <CardContent className="py-2 pl-2 pr-2 flex-1 min-h-0">
+      <CardContent className="py-2 pl-2 pr-2 flex-1 min-h-0 overflow-hidden">
         {activeTab === "description" && (
-          <ScrollArea className="h-full pr-2">
+          <ScrollArea className="h-full min-h-0 pr-2">
             <Markdown className="py-3 pl-2 pr-2">{description}</Markdown>
           </ScrollArea>
         )}
 
         {activeTab === "samples" && (
-          <ScrollArea className="h-full pr-2">
+          <ScrollArea className="h-full min-h-0 pr-2">
             <div className="space-y-4">
               {sampleCases.map((testcase, index) => (
                 <div

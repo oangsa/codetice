@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
 import { getDb } from "@/lib/db";
+import { slugify } from "@/lib/utils";
+
 export type LanguageInput = {
   name: string;
   slug: string;
@@ -24,6 +26,28 @@ function normalizeLanguageInput(input: LanguageInput) {
     diagnosticsFormat: input.diagnosticsFormat ?? "none",
     diagnosticsCommand: input.diagnosticsCommand?.trim() || null,
   };
+}
+
+export async function createUniqueSupportedLanguageSlug(name: string) {
+  const db = getDb();
+  const baseSlug = slugify(name).slice(0, 40) || "language";
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while (true) {
+    const existing = await db.query.supportedLanguages.findFirst({
+      where: eq(supportedLanguages.slug, slug),
+      columns: { id: true },
+    });
+
+    if (!existing) {
+      return slug;
+    }
+
+    const suffixText = `-${suffix}`;
+    slug = `${baseSlug.slice(0, 50 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
 }
 
 export async function listSupportedLanguages() {

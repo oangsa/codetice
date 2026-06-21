@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, ChevronRight, Info } from "lucide-react";
+import { ChevronRight, Info } from "lucide-react";
 
 import { PageHeader } from "@/components/commons/page-header";
-import { SurfaceCard } from "@/components/commons/surface-card";
 import { ClassroomTabs } from "@/components/classrooms/classroom-tabs";
 import { InviteCodeSection } from "@/components/classrooms/invite-code-section";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";

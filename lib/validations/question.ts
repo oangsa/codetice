@@ -21,7 +21,6 @@ export const testcaseSchema = z.object({
 
 export const questionSchema = z.object({
   title: z.string().trim().min(1).max(255),
-  slug: z.string().trim().min(1).max(255),
   description: z.string().min(1),
   difficulty: z.enum(QUESTION_DIFFICULTIES),
   totalScore: z.coerce.number().positive(),

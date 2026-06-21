@@ -1,0 +1,1 @@
+When removing legacy code, prefer proof from imports, route usage, and lint findings. Delete orphaned components entirely, and remove unused imports/state rather than leaving placeholder search or filter state without visible controls.

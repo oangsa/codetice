@@ -143,11 +143,6 @@ function LanguageDialog({
       return;
     }
 
-    if (!language) {
-      // Create — include slug
-      payload.slug = String(formData.get("slug") ?? "");
-    }
-
     const endpoint = language ? `/api/languages/${language.id}` : "/api/languages";
     const method = language ? "PATCH" : "POST";
 
@@ -199,42 +194,15 @@ function LanguageDialog({
             await handleSubmit(formData);
           }}
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Name" htmlFor="name">
-              <Input
-                id="name"
-                name="name"
-                placeholder="e.g. Python 3"
-                defaultValue={language?.name ?? ""}
-                required
-              />
-            </FormField>
-
-            {isEdit ? (
-              <FormField label="Slug" htmlFor="slug-readonly">
-                <Input
-                  id="slug-readonly"
-                  value={language.slug}
-                  disabled
-                  className="bg-muted text-muted-foreground"
-                />
-              </FormField>
-            ) : (
-              <FormField
-                label="Slug"
-                htmlFor="slug"
-                description="Lowercase, letters/numbers/hyphens only. Cannot be changed."
-              >
-                <Input
-                  id="slug"
-                  name="slug"
-                  placeholder="e.g. python3"
-                  pattern="^[a-z][a-z0-9_-]*$"
-                  required
-                />
-              </FormField>
-            )}
-          </div>
+          <FormField label="Name" htmlFor="name">
+            <Input
+              id="name"
+              name="name"
+              placeholder="e.g. Python 3"
+              defaultValue={language?.name ?? ""}
+              required
+            />
+          </FormField>
 
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="File extension" htmlFor="fileExtension">

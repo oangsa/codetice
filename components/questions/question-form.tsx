@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
 
 import { TestcaseDialog } from "@/components/questions/testcase-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,6 @@ export function QuestionForm({
   question?: {
     id: string;
     title: string;
-    slug: string;
     description: string;
     difficulty: string;
     totalScore: string;
@@ -194,7 +193,6 @@ export function QuestionForm({
     setPending(true);
     const payload = {
       title: String(formData.get("title") ?? ""),
-      slug: String(formData.get("slug") ?? ""),
       description: String(formData.get("description") ?? ""),
       difficulty,
       totalScore: Number(formData.get("totalScore") ?? 100),
@@ -281,37 +279,9 @@ export function QuestionForm({
               await handleSubmit(formData);
             }}
           >
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Title" htmlFor="title">
-                <Input
-                  id="title"
-                  name="title"
-                  defaultValue={question?.title ?? ""}
-                  required
-                  onChange={(event) => {
-                    if (mode !== "create") {
-                      return;
-                    }
-
-                    const form = event.currentTarget.form;
-                    const slugInput = form?.elements.namedItem("slug") as HTMLInputElement | null;
-                    if (!slugInput || slugInput.value.trim().length > 0) {
-                      return;
-                    }
-
-                    slugInput.value = event.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9\s-]/g, "")
-                      .replace(/\s+/g, "-")
-                      .replace(/-+/g, "-")
-                      .slice(0, 100);
-                  }}
-                />
-              </FormField>
-              <FormField label="Slug" htmlFor="slug">
-                <Input id="slug" name="slug" defaultValue={question?.slug ?? ""} required />
-              </FormField>
-            </div>
+            <FormField label="Title" htmlFor="title">
+              <Input id="title" name="title" defaultValue={question?.title ?? ""} required />
+            </FormField>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Description</label>
               <MarkdownEditor

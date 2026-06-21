@@ -4,15 +4,6 @@ const diagnosticsFormatSchema = z.enum(["none", "pyright", "compiler"]);
 
 const supportedLanguageBaseSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  slug: z
-    .string()
-    .trim()
-    .min(1)
-    .max(50)
-    .regex(
-      /^[a-z][a-z0-9_-]*$/,
-      "Slug must be lowercase alphanumeric with hyphens/underscores"
-    ),
   dockerImage: z.string().trim().min(1).max(255),
   fileExtension: z
     .string()
@@ -55,5 +46,4 @@ export const supportedLanguageSchema = supportedLanguageBaseSchema.superRefine(
 );
 
 export const updateSupportedLanguageSchema = supportedLanguageBaseSchema
-  .omit({ slug: true })
   .superRefine(validateDiagnosticsCommand);

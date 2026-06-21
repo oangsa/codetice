@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BookOpen } from "lucide-react";
 
 import { ClassroomCard } from "@/components/classrooms/classroom-card";

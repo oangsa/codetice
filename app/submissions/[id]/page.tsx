@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 import { RejudgeButton } from "@/components/submissions/rejudge-button";
+import { ReviseSubmissionButton } from "@/components/submissions/revise-submission-button";
+import { SubmissionCodeViewer } from "@/components/submissions/submission-code-viewer";
 import { SubmissionStatusBadge } from "@/components/submissions/submission-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
@@ -27,6 +29,9 @@ export default async function SubmissionDetailPage(props: {
   }
 
   const classroom = submission.assignment?.classroom;
+  const questionHref = classroom
+    ? `/questions/${submission.question.slug}?assignmentId=${submission.assignmentId}&classroomId=${classroom.id}`
+    : `/questions/${submission.question.slug}`;
 
   return (
     <div className="space-y-6">
@@ -43,10 +48,7 @@ export default async function SubmissionDetailPage(props: {
                 {classroom.name}
               </Link>
               <ChevronRight className="h-4 w-4" />
-              <Link
-                href={`/questions/${submission.question.slug}?assignmentId=${submission.assignmentId}&classroomId=${classroom.id}`}
-                className="hover:text-slate-900 font-medium"
-              >
+              <Link href={questionHref} className="hover:text-slate-900 font-medium">
                 {submission.question.title}
               </Link>
               <ChevronRight className="h-4 w-4" />
@@ -82,6 +84,17 @@ export default async function SubmissionDetailPage(props: {
                 <RejudgeButton submissionId={submission.id} />
               </div>
             )}
+            {session.role !== "admin" ? (
+              <div className="pr-2">
+                <ReviseSubmissionButton
+                  questionId={submission.questionId}
+                  assignmentId={submission.assignmentId}
+                  questionHref={questionHref}
+                  language={submission.language}
+                  sourceCode={submission.sourceCode}
+                />
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SubmissionStatusBadge status={submission.status} isLate={submission.isLate} />
@@ -95,10 +108,20 @@ export default async function SubmissionDetailPage(props: {
         </div>
       </div>
 
+      <div className="overflow-hidden rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-[var(--tint-sm)] shadow-sm p-4">
+        <div className="flex items-center justify-between gap-4 pb-2">
+          <h2 className="text-sm font-bold pl-2 text-slate-900 dark:text-white">Submitted code</h2>
+          <Badge variant="secondary" className="rounded-full font-semibold">
+            {submission.language}
+          </Badge>
+        </div>
+        <SubmissionCodeViewer sourceCode={submission.sourceCode} language={submission.language} />
+      </div>
+
       {/* Testcase Results */}
       <div className="overflow-hidden rounded-[30px] border border-slate-200 dark:border-slate-800/60 bg-[var(--tint-sm)] shadow-sm p-4">
         <div className="space-y-6">
-          {submission.testcaseResults.map((result, index) => (
+          {submission.testcaseResults.map((result) => (
             <div key={result.id} className="space-y-3">
               {/* Header: title + status/runtime */}
               <div className="flex flex-row items-center justify-between gap-4 pb-1">

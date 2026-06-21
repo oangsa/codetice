@@ -14,7 +14,7 @@ export function InviteCodeSection({ inviteCode, className }: { inviteCode: strin
       setCopied(true);
       toast.success("Invite code copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy invite code.");
     }
   };

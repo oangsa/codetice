@@ -3,12 +3,9 @@
 import { useState, useMemo } from "react";
 import { cn, formatDate, formatScore } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { QuestionTable } from "@/components/classrooms/question-table";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Search, Filter, ArrowUp, ArrowDown } from "lucide-react";
 
 type QuestionRow = {
   rowNumber: number;
@@ -40,6 +37,7 @@ type ClassroomMember = {
   joinedAt: Date;
   user: {
     username: string;
+    role: string;
   };
 };
 
@@ -62,12 +60,8 @@ export function ClassroomTabs({
   const [hasClicked, setHasClicked] = useState(false);
   const [animationClass, setAnimationClass] = useState("");
 
-  // Scoreboard state
-  const [sbSearch, setSbSearch] = useState("");
   const [sbSort, setSbSort] = useState<SortDir>("desc");
 
-  // Participants state
-  const [ptSearch, setPtSearch] = useState("");
   const [ptSort, setPtSort] = useState<SortDir>("asc");
 
   const tabs = canManage
@@ -97,26 +91,23 @@ export function ClassroomTabs({
 
   // Filtered + sorted scoreboard
   const filteredLeaderboard = useMemo(() => {
-    let list = leaderboard.filter((e) =>
-      e.username.toLowerCase().includes(sbSearch.toLowerCase())
-    );
+    let list = leaderboard;
     list = [...list].sort((a, b) =>
       sbSort === "desc" ? b.totalScore - a.totalScore : a.totalScore - b.totalScore
     );
     return list;
-  }, [leaderboard, sbSearch, sbSort]);
+  }, [leaderboard, sbSort]);
 
   // Filtered + sorted participants (students only)
   const filteredParticipants = useMemo(() => {
     let list = members
-      .filter((m) => m.role !== "teacher")
-      .filter((m) => m.user.username.toLowerCase().includes(ptSearch.toLowerCase()));
+      .filter((m) => m.role === "student" && m.user.role !== "admin");
     list = [...list].sort((a, b) => {
       const diff = new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
       return ptSort === "asc" ? diff : -diff;
     });
     return list;
-  }, [members, ptSearch, ptSort]);
+  }, [members, ptSort]);
 
   return (
     <Tabs value={activeTab} className="space-y-3">
@@ -221,9 +212,9 @@ export function ClassroomTabs({
             </TableHeader>
             <TableBody>
               {filteredLeaderboard.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center text-sm text-slate-400">
-                    {sbSearch ? "No results match your search." : "No submissions yet."}
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-slate-400">
+                    No submissions yet.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -286,7 +277,7 @@ export function ClassroomTabs({
                 {filteredParticipants.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={2} className="py-10 text-center text-sm text-slate-400">
-                      {ptSearch ? "No results match your search." : "No participants yet."}
+                      No participants yet.
                     </TableCell>
                   </TableRow>
                 ) : (

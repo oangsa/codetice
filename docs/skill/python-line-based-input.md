@@ -1,0 +1,1 @@
+Python `input()` reads one complete stdin line, not one whitespace-delimited token. A testcase input of `5 2` satisfies one `input()` call; two `input()` calls need `5\n2\n`, or the solution should parse tokens with `input().split()` / `sys.stdin.read().split()`.

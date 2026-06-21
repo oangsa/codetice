@@ -1,0 +1,1 @@
+Markdown descriptions are rendered through `components/ui/markdown.tsx`. Keep Thai section-label translation, `<br>` normalization, GFM tables, and fenced-code handling in the renderer instead of scattering formatting fixes in question pages or editors.

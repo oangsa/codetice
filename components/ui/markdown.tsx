@@ -15,56 +15,63 @@ const TRANSLATIONS: Record<string, string> = {
   "ตัวอย่างผลรัน": "Output",
 };
 
-function translateThaiText(children: React.ReactNode): React.ReactNode {
-  if (typeof children === "string") {
-    const trimmed = children.trim();
-    return TRANSLATIONS[trimmed] || children;
-  }
-  if (Array.isArray(children)) {
-    return children.map((child) => translateThaiText(child));
-  }
-  if (React.isValidElement(children)) {
-    const element = children as React.ReactElement<any>;
-    return React.cloneElement(element, {
-      children: translateThaiText(element.props.children),
-    });
-  }
-  return children;
+function translateText(value: string) {
+  return TRANSLATIONS[value.trim()] ?? value;
 }
 
-function renderContentWithLineBreaks(children: React.ReactNode): React.ReactNode {
+function renderText(value: string, preserveLineBreaks = false): React.ReactNode {
+  const translated = translateText(value.replace(/<br\s*\/?>/gi, "\n"));
+
+  if (!preserveLineBreaks || !translated.includes("\n")) {
+    return translated;
+  }
+
+  return translated.split("\n").map((part, index) => (
+    <React.Fragment key={`${part}-${index}`}>
+      {index > 0 ? <br /> : null}
+      {part}
+    </React.Fragment>
+  ));
+}
+
+function renderChildren(children: React.ReactNode, preserveLineBreaks = false): React.ReactNode {
   if (typeof children === "string") {
-    return children.replace(/<br\s*\/?>/gi, "\n");
+    return renderText(children, preserveLineBreaks);
   }
+
   if (Array.isArray(children)) {
-    return children.map((child, idx) => {
-      if (typeof child === "string") {
-        return child.replace(/<br\s*\/?>/gi, "\n");
-      }
-      return child;
-    });
+    return children.map((child) => renderChildren(child, preserveLineBreaks));
   }
+
+  if (React.isValidElement<{ children?: React.ReactNode }>(children)) {
+    return React.cloneElement(
+      children,
+      undefined,
+      renderChildren(children.props.children, preserveLineBreaks),
+    );
+  }
+
   return children;
 }
 
 const COMPONENTS: Components = {
   h1: ({ children }) => (
-    <h1 className="mb-3 mt-6 text-2xl font-bold tracking-tight text-slate-900 first:mt-0">
-      {translateThaiText(children)}
+    <h1 className="mb-3 mt-6 text-2xl font-bold tracking-tight text-slate-900 dark:text-white first:mt-0">
+      {renderChildren(children)}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mb-2 mt-5 text-xl font-semibold text-slate-900 first:mt-0">
-      {translateThaiText(children)}
+    <h2 className="mb-2 mt-5 text-xl font-semibold text-slate-900 dark:text-white first:mt-0">
+      {renderChildren(children)}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mb-2 mt-4 text-base font-semibold text-slate-900 first:mt-0">
-      {translateThaiText(children)}
+    <h3 className="mb-2 mt-4 text-base font-semibold text-slate-900 dark:text-white first:mt-0">
+      {renderChildren(children)}
     </h3>
   ),
-  p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-  strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+  p: ({ children }) => <p className="mb-1.5 last:mb-0">{renderChildren(children, true)}</p>,
+  strong: ({ children }) => <strong className="font-semibold leading-[inherit] text-slate-900 dark:text-white">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
   a: ({ href, children }) => (
     <a
@@ -76,27 +83,31 @@ const COMPONENTS: Components = {
       {children}
     </a>
   ),
-  ul: ({ children }) => <ul className="mb-3 ml-5 list-disc space-y-1">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-3 ml-5 list-decimal space-y-1">{children}</ol>,
-  li: ({ children }) => <li className="leading-6">{children}</li>,
+  ul: ({ children }) => <ul className="mb-1 ml-5 list-disc space-y-1">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-1 ml-5 list-decimal space-y-1">{children}</ol>,
+  li: ({ children }) => (
+    <li className="leading-[1.55] [&>ol]:mb-1 [&>ol]:mt-1 [&>p]:mb-0.5 [&>p:last-child]:mb-0 [&>ul]:mb-1 [&>ul]:mt-1">
+      {renderChildren(children)}
+    </li>
+  ),
   blockquote: ({ children }) => (
     <blockquote className="my-3 border-l-4 border-slate-300 pl-4 italic text-slate-500">
       {children}
     </blockquote>
   ),
   hr: () => <hr className="my-4 border-slate-200 dark:border-slate-800" />,
-  // Code — inline vs block distinguished by whether parent is <pre>
   pre: ({ children }) => (
     <pre className="my-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 p-4 text-sm leading-6">
       {children}
     </pre>
   ),
   code: ({ className, children }) => {
-    // Inside <pre> → block code; no className → inline code
-    const isBlock = Boolean(className);
+    const codeText = String(children);
+    const isBlock = Boolean(className) || codeText.includes("\n");
+
     if (isBlock) {
       return (
-        <code className={cn("font-mono text-slate-800 dark:text-slate-200", className)}>
+        <code className={cn("block font-mono text-slate-800 dark:text-slate-200", className)}>
           {children}
         </code>
       );
@@ -116,22 +127,16 @@ const COMPONENTS: Components = {
   thead: ({ children }) => <thead className="border-b border-black/10 dark:border-white/10">{children}</thead>,
   tbody: ({ children }) => <tbody className="divide-y divide-black/10 dark:divide-white/10">{children}</tbody>,
   tr: ({ children }) => <tr className="border-b border-black/10 dark:border-white/10 last:border-0">{children}</tr>,
-  th: ({ children }) => {
-    const formattedChildren = translateThaiText(renderContentWithLineBreaks(children));
-    return (
-      <th className="px-4 py-2 text-left align-top font-semibold text-slate-900 dark:text-white border-r border-black/10 dark:border-white/10 last:border-r-0">
-        {formattedChildren}
-      </th>
-    );
-  },
-  td: ({ children }) => {
-    const formattedChildren = translateThaiText(renderContentWithLineBreaks(children));
-    return (
-      <td className="px-4 py-2 text-slate-700 dark:text-slate-300 align-top whitespace-pre-wrap border-r border-black/10 dark:border-white/10 last:border-r-0">
-        {formattedChildren}
-      </td>
-    );
-  },
+  th: ({ children }) => (
+    <th className="px-4 py-2 text-left align-top font-semibold text-slate-900 dark:text-white border-r border-black/10 dark:border-white/10 last:border-r-0">
+      {renderChildren(children, true)}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-4 py-2 text-slate-700 dark:text-slate-300 align-top border-r border-black/10 dark:border-white/10 last:border-r-0">
+      {renderChildren(children, true)}
+    </td>
+  ),
 };
 
 export function Markdown({
@@ -142,7 +147,7 @@ export function Markdown({
   className?: string;
 }) {
   return (
-    <div className={cn("text-sm leading-7 text-slate-700", className)}>
+    <div className={cn("text-sm leading-[1.55] text-slate-700 dark:text-slate-300", className)}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
         {children}
       </ReactMarkdown>

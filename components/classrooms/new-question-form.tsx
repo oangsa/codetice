@@ -115,7 +115,6 @@ export function NewQuestionForm({
 
     const body = {
       title: String(data.get("title") ?? ""),
-      slug: String(data.get("slug") ?? ""),
       description: String(data.get("description") ?? ""),
       difficulty,
       totalScore: Number(data.get("totalScore") ?? 100),
@@ -158,15 +157,6 @@ export function NewQuestionForm({
     router.refresh();
   }
 
-  function slugify(title: string) {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 100);
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Question details */}
@@ -175,24 +165,9 @@ export function NewQuestionForm({
           <CardTitle>Question details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Title" htmlFor="title">
-              <Input
-                id="title"
-                name="title"
-                required
-                onChange={(e) => {
-                  const slugInput = e.currentTarget.form?.elements.namedItem(
-                    "slug",
-                  ) as HTMLInputElement;
-                  if (slugInput) slugInput.value = slugify(e.target.value);
-                }}
-              />
-            </FormField>
-            <FormField label="Slug" htmlFor="slug">
-              <Input id="slug" name="slug" required pattern="[a-z0-9-]+" />
-            </FormField>
-          </div>
+          <FormField label="Title" htmlFor="title">
+            <Input id="title" name="title" required />
+          </FormField>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Description</label>

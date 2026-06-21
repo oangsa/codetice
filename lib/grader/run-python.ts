@@ -126,6 +126,7 @@ async function runWithDocker(
     "docker",
     [
       "run",
+      "-i",
       "--rm",
       "--network",
       "none",

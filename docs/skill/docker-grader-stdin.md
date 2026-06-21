@@ -1,0 +1,1 @@
+When running submitted code through Docker, include `docker run -i` whenever testcase input is piped through stdin. Without `-i`, programs that call `input()` or read from stdin can receive EOF even when the Node runner writes testcase input to the Docker process.

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IDEMPOTENCY_KEY_HEADER, PYTHON_COMPLETIONS } from "@/lib/constants";
+import { createEditorDraftStorageKey, readEditorDraft, writeEditorDraft } from "@/lib/editor-drafts";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
 const EDITOR_MARKER_OWNER = "language-diagnostics";
@@ -53,45 +54,23 @@ export function CodeEditor({
   questionId: string;
   starterCode: string;
   starterCodeByLanguage: Record<string, string>;
-  languages: Array<{ slug: string; name: string; editorLanguage: string }>;
+  languages: Array<{ slug: string; name: string; editorLanguage: string; defaultStarterCode: string | null }>;
   assignmentId?: string | null;
 }) {
   const router = useRouter();
+  const draftStorageKey = useMemo(
+    () => createEditorDraftStorageKey(questionId, assignmentId),
+    [questionId, assignmentId],
+  );
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const updateTheme = () => {
-      setTheme(
-        document.documentElement.classList.contains("dark")
-          ? "dark"
-          : "light"
-      );
-    };
-
-    const animationFrame = window.requestAnimationFrame(() => {
-      updateTheme();
-      setMounted(true);
-    });
-
-    const observer = new MutationObserver(updateTheme);
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      observer.disconnect();
-    };
-  }, []);
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.slug ?? "python");
   const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>(() => {
     const initialLanguage = languages[0]?.slug ?? "python";
+    const languageDefault = languages.find((language) => language.slug === initialLanguage)?.defaultStarterCode ?? "";
     return {
-      [initialLanguage]: starterCodeByLanguage[initialLanguage] || starterCode,
+      [initialLanguage]: starterCodeByLanguage[initialLanguage] ?? (starterCode || languageDefault),
     };
   });
   const [pendingAction, setPendingAction] = useState<"submit" | null>(null);
@@ -110,7 +89,8 @@ export function CodeEditor({
   const editorLanguage = resolveMonacoLanguage(
     languages.find((language) => language.slug === selectedLanguage)?.editorLanguage ?? "plaintext",
   );
-  const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? starterCode;
+  const languageDefault = languages.find((language) => language.slug === selectedLanguage)?.defaultStarterCode ?? "";
+  const code = codeByLanguage[selectedLanguage] ?? starterCodeByLanguage[selectedLanguage] ?? (starterCode || languageDefault);
 
   const monacoOptions = useMemo(
     () => ({
@@ -124,6 +104,40 @@ export function CodeEditor({
     }),
     [],
   );
+
+  useEffect(() => {
+    const updateTheme = () => {
+      setTheme(
+        document.documentElement.classList.contains("dark")
+          ? "dark"
+          : "light"
+      );
+    };
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      updateTheme();
+      const draft = readEditorDraft(draftStorageKey);
+      if (draft) {
+        setCodeByLanguage((current) => ({
+          ...current,
+          ...draft,
+        }));
+      }
+      setMounted(true);
+    });
+
+    const observer = new MutationObserver(updateTheme);
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
+  }, [draftStorageKey]);
 
   useEffect(() => {
     if (!editorRef.current) {
@@ -355,8 +369,8 @@ export function CodeEditor({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <Card className="rounded-[30px] border shadow-sm h-full flex flex-col">
+    <div className="h-full min-h-0 flex flex-col">
+      <Card className="rounded-[30px] border shadow-sm h-full min-h-0 flex flex-col overflow-hidden">
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 p-2 shrink-0">
           <div className="pl-2 pt-[9px]">
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Editor</CardTitle>
@@ -407,12 +421,16 @@ export function CodeEditor({
                 height="100%"
                 language={editorLanguage}
                 value={code}
-                onChange={(value) =>
-                  setCodeByLanguage((current) => ({
-                    ...current,
-                    [selectedLanguage]: value ?? "",
-                  }))
-                }
+                onChange={(value) => {
+                  setCodeByLanguage((current) => {
+                    const next = {
+                      ...current,
+                      [selectedLanguage]: value ?? "",
+                    };
+                    writeEditorDraft(draftStorageKey, next);
+                    return next;
+                  });
+                }}
                 onMount={handleMount}
                 options={monacoOptions}
                 theme={theme === "dark" ? "codetice-dark" : "vs"}

@@ -99,7 +99,8 @@ export async function getClassroomLeaderboard(classroomId: string) {
     ),
   ];
 
-  const memberUserIds = classroom.members.map((m) => m.user.id);
+  const studentMembers = classroom.members.filter((member) => member.role === "student" && member.user.role !== "admin");
+  const memberUserIds = studentMembers.map((m) => m.user.id);
 
   // Step 2: fetch scores for those members + questions separately
   const scores =
@@ -121,7 +122,7 @@ export async function getClassroomLeaderboard(classroomId: string) {
     });
   }
 
-  const rows = classroom.members.map((m) => {
+  const rows = studentMembers.map((m) => {
     const agg = scoreMap.get(m.user.id) ?? { totalScore: 0, solved: 0 };
     return {
       userId: m.user.id,

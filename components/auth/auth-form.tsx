@@ -47,7 +47,7 @@ export function AuthForm({
         if (responseText) {
           data = JSON.parse(responseText);
         }
-      } catch (e) {
+      } catch {
         // Safe fallback for non-JSON responses
       }
 

@@ -1,14 +1,39 @@
 import "server-only";
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { leaderboards, questionScores, questions, submissions, testcases } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
-import type { AuthSession, SessionUser } from "@/lib/types";
+import type { AuthSession } from "@/lib/types";
+import { slugify } from "@/lib/utils";
 
 const DEFAULT_QUESTION_SUBMISSIONS_PAGE_SIZE = 20;
 const MAX_QUESTION_SUBMISSIONS_PAGE_SIZE = 100;
+
+export async function createUniqueQuestionSlug(title: string, questionId?: string) {
+  const db = getDb();
+  const baseSlug = slugify(title).slice(0, 240) || "question";
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while (true) {
+    const existing = await db.query.questions.findFirst({
+      where: questionId
+        ? and(eq(questions.slug, slug), ne(questions.id, questionId))
+        : eq(questions.slug, slug),
+      columns: { id: true },
+    });
+
+    if (!existing) {
+      return slug;
+    }
+
+    const suffixText = `-${suffix}`;
+    slug = `${baseSlug.slice(0, 255 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
+}
 
 /** Returns true if the user may create/edit/delete the question and its testcases. */
 export function canUserEditQuestion(
@@ -106,7 +131,6 @@ export async function getQuestionById(questionId: string) {
 
 export async function createQuestion(input: {
   title: string;
-  slug: string;
   description: string;
   difficulty: string;
   totalScore: number;
@@ -119,12 +143,13 @@ export async function createQuestion(input: {
   createdBy: string;
 }) {
   const db = getDb();
+  const slug = await createUniqueQuestionSlug(input.title);
 
   const [question] = await db
     .insert(questions)
     .values({
       title: input.title,
-      slug: input.slug,
+      slug,
       description: input.description,
       difficulty: input.difficulty,
       totalScore: input.totalScore.toFixed(2),
@@ -153,7 +178,6 @@ export async function updateQuestion(
   questionId: string,
   input: {
     title: string;
-    slug: string;
     description: string;
     difficulty: string;
     totalScore: number;
@@ -166,6 +190,7 @@ export async function updateQuestion(
   },
 ) {
   const db = getDb();
+  const slug = await createUniqueQuestionSlug(input.title, questionId);
   const existingTestcases = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(testcases)
@@ -179,7 +204,7 @@ export async function updateQuestion(
     .update(questions)
     .set({
       title: input.title,
-      slug: input.slug,
+      slug,
       description: input.description,
       difficulty: input.difficulty,
       totalScore: input.totalScore.toFixed(2),

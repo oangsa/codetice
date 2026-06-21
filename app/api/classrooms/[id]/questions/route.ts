@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 
@@ -6,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { ok, fail } from "@/lib/api";
 import { getDb } from "@/lib/db";
 import { assignmentQuestions, assignments, classroomMembers, questions, testcases } from "@/db/schema";
+import { createUniqueQuestionSlug } from "@/server/services/question-service";
 
 const testcaseSchema = z.object({
   name: z.string().optional(),
@@ -18,11 +18,6 @@ const testcaseSchema = z.object({
 
 const bodySchema = z.object({
   title: z.string().min(1).max(255),
-  slug: z
-    .string()
-    .min(1)
-    .max(255)
-    .regex(/^[a-z0-9-]+$/),
   description: z.string().min(1),
   difficulty: z.enum(["easy", "medium", "hard"]),
   totalScore: z.number().positive().default(100),
@@ -64,22 +59,14 @@ export async function POST(
 
   const input = parsed.data;
   const db = getDb();
-
-  // Check slug uniqueness
-  const existing = await db.query.questions.findFirst({
-    where: eq(questions.slug, input.slug),
-    columns: { id: true },
-  });
-  if (existing) {
-    return fail("Slug already in use.", 409);
-  }
+  const slug = await createUniqueQuestionSlug(input.title);
 
   // Create question
   const [question] = await db
     .insert(questions)
     .values({
       title: input.title,
-      slug: input.slug,
+      slug,
       description: input.description,
       difficulty: input.difficulty,
       totalScore: String(input.totalScore),

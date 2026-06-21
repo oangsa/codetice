@@ -2,8 +2,8 @@ import { requireAdmin } from "@/lib/auth";
 import { fail, ok } from "@/lib/api";
 import { supportedLanguageSchema } from "@/lib/validations/language";
 import {
+  createUniqueSupportedLanguageSlug,
   createSupportedLanguage,
-  getSupportedLanguageBySlug,
   listAllSupportedLanguages,
   listSupportedLanguages,
 } from "@/server/services/language-service";
@@ -42,15 +42,10 @@ export async function POST(request: Request) {
     return fail(formatLanguageValidationError(parsed.error), 400, { errors: parsed.error.flatten() });
   }
 
-  // Reject duplicate slug
-  const existing = await getSupportedLanguageBySlug(parsed.data.slug);
-  if (existing) {
-    return fail(`A language with slug "${parsed.data.slug}" already exists.`, 409);
-  }
-
   try {
+    const slug = await createUniqueSupportedLanguageSlug(parsed.data.name);
     await prepareDockerImage(parsed.data.dockerImage);
-    const language = await createSupportedLanguage(parsed.data);
+    const language = await createSupportedLanguage({ ...parsed.data, slug });
     const languages = await listAllSupportedLanguages();
     return ok({ language, languages }, { status: 201 });
   } catch (error) {
