@@ -15,7 +15,6 @@ import {
 import { DEFAULT_GRADING_JOB_LEASE_SECONDS } from "@/lib/constants";
 import { getDb, getSqlClient } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
-import { hasRuntimeProfile } from "@/lib/grader/runtime-profiles";
 import { gradeCode } from "@/server/services/grading-service";
 import { recomputeLeaderboardForUser } from "@/server/services/leaderboard-service";
 
@@ -35,12 +34,6 @@ function getJobLeaseSeconds() {
   }
 
   return Math.max(60, Math.floor(configured));
-}
-
-function assertSupportedGradingRuntime(slug: string) {
-  if (!hasRuntimeProfile(slug)) {
-    throw new Error(`Language '${slug}' is not available for grading.`);
-  }
 }
 
 async function claimGradingJobById(jobId: string, workerId: string) {
@@ -160,7 +153,6 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
   if (!language || !language.isEnabled) {
     throw new Error("Submission language is not available.");
   }
-  assertSupportedGradingRuntime(submission.language);
 
   const results = await gradeCode({
     language: submission.language,
@@ -279,7 +271,6 @@ export async function runSampleSubmission(input: {
   if (!language || !language.isEnabled) {
     throw new Error("Language not supported.");
   }
-  assertSupportedGradingRuntime(input.language);
 
   const sampleCases = question.testcases
     .filter((testcase) => testcase.isSample)
@@ -357,7 +348,6 @@ export async function enqueueOfficialSubmission(input: {
   if (!language || !language.isEnabled) {
     throw new Error("Selected language is not available.");
   }
-  assertSupportedGradingRuntime(input.language);
 
   const isLate = !!(assignment?.dueAt && new Date(assignment.dueAt) < new Date());
 

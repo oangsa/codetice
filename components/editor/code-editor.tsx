@@ -11,7 +11,7 @@ import { SubmissionStatusBadge } from "@/components/submissions/submission-statu
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IDEMPOTENCY_KEY_HEADER, PYTHON_COMPLETIONS } from "@/lib/constants";
+import { IDEMPOTENCY_KEY_HEADER } from "@/lib/constants";
 import { createEditorDraftStorageKey, readEditorDraft, writeEditorDraft } from "@/lib/editor-drafts";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
@@ -356,16 +356,6 @@ export function CodeEditor({
     // Explicitly apply the correct theme after defining it to ensure it takes effect
     const currentTheme = document.documentElement.classList.contains("dark") ? "dark" : "light";
     monaco.editor.setTheme(currentTheme === "dark" ? "codetice-dark" : "vs");
-
-    monaco.languages.registerCompletionItemProvider("python", {
-      provideCompletionItems: () => ({
-        suggestions: PYTHON_COMPLETIONS.map((item) => ({
-          label: item,
-          kind: monaco.languages.CompletionItemKind.Keyword,
-          insertText: item,
-        })),
-      }),
-    });
   }
 
   return (

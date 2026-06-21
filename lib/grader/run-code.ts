@@ -5,9 +5,8 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 
 import { MAX_GRADER_OUTPUT_BYTES } from "@/lib/constants";
-import { getRuntimeProfile } from "@/lib/grader/runtime-profiles";
 
-export type PythonRunResult = {
+export type CodeRunResult = {
   stdout: string;
   stderr: string;
   exitCode: number | null;
@@ -16,7 +15,7 @@ export type PythonRunResult = {
   oomKilled: boolean;
 };
 
-type RunPythonInput = {
+type RunCodeInput = {
   language: string;
   sourceCode: string;
   stdin: string;
@@ -27,7 +26,77 @@ type RunPythonInput = {
   dockerImage?: string | null;
 };
 
+const PYTHON_BLOCKED_MODULES = [
+  "os",
+  "platform",
+  "subprocess",
+  "socket",
+  "importlib",
+  "ctypes",
+  "pathlib",
+  "shutil",
+  "glob",
+  "resource",
+  "multiprocessing",
+];
+
+const PYTHON_BLOCKED_SYS_ATTRIBUTES = [
+  "argv",
+  "base_prefix",
+  "builtin_module_names",
+  "byteorder",
+  "copyright",
+  "dont_write_bytecode",
+  "executable",
+  "flags",
+  "implementation",
+  "modules",
+  "path",
+  "platform",
+  "prefix",
+  "version",
+  "version_info",
+];
+
 let dockerAvailability: boolean | null = null;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function validatePythonSourcePolicy(sourceCode: string) {
+  for (const moduleName of PYTHON_BLOCKED_MODULES) {
+    const modulePattern = escapeRegExp(moduleName);
+    const importPattern = new RegExp(
+      `(^|\\n)\\s*(?:from\\s+${modulePattern}(?:\\s|\\.|$)|import\\s+(?:[^\\n#]*,\\s*)?${modulePattern}(?:\\s+as\\s+\\w+)?(?:\\s*,|\\s|#|$))`,
+      "m",
+    );
+    const dynamicImportPattern = new RegExp(
+      `(?:__import__\\s*\\(|import_module\\s*\\()\\s*["']${modulePattern}(?:\\.|["'])`,
+    );
+
+    if (importPattern.test(sourceCode) || dynamicImportPattern.test(sourceCode)) {
+      return `Blocked import '${moduleName}'. System and introspection modules are not allowed.`;
+    }
+  }
+
+  for (const attribute of PYTHON_BLOCKED_SYS_ATTRIBUTES) {
+    const attributePattern = new RegExp(`\\bsys\\s*\\.\\s*${escapeRegExp(attribute)}\\b`);
+    if (attributePattern.test(sourceCode)) {
+      return `Blocked access 'sys.${attribute}'. System introspection is not allowed.`;
+    }
+  }
+
+  return null;
+}
+
+function validateSourcePolicy(input: RunCodeInput) {
+  if (input.language === "python") {
+    return validatePythonSourcePolicy(input.sourceCode);
+  }
+
+  return null;
+}
 
 async function commandExists(command: string) {
   try {
@@ -63,7 +132,7 @@ async function collectProcessResult(
 ) {
   const start = Date.now();
 
-  return await new Promise<PythonRunResult>((resolve) => {
+  return await new Promise<CodeRunResult>((resolve) => {
     let stdout = "";
     let stderr = "";
     let timedOut = false;
@@ -176,7 +245,7 @@ export function buildDockerRunArgs({
     "--env",
     "PYTHONDONTWRITEBYTECODE=1",
     "--tmpfs",
-    "/tmp:rw,noexec,nosuid,size=64m",
+    "/tmp:rw,exec,nosuid,size=64m,mode=1777",
     "-v",
     `${workspace}:/workspace:ro`,
     "-w",
@@ -187,11 +256,36 @@ export function buildDockerRunArgs({
   ];
 }
 
-export async function runPythonCode(input: RunPythonInput) {
-  const profile = getRuntimeProfile(input.language);
+export async function runCode(input: RunCodeInput) {
+  const policyError = validateSourcePolicy(input);
+  if (policyError) {
+    return {
+      stdout: "",
+      stderr: policyError,
+      exitCode: 1,
+      runtimeMs: 0,
+      timedOut: false,
+      oomKilled: false,
+    };
+  }
+
+  const extension = input.fileExtension?.trim();
+  if (!extension) {
+    throw new Error(`File extension not specified for language '${input.language}'.`);
+  }
+
+  const dockerImage = input.dockerImage?.trim();
+  if (!dockerImage) {
+    throw new Error(`Docker image not specified for language '${input.language}'.`);
+  }
+
+  const runCommand = input.runCommand?.trim();
+  if (!runCommand) {
+    throw new Error(`Run command not specified for language '${input.language}'.`);
+  }
 
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-grader-"));
-  const fileName = `main.${profile.fileExtension}`;
+  const fileName = `main.${extension}`;
   const scriptPath = path.join(workspace, fileName);
   await fs.writeFile(scriptPath, input.sourceCode, "utf8");
 
@@ -201,14 +295,21 @@ export async function runPythonCode(input: RunPythonInput) {
       throw new Error("Unsupported grading runtime.");
     }
 
+    const workspaceFileName = `/workspace/${fileName}`;
+    const resolvedRunCommand = runCommand
+      .replaceAll("{file}", workspaceFileName)
+      .replaceAll("main.py", fileName)
+      .replaceAll("main.js", fileName)
+      .replaceAll("main.ts", fileName);
+
     return await runWithDocker(
       workspace,
       input.stdin,
       input.timeLimitMs,
       input.memoryLimitMb,
-      profile.dockerImage,
-      profile.command,
-      profile.args,
+      dockerImage,
+      "/bin/sh",
+      ["-c", resolvedRunCommand],
     );
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });

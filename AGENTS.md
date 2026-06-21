@@ -786,7 +786,7 @@ src/
 
     grader/
       compare-output.ts
-      run-python.ts
+      run-code.ts
       score.ts
 
     validations/

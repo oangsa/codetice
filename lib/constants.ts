@@ -24,38 +24,3 @@ export const SUBMISSION_STATUSES = [
   "internal_error",
 ] as const;
 export const GRADING_JOB_STATUSES = ["queued", "running", "completed", "failed"] as const;
-
-export const PYTHON_COMPLETIONS = [
-  "def",
-  "return",
-  "if",
-  "elif",
-  "else",
-  "for",
-  "while",
-  "break",
-  "continue",
-  "import",
-  "from",
-  "class",
-  "try",
-  "except",
-  "finally",
-  "with",
-  "print",
-  "input",
-  "len",
-  "range",
-  "map",
-  "list",
-  "dict",
-  "set",
-  "int",
-  "float",
-  "str",
-  "sum",
-  "min",
-  "max",
-];
-
-export const SUPPORTED_LANGUAGE_SLUGS = ["python", "javascript", "typescript"] as const;

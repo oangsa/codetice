@@ -1,6 +1,8 @@
 # Grader Runtime Command Allowlist
 
-- Keep the official grading execution path on fixed runtime profiles from `lib/grader/runtime-profiles.ts`.
-- Do not execute `supported_languages.run_command` through `/bin/sh -c` for submissions; database-configured commands are too easy to turn into shell behavior.
-- Docker grading should run the interpreter directly, mount `/workspace` read-only, disable networking, drop capabilities, set `no-new-privileges`, and provide only a constrained `/tmp` tmpfs.
-- Admin language metadata can still drive editor labels and diagnostics, but submission grading must stay fail-closed on unsupported language slugs.
+Historical note, superseded by `docs/skill/short-lived-db-runtime-mode.md` for the current one-week deployment.
+
+- The safer long-term model keeps the official grading execution path on fixed runtime profiles from `lib/grader/runtime-profiles.ts`.
+- That model avoids executing `supported_languages.run_command` through `/bin/sh -c` for submissions.
+- Docker grading should still mount `/workspace` read-only, disable networking, drop capabilities, set `no-new-privileges`, and provide only a constrained `/tmp` tmpfs. The short-lived DB runtime mode allows `/tmp` execution so compiled languages can run generated binaries.
+- Revisit this allowlist model before keeping the app open beyond a temporary classroom/demo window.

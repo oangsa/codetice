@@ -1,5 +1,5 @@
 import { compareOutput } from "@/lib/grader/compare-output";
-import { runPythonCode } from "@/lib/grader/run-python";
+import { runCode } from "@/lib/grader/run-code";
 
 type GradeInput = {
   language: string;
@@ -24,7 +24,7 @@ export async function gradeCode(input: GradeInput) {
   const results = [];
 
   for (const testcase of input.testcases) {
-    const run = await runPythonCode({
+    const run = await runCode({
       language: input.language,
       sourceCode: input.sourceCode,
       stdin: testcase.input,
