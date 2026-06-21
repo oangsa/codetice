@@ -26,65 +26,17 @@ type RunCodeInput = {
   dockerImage?: string | null;
 };
 
-const PYTHON_BLOCKED_MODULES = [
-  "os",
-  "platform",
-  "subprocess",
-  "socket",
-  "importlib",
-  "ctypes",
-  "pathlib",
-  "shutil",
-  "glob",
-  "resource",
-  "multiprocessing",
-];
-
-const PYTHON_BLOCKED_SYS_ATTRIBUTES = [
-  "argv",
-  "base_prefix",
-  "builtin_module_names",
-  "byteorder",
-  "copyright",
-  "dont_write_bytecode",
-  "executable",
-  "flags",
-  "implementation",
-  "modules",
-  "path",
-  "platform",
-  "prefix",
-  "version",
-  "version_info",
-];
-
 let dockerAvailability: boolean | null = null;
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function validatePythonSourcePolicy(sourceCode: string) {
-  for (const moduleName of PYTHON_BLOCKED_MODULES) {
-    const modulePattern = escapeRegExp(moduleName);
-    const importPattern = new RegExp(
-      `(^|\\n)\\s*(?:from\\s+${modulePattern}(?:\\s|\\.|$)|import\\s+(?:[^\\n#]*,\\s*)?${modulePattern}(?:\\s+as\\s+\\w+)?(?:\\s*,|\\s|#|$))`,
-      "m",
-    );
-    const dynamicImportPattern = new RegExp(
-      `(?:__import__\\s*\\(|import_module\\s*\\()\\s*["']${modulePattern}(?:\\.|["'])`,
-    );
-
-    if (importPattern.test(sourceCode) || dynamicImportPattern.test(sourceCode)) {
-      return `Blocked import '${moduleName}'. System and introspection modules are not allowed.`;
-    }
+  const importStatementPattern = /(^|\n)\s*(?:from\s+[\w.]+\s+import\b|import\s+[\w.]+)/m;
+  if (importStatementPattern.test(sourceCode)) {
+    return "Blocked import. Python submissions cannot use imports.";
   }
 
-  for (const attribute of PYTHON_BLOCKED_SYS_ATTRIBUTES) {
-    const attributePattern = new RegExp(`\\bsys\\s*\\.\\s*${escapeRegExp(attribute)}\\b`);
-    if (attributePattern.test(sourceCode)) {
-      return `Blocked access 'sys.${attribute}'. System introspection is not allowed.`;
-    }
+  const dynamicImportPattern = /\b(?:__import__|import_module)\s*\(/;
+  if (dynamicImportPattern.test(sourceCode)) {
+    return "Blocked import. Python submissions cannot use imports.";
   }
 
   return null;

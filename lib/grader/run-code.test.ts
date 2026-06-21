@@ -40,10 +40,10 @@ describe("buildDockerRunArgs", () => {
 });
 
 describe("python source policy", () => {
-  test("blocks system module imports before running Docker", async () => {
+  test("blocks import statements before running Docker", async () => {
     const result = await runCode({
       language: "python",
-      sourceCode: "import os\nprint(os.name)",
+      sourceCode: "import sys\nprint('hello')",
       stdin: "",
       timeLimitMs: 1000,
       fileExtension: "py",
@@ -52,13 +52,13 @@ describe("python source policy", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Blocked import 'os'");
+    expect(result.stderr).toContain("Blocked import");
   });
 
-  test("blocks sensitive sys introspection while allowing sys import", async () => {
+  test("blocks from-import statements before running Docker", async () => {
     const result = await runCode({
       language: "python",
-      sourceCode: "import sys\nprint(sys.version)",
+      sourceCode: "from math import sqrt\nprint(sqrt(4))",
       stdin: "",
       timeLimitMs: 1000,
       fileExtension: "py",
@@ -67,6 +67,21 @@ describe("python source policy", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Blocked access 'sys.version'");
+    expect(result.stderr).toContain("Blocked import");
+  });
+
+  test("blocks dynamic import helpers before running Docker", async () => {
+    const result = await runCode({
+      language: "python",
+      sourceCode: "__import__('math')\nprint('hello')",
+      stdin: "",
+      timeLimitMs: 1000,
+      fileExtension: "py",
+      runCommand: "python {file}",
+      dockerImage: "python:3.12-alpine",
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Blocked import");
   });
 });
