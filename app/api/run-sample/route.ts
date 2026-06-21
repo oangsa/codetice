@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, RateLimitError } from "@/lib/api";
 import { IDEMPOTENCY_KEY_HEADER } from "@/lib/constants";
 import { getRequestIdentifier } from "@/lib/request";
 import { runSampleSchema } from "@/lib/validations/submission";
@@ -64,11 +64,13 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to run sample tests.";
     const status =
-      message === "A matching request is already in progress."
-        ? 409
-        : message === "Idempotency key was reused with a different payload."
+      error instanceof RateLimitError
+        ? 429
+        : message === "A matching request is already in progress."
           ? 409
-          : 400;
+          : message === "Idempotency key was reused with a different payload."
+            ? 409
+            : 400;
 
     if (idempotencyState) {
       await completeIdempotentRequest({

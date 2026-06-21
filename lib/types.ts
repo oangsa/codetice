@@ -1,6 +1,7 @@
 export type AuthSession = {
   userId: string;
   role: "student" | "admin";
+  tokenVersion: number;
 };
 
 export type SessionUser = {
@@ -8,6 +9,7 @@ export type SessionUser = {
   username: string;
   role: "student" | "admin";
   profilePicture: string;
+  tokenVersion: number;
 };
 
 export type VisibleTestcaseResult = {

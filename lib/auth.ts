@@ -19,6 +19,13 @@ export async function requireUser() {
   if (!session) {
     redirect("/login");
   }
+
+  const user = await getSessionUserById(session.userId);
+  if (!user || user.tokenVersion !== (session.tokenVersion ?? 0)) {
+    await clearUserSession();
+    redirect("/login");
+  }
+
   return session;
 }
 
@@ -51,6 +58,7 @@ function toSessionPayload(payload: AuthSession): SessionPayload {
   return {
     userId: payload.userId,
     role: payload.role,
+    tokenVersion: payload.tokenVersion,
   };
 }
 

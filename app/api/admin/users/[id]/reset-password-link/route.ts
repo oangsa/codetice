@@ -1,4 +1,4 @@
-import { fail, ok } from "@/lib/api";
+import { fail, ok, RateLimitError } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
 import { assertRateLimit } from "@/server/services/rate-limit-service";
@@ -33,6 +33,9 @@ export async function POST(
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return fail("Too many attempts. Please try again later.", 429);
+    }
     return fail(error instanceof Error ? error.message : "Unable to generate reset link.");
   }
 }

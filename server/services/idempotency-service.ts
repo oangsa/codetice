@@ -74,6 +74,26 @@ export async function beginIdempotentRequest<T>(input: {
     };
   }
 
+  const IDEMPOTENCY_STALE_MS = 60_000;
+  const ageMs = Date.now() - existing.createdAt.getTime();
+  if (ageMs > IDEMPOTENCY_STALE_MS) {
+    const [reclaimed] = await db
+      .update(idempotencyKeys)
+      .set({
+        requestHash: input.requestHash,
+        responseStatus: null,
+        responseBody: null,
+        completedAt: null,
+        createdAt: new Date(),
+      })
+      .where(eq(idempotencyKeys.id, existing.id))
+      .returning({ id: idempotencyKeys.id });
+
+    if (reclaimed) {
+      return { kind: "fresh", keyId: reclaimed.id };
+    }
+  }
+
   throw new Error("A matching request is already in progress.");
 }
 

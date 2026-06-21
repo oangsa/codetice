@@ -2,7 +2,7 @@ import { after } from "next/server";
 
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok } from "@/lib/api";
-import { processGradingJob, rejudgeSubmission } from "@/server/services/submission-service";
+import { completeRejudgeJob, processGradingJob, rejudgeSubmission } from "@/server/services/submission-service";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,7 +21,9 @@ export async function POST(
     const { rejudgeJob, gradingJob } = await rejudgeSubmission(id, session.userId);
 
     after(async () => {
-      await processGradingJob(gradingJob.id);
+      const updatedJob = await processGradingJob(gradingJob.id);
+      const rejudgeStatus = updatedJob?.status === "completed" ? "completed" : "failed";
+      await completeRejudgeJob(rejudgeJob.id, rejudgeStatus);
     });
 
     return ok({ rejudgeJob, gradingJob });

@@ -13,6 +13,7 @@ export type PythonRunResult = {
   exitCode: number | null;
   runtimeMs: number;
   timedOut: boolean;
+  oomKilled: boolean;
 };
 
 type RunPythonInput = {
@@ -103,6 +104,7 @@ async function collectProcessResult(
         exitCode: code,
         runtimeMs: Date.now() - start,
         timedOut,
+        oomKilled: code === 137 && !timedOut,
       });
     });
 
@@ -124,27 +126,13 @@ async function runWithDocker(
 
   const processRef = spawn(
     "docker",
-    [
-      "run",
-      "-i",
-      "--rm",
-      "--network",
-      "none",
-      "--memory",
+    buildDockerRunArgs({
+      workspace,
       memoryLimit,
-      "--cpus",
-      "1",
-      "--pids-limit",
-      "64",
-      "--read-only",
-      "-v",
-      `${workspace}:/workspace`,
-      "-w",
-      "/workspace",
       dockerImage,
       command,
-      ...args,
-    ],
+      args,
+    }),
     {
       stdio: "pipe",
     },
@@ -153,42 +141,59 @@ async function runWithDocker(
   return collectProcessResult(processRef, stdin, timeLimitMs);
 }
 
-export async function runPythonCode({
-  language,
-  sourceCode,
-  stdin,
-  timeLimitMs,
-  memoryLimitMb,
-  fileExtension,
-  runCommand,
+export function buildDockerRunArgs({
+  workspace,
+  memoryLimit,
   dockerImage,
-}: RunPythonInput) {
-  let profile = null;
-  try {
-    profile = getRuntimeProfile(language);
-  } catch {
-    // Ignore unsupported language slugs for profiles
-  }
+  command,
+  args,
+}: {
+  workspace: string;
+  memoryLimit: string;
+  dockerImage: string;
+  command: string;
+  args: string[];
+}) {
+  return [
+    "run",
+    "-i",
+    "--rm",
+    "--network",
+    "none",
+    "--memory",
+    memoryLimit,
+    "--cpus",
+    "1",
+    "--pids-limit",
+    "64",
+    "--read-only",
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--hostname",
+    "grader-sandbox",
+    "--env",
+    "PYTHONDONTWRITEBYTECODE=1",
+    "--tmpfs",
+    "/tmp:rw,noexec,nosuid,size=64m",
+    "-v",
+    `${workspace}:/workspace:ro`,
+    "-w",
+    "/workspace",
+    dockerImage,
+    command,
+    ...args,
+  ];
+}
 
-  const extension = fileExtension ?? profile?.fileExtension;
-  if (!extension) {
-    throw new Error(`File extension not specified for language '${language}'.`);
-  }
-
-  const finalDockerImage = dockerImage ?? profile?.dockerImage;
-  if (!finalDockerImage) {
-    throw new Error(`Docker image not specified for language '${language}'.`);
-  }
-
-  const finalRunCommand = runCommand ?? profile?.runCommand;
-  if (!finalRunCommand) {
-    throw new Error(`Run command not specified for language '${language}'.`);
-  }
+export async function runPythonCode(input: RunPythonInput) {
+  const profile = getRuntimeProfile(input.language);
 
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-grader-"));
-  const fileName = `main.${extension}`;
+  const fileName = `main.${profile.fileExtension}`;
   const scriptPath = path.join(workspace, fileName);
-  await fs.writeFile(scriptPath, sourceCode, "utf8");
+  await fs.writeFile(scriptPath, input.sourceCode, "utf8");
 
   try {
     const runtime = await resolveRuntime();
@@ -196,21 +201,14 @@ export async function runPythonCode({
       throw new Error("Unsupported grading runtime.");
     }
 
-    const workspaceFileName = `/workspace/${fileName}`;
-    const resolvedRunCommand = finalRunCommand
-      .replaceAll("{file}", workspaceFileName)
-      .replace("main.py", fileName)
-      .replace("main.js", fileName)
-      .replace("main.ts", fileName);
-
     return await runWithDocker(
       workspace,
-      stdin,
-      timeLimitMs,
-      memoryLimitMb,
-      finalDockerImage,
-      "/bin/sh",
-      ["-c", resolvedRunCommand],
+      input.stdin,
+      input.timeLimitMs,
+      input.memoryLimitMb,
+      profile.dockerImage,
+      profile.command,
+      profile.args,
     );
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });

@@ -1,5 +1,6 @@
 import { DEFAULT_GRADING_WORKER_POLL_MS } from "@/lib/constants";
 import { closeDb } from "@/lib/db";
+import { cleanupOldRateLimits } from "@/server/services/rate-limit-service";
 import { processPendingGradingJobs } from "@/server/services/submission-service";
 
 function sleep(ms: number) {
@@ -12,6 +13,7 @@ async function main() {
   const runOnce = process.env.GRADING_WORKER_RUN_ONCE === "true";
 
   let backoff = pollMs;
+  let lastCleanup = 0;
 
   do {
     try {
@@ -22,6 +24,15 @@ async function main() {
       console.error("Grading worker error (will retry):", err);
       // exponential backoff capped at 30s
       backoff = Math.min(backoff * 2, 30_000);
+    }
+
+    if (Date.now() - lastCleanup > 3_600_000) {
+      try {
+        await cleanupOldRateLimits();
+      } catch (err) {
+        console.error("Rate limit cleanup error:", err);
+      }
+      lastCleanup = Date.now();
     }
 
     if (runOnce) {

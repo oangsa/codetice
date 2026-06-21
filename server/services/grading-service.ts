@@ -36,16 +36,19 @@ export async function gradeCode(input: GradeInput) {
     });
     const passed =
       !run.timedOut &&
+      !run.oomKilled &&
       run.exitCode === 0 &&
       compareOutput(run.stdout, testcase.expectedOutput, testcase.checkerType, testcase.floatTolerance);
 
-    const status = run.timedOut
-      ? "time_limit_exceeded"
-      : run.exitCode !== 0
-        ? "runtime_error"
-        : passed
-          ? "accepted"
-          : "wrong_answer";
+    const status = run.oomKilled
+      ? "memory_limit_exceeded"
+      : run.timedOut
+        ? "time_limit_exceeded"
+        : run.exitCode !== 0
+          ? "runtime_error"
+          : passed
+            ? "accepted"
+            : "wrong_answer";
 
     results.push({
       testcaseId: testcase.id,

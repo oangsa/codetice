@@ -1,5 +1,5 @@
-import { fail, ok } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { fail, ok, RateLimitError } from "@/lib/api";
+import { createUserSession, requireUser } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
 import { changePasswordSchema } from "@/lib/validations/auth";
 import { changePassword } from "@/server/services/auth-service";
@@ -24,14 +24,19 @@ export async function POST(request: Request) {
       windowMinutes: 15,
     });
 
-    await changePassword({
+    const updatedUser = await changePassword({
       userId: session.userId,
       currentPassword: parsed.data.currentPassword,
       newPassword: parsed.data.newPassword,
     });
 
+    await createUserSession(updatedUser);
+
     return ok({ message: "Password changed successfully." });
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return fail("Too many attempts. Please try again later.", 429);
+    }
     return fail(error instanceof Error ? error.message : "Unable to change password.");
   }
 }

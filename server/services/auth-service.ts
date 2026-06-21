@@ -3,7 +3,7 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 
 import argon2 from "argon2";
-import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { passwordResetTokens, users } from "@/db/schema";
 import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/lib/constants";
@@ -15,12 +15,14 @@ function toSessionUser(user: {
   username: string;
   role: string;
   profilePicture: string;
+  tokenVersion: number;
 }): SessionUser {
   return {
     userId: user.id,
     username: user.username,
     role: user.role as SessionUser["role"],
     profilePicture: user.profilePicture,
+    tokenVersion: user.tokenVersion,
   };
 }
 
@@ -52,6 +54,7 @@ export async function registerUser(input: { username: string; password: string }
       username: users.username,
       role: users.role,
       profilePicture: users.profilePicture,
+      tokenVersion: users.tokenVersion,
     });
 
   if (!user) {
@@ -89,6 +92,7 @@ export async function getUserById(userId: string) {
       username: true,
       role: true,
       profilePicture: true,
+      tokenVersion: true,
       createdAt: true,
     },
   });
@@ -105,6 +109,7 @@ export async function getSessionUserById(userId: string) {
       username: true,
       role: true,
       profilePicture: true,
+      tokenVersion: true,
     },
   });
 
@@ -144,7 +149,11 @@ export async function changePassword(input: {
     throw new Error("Current password is incorrect.");
   }
 
-  await updateUserPassword(user.id, input.newPassword);
+  const updatedUser = await updateUserPassword(user.id, input.newPassword);
+  if (!updatedUser) {
+    throw new Error("Unable to update password.");
+  }
+  return toSessionUser(updatedUser);
 }
 
 export async function adminResetPassword(input: {
@@ -239,18 +248,28 @@ async function updateUserPassword(userId: string, newPassword: string) {
   const db = getDb();
   const passwordHash = await argon2.hash(newPassword);
 
-  await db
+  const [updatedUser] = await db
     .update(users)
     .set({
       passwordHash,
+      tokenVersion: sql`${users.tokenVersion} + 1`,
       updatedAt: new Date(),
     })
-    .where(eq(users.id, userId));
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      profilePicture: users.profilePicture,
+      tokenVersion: users.tokenVersion,
+    });
 
   await db
     .update(passwordResetTokens)
     .set({ usedAt: new Date() })
     .where(and(eq(passwordResetTokens.userId, userId), isNull(passwordResetTokens.usedAt)));
+
+  return updatedUser;
 }
 
 export async function updateProfilePicture(userId: string, profilePicture: string) {
@@ -268,6 +287,7 @@ export async function updateProfilePicture(userId: string, profilePicture: strin
       username: users.username,
       role: users.role,
       profilePicture: users.profilePicture,
+      tokenVersion: users.tokenVersion,
     });
 
   if (!updatedUser) {
@@ -303,6 +323,7 @@ export async function updateUsername(userId: string, newUsername: string) {
       username: users.username,
       role: users.role,
       profilePicture: users.profilePicture,
+      tokenVersion: users.tokenVersion,
     });
 
   if (!updatedUser) {

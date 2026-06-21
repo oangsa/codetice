@@ -223,6 +223,7 @@ const statements = [
   `create unique index if not exists idempotency_keys_identifier_action_key_unique on idempotency_keys (identifier, action, key);`,
   `create index if not exists idempotency_keys_action_created_at_idx on idempotency_keys (action, created_at);`,
   `alter table users add column if not exists profile_picture varchar(255) not null default '/avatars/avatar-1.png';`,
+  `alter table users add column if not exists token_version integer not null default 0;`,
 ];
 
 async function main() {

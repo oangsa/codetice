@@ -75,7 +75,7 @@ export async function listQuestionsForUser(user?: AuthSession | null) {
 }
 
 export async function listAdminQuestions() {
-  return listQuestionsForUser({ userId: "", role: "admin" });
+  return listQuestionsForUser({ userId: "", role: "admin", tokenVersion: 0 });
 }
 
 export async function getQuestionBySlug(slug: string, user?: AuthSession | null) {

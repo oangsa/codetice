@@ -107,6 +107,10 @@ function deriveSubmissionStatus(
     passed: boolean;
   }>,
 ) {
+  if (results.some((result) => result.status === "memory_limit_exceeded")) {
+    return "memory_limit_exceeded";
+  }
+
   if (results.some((result) => result.status === "runtime_error")) {
     return "runtime_error";
   }
@@ -539,15 +543,21 @@ export async function rejudgeQuestion(questionId: string, requestedBy: string) {
       .where(inArray(submissions.id, questionSubmissions.map((submission) => submission.id)));
   }
 
+  return job;
+}
+
+export async function completeRejudgeJob(
+  jobId: string,
+  status: "completed" | "failed",
+) {
+  const db = getDb();
   await db
     .update(rejudgeJobs)
     .set({
-      status: "completed",
+      status,
       completedAt: new Date(),
     })
-    .where(eq(rejudgeJobs.id, job.id));
-
-  return job;
+    .where(eq(rejudgeJobs.id, jobId));
 }
 
 export async function listUserSubmissions(userId: string) {

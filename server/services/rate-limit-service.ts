@@ -1,9 +1,14 @@
 import "server-only";
 
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 
 import { rateLimits } from "@/db/schema";
+import { RateLimitError } from "@/lib/api";
 import { getDb } from "@/lib/db";
+
+function bucketToMinute(date: Date): Date {
+  return new Date(Math.floor(date.getTime() / 60_000) * 60_000);
+}
 
 export async function assertRateLimit(input: {
   identifier: string;
@@ -12,25 +17,39 @@ export async function assertRateLimit(input: {
   windowMinutes: number;
 }) {
   const db = getDb();
-  const windowStart = new Date(Date.now() - input.windowMinutes * 60 * 1000);
+  const windowCutoff = new Date(Date.now() - input.windowMinutes * 60 * 1000);
 
   const existingRows = await db.query.rateLimits.findMany({
     where: and(
       eq(rateLimits.identifier, input.identifier),
       eq(rateLimits.action, input.action),
-      gte(rateLimits.windowStart, windowStart),
+      gte(rateLimits.windowStart, windowCutoff),
     ),
   });
 
   const count = existingRows.reduce((sum, row) => sum + row.count, 0);
   if (count >= input.limit) {
-    throw new Error(`Rate limit exceeded for ${input.action}. Try again later.`);
+    throw new RateLimitError();
   }
 
-  await db.insert(rateLimits).values({
-    identifier: input.identifier,
-    action: input.action,
-    count: 1,
-    windowStart: new Date(),
-  });
+  const bucketedWindowStart = bucketToMinute(new Date());
+
+  await db
+    .insert(rateLimits)
+    .values({
+      identifier: input.identifier,
+      action: input.action,
+      count: 1,
+      windowStart: bucketedWindowStart,
+    })
+    .onConflictDoUpdate({
+      target: [rateLimits.identifier, rateLimits.action, rateLimits.windowStart],
+      set: { count: sql`${rateLimits.count} + 1` },
+    });
+}
+
+export async function cleanupOldRateLimits() {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+  await db.delete(rateLimits).where(lt(rateLimits.windowStart, cutoff));
 }
