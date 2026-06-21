@@ -210,6 +210,11 @@ async function runWithDocker(
   return collectProcessResult(processRef, stdin, timeLimitMs);
 }
 
+async function makeWorkspaceReadable(workspace: string, scriptPath: string) {
+  await fs.chmod(workspace, 0o755);
+  await fs.chmod(scriptPath, 0o644);
+}
+
 export function buildDockerRunArgs({
   workspace,
   memoryLimit,
@@ -288,6 +293,7 @@ export async function runCode(input: RunCodeInput) {
   const fileName = `main.${extension}`;
   const scriptPath = path.join(workspace, fileName);
   await fs.writeFile(scriptPath, input.sourceCode, "utf8");
+  await makeWorkspaceReadable(workspace, scriptPath);
 
   try {
     const runtime = await resolveRuntime();
