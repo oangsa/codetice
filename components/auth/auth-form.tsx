@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Messages } from "@/lib/api.constants";
 
 export function AuthForm({
   title,
@@ -60,8 +61,8 @@ export function AuthForm({
       toast.success(endpoint.includes("register") ? "Account created." : "Logged in.");
       router.push("/classrooms");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected network error occurred.");
+    } catch {
+      setError(Messages.somethingWrong);
       setPending(false);
     }
   }
@@ -84,7 +85,7 @@ export function AuthForm({
               {error}
             </div>
           ) : null}
-          <FormField label="Username" htmlFor="username" error={null}>
+          <FormField label="Username" htmlFor="username" error={null} required>
             <div className="relative">
               <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input
@@ -98,7 +99,7 @@ export function AuthForm({
               />
             </div>
           </FormField>
-          <FormField label="Password" htmlFor="password" error={null}>
+          <FormField label="Password" htmlFor="password" error={null} required>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Messages } from "@/lib/api.constants";
 
 export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string }) {
   const [token, setToken] = useState(initialToken);
@@ -44,7 +45,7 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
       const data = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        setError(data.message ?? "Failed to reset password.");
+        setError(data.message ?? Messages.unableToResetPassword);
         return;
       }
 
@@ -79,7 +80,7 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
             </div>
           ) : null}
 
-          <FormField label="Reset Token" htmlFor="token" error={null}>
+          <FormField label="Reset Token" htmlFor="token" error={null} required>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -94,7 +95,7 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
             </div>
           </FormField>
 
-          <FormField label="New Password" htmlFor="new-password" error={null}>
+          <FormField label="New Password" htmlFor="new-password" error={null} required>
             <div className="relative">
               <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -112,7 +113,7 @@ export function ResetPasswordForm({ initialToken = "" }: { initialToken?: string
             </div>
           </FormField>
 
-          <FormField label="Confirm Password" htmlFor="confirm-password" error={null}>
+          <FormField label="Confirm Password" htmlFor="confirm-password" error={null} required>
             <div className="relative">
               <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input

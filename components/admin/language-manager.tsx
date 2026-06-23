@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Messages } from "@/lib/api.constants";
 
 export type Language = {
   id: string;
@@ -155,7 +156,7 @@ function LanguageDialog({
     const data = (await response.json()) as { message?: string };
 
     if (!response.ok) {
-      toast.error(data.message ?? "Unable to save language.");
+      toast.error(data.message ?? Messages.unableToCreateLanguage);
       setPending(false);
       return;
     }
@@ -194,7 +195,7 @@ function LanguageDialog({
             await handleSubmit(formData);
           }}
         >
-          <FormField label="Name" htmlFor="name">
+          <FormField label="Name" htmlFor="name" required>
             <Input
               id="name"
               name="name"
@@ -205,7 +206,7 @@ function LanguageDialog({
           </FormField>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="File extension" htmlFor="fileExtension">
+            <FormField label="File extension" htmlFor="fileExtension" required>
               <Input
                 id="fileExtension"
                 name="fileExtension"
@@ -214,7 +215,7 @@ function LanguageDialog({
                 required
               />
             </FormField>
-            <FormField label="Docker image" htmlFor="dockerImage">
+            <FormField label="Docker image" htmlFor="dockerImage" required>
               <Input
                 id="dockerImage"
                 name="dockerImage"
@@ -367,7 +368,7 @@ function LanguageCard({
 
     if (!response.ok) {
       const data = (await response.json()) as { message?: string };
-      toast.error(data.message ?? "Unable to update language.");
+      toast.error(data.message ?? Messages.unableToUpdateLanguage);
     } else {
       toast.success(language.isEnabled ? "Language disabled." : "Language enabled.");
       onSaved();
@@ -382,7 +383,7 @@ function LanguageCard({
 
     if (!response.ok) {
       const data = (await response.json()) as { message?: string };
-      toast.error(data.message ?? "Unable to delete language.");
+      toast.error(data.message ?? Messages.unableToDeleteLanguage);
       return;
     }
 

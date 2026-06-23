@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Messages } from "@/lib/api.constants";
 
 export function CreateAssignmentForm({
   classrooms,
@@ -36,7 +37,7 @@ export function CreateAssignmentForm({
 
     const payload = (await response.json()) as { message?: string };
     if (!response.ok) {
-      toast.error(payload.message ?? "Unable to create assignment.");
+      toast.error(payload.message ?? Messages.unableToCreateAssignment);
       setPending(false);
       return;
     }
@@ -53,14 +54,14 @@ export function CreateAssignmentForm({
         await handleSubmit(formData);
       }}
     >
-      <FormField label="Title" htmlFor="title">
+      <FormField label="Title" htmlFor="title" required>
         <Input id="title" name="title" />
       </FormField>
       <FormField label="Description" htmlFor="description">
         <Textarea id="description" name="description" />
       </FormField>
       <div className="grid gap-4 md:grid-cols-3">
-        <FormField label="Workspace" htmlFor="classroomId">
+        <FormField label="Workspace" htmlFor="classroomId" required>
           <select id="classroomId" name="classroomId" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm">
             {classrooms.map((classroom) => (
               <option key={classroom.id} value={classroom.id}>
@@ -76,7 +77,7 @@ export function CreateAssignmentForm({
           <Input id="dueAt" name="dueAt" type="datetime-local" />
         </FormField>
       </div>
-      <FormField label="Questions" htmlFor="questionIds">
+      <FormField label="Questions" htmlFor="questionIds" required>
         <div className="grid gap-2 rounded-md border border-slate-200 p-3">
           {questions.map((question) => (
             <label key={question.id} className="flex items-center gap-2 text-sm text-slate-700">

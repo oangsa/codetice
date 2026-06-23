@@ -8,6 +8,7 @@ export function FormField({
   htmlFor,
   error,
   description,
+  required,
   className,
   children,
 }: {
@@ -15,12 +16,16 @@ export function FormField({
   htmlFor?: string;
   error?: string | null;
   description?: string;
+  required?: boolean;
   className?: string;
   children: ReactNode;
 }) {
   return (
     <div className={cn("space-y-2", className)}>
-      <Label htmlFor={htmlFor}>{label}</Label>
+      <Label htmlFor={htmlFor}>
+        {label}
+        {required ? <span className="ml-0.5 text-red-500">*</span> : null}
+      </Label>
       {children}
       {description ? <p className="text-xs text-slate-500">{description}</p> : null}
       {error ? <p className="text-xs text-red-600">{error}</p> : null}

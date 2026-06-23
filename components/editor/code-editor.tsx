@@ -11,7 +11,7 @@ import { SubmissionStatusBadge } from "@/components/submissions/submission-statu
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IDEMPOTENCY_KEY_HEADER } from "@/lib/constants";
+import { IDEMPOTENCY_KEY_HEADER, Messages } from "@/lib/api.constants";
 import { createEditorDraftStorageKey, readEditorDraft, writeEditorDraft } from "@/lib/editor-drafts";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
 
@@ -157,6 +157,11 @@ export function CodeEditor({
       return;
     }
 
+    if (!code.trim()) {
+      toast.error(Messages.codeRequired);
+      return;
+    }
+
     setPendingAction("submit");
     submitIdempotencyKeyRef.current = crypto.randomUUID();
 
@@ -188,7 +193,7 @@ export function CodeEditor({
       };
 
       if (!response.ok) {
-        toast.error(payload.message ?? "Request failed.");
+        toast.error(payload.message ?? Messages.somethingWrong);
         return;
       }
 
