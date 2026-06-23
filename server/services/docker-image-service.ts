@@ -3,6 +3,8 @@ import "server-only";
 import { spawn } from "node:child_process";
 import path from "node:path";
 
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
+
 const DOCKER_IMAGE_PATTERN =
   /^[a-z0-9]+(?:(?:[._-]|__)[a-z0-9]+)*(?:\/[a-z0-9]+(?:(?:[._-]|__)[a-z0-9]+)*)*(?::[A-Za-z0-9_.-]+)?(?:@[A-Za-z][A-Za-z0-9]*(?:[+._-][A-Za-z][A-Za-z0-9]*)*:[A-Fa-f0-9]{32,})?$/;
 const MAX_SCRIPT_OUTPUT_CHARS = 4000;
@@ -10,7 +12,7 @@ const PREPARE_IMAGE_TIMEOUT_MS = 10 * 60 * 1000;
 
 function validateDockerImage(image: string) {
   if (!DOCKER_IMAGE_PATTERN.test(image)) {
-    throw new Error("Docker image must be a valid image reference, such as python:3.12-alpine or gcc:13.");
+    throw new AppError(Messages.langInvalidImage, 400, ErrorCode.VALIDATION);
   }
 }
 

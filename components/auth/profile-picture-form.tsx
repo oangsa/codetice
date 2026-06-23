@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+import { Messages } from "@/lib/api.constants";
+
 // Resize and compress an image File to a JPEG data URI (max 128x128px)
 function resizeImage(file: File, maxPx = 128, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,7 +67,7 @@ export function ProfilePictureForm({ initialAvatar }: { initialAvatar: string })
       const saveData = (await saveRes.json()) as { message?: string };
 
       if (!saveRes.ok) {
-        toast.error(saveData.message ?? "Failed to save profile picture.");
+        toast.error(saveData.message ?? Messages.unableToSaveProfilePicture);
         return;
       }
 
@@ -73,7 +75,7 @@ export function ProfilePictureForm({ initialAvatar }: { initialAvatar: string })
       toast.success("Profile picture updated successfully.");
       router.refresh();
     } catch {
-      toast.error("An unexpected error occurred.");
+      toast.error(Messages.somethingWrong);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {

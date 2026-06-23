@@ -4,7 +4,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 
-import { MAX_GRADER_OUTPUT_BYTES } from "@/lib/constants";
+import { MAX_GRADER_OUTPUT_BYTES } from "@/lib/grader.constants";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 
 export type CodeRunResult = {
   stdout: string;
@@ -63,7 +64,7 @@ async function commandExists(command: string) {
 async function resolveRuntime() {
   const configuredRuntime = process.env.GRADING_RUNTIME ?? "auto";
   if (configuredRuntime === "local") {
-    throw new Error("Local grading runtime is disabled for security reasons.");
+    throw new AppError(Messages.gradingDisabled, 503, ErrorCode.UNAVAILABLE);
   }
 
   if (dockerAvailability === null) {
@@ -71,7 +72,7 @@ async function resolveRuntime() {
   }
 
   if (!dockerAvailability) {
-    throw new Error("Docker grading runtime is unavailable.");
+    throw new AppError(Messages.gradingUnavailable, 503, ErrorCode.UNAVAILABLE);
   }
 
   return "docker" as const;
@@ -228,17 +229,17 @@ export async function runCode(input: RunCodeInput) {
 
   const extension = input.fileExtension?.trim();
   if (!extension) {
-    throw new Error(`File extension not specified for language '${input.language}'.`);
+    throw new AppError(Messages.langMissingFileExt, 500, ErrorCode.INTERNAL);
   }
 
   const dockerImage = input.dockerImage?.trim();
   if (!dockerImage) {
-    throw new Error(`Docker image not specified for language '${input.language}'.`);
+    throw new AppError(Messages.langMissingDockerImage, 500, ErrorCode.INTERNAL);
   }
 
   const runCommand = input.runCommand?.trim();
   if (!runCommand) {
-    throw new Error(`Run command not specified for language '${input.language}'.`);
+    throw new AppError(Messages.langMissingRunCommand, 500, ErrorCode.INTERNAL);
   }
 
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vibe-grader-"));
@@ -250,7 +251,7 @@ export async function runCode(input: RunCodeInput) {
   try {
     const runtime = await resolveRuntime();
     if (runtime !== "docker") {
-      throw new Error("Unsupported grading runtime.");
+      throw new AppError(Messages.gradingMisconfigured, 500, ErrorCode.INTERNAL);
     }
 
     const workspaceFileName = `/workspace/${fileName}`;

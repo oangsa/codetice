@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 
 import { rateLimits } from "@/db/schema";
-import { RateLimitError } from "@/lib/api";
+import { RateLimitError } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 
 function bucketToMinute(date: Date): Date {

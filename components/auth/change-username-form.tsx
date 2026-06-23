@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Messages } from "@/lib/api.constants";
 
 export function ChangeUsernameForm({ initialUsername }: { initialUsername: string }) {
   const router = useRouter();
@@ -42,7 +43,7 @@ export function ChangeUsernameForm({ initialUsername }: { initialUsername: strin
       const data = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        setError(data.message ?? "Failed to update username.");
+        setError(data.message ?? Messages.unableToUpdateUsername);
         return;
       }
 

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SessionUser } from "@/lib/types";
+import { Messages } from "@/lib/api.constants";
 
 // Resize and compress an image File to a JPEG data URI (max 128x128px)
 function resizeImage(file: File, maxPx = 128, quality = 0.85): Promise<string> {
@@ -67,7 +68,7 @@ export function ProfileDetailsForm({ user }: { user: SessionUser }) {
       setAvatarUrl(dataUri);
       toast.success("Avatar ready. Click Save Changes to apply permanently.");
     } catch {
-      toast.error("An unexpected error occurred during upload.");
+      toast.error(Messages.somethingWrong);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -106,7 +107,7 @@ export function ProfileDetailsForm({ user }: { user: SessionUser }) {
 
         const data = (await response.json()) as { message?: string };
         if (!response.ok) {
-          setError(data.message ?? "Failed to update username.");
+          setError(data.message ?? Messages.unableToUpdateUsername);
           setPending(false);
           return;
         }
@@ -122,7 +123,7 @@ export function ProfileDetailsForm({ user }: { user: SessionUser }) {
 
         const saveData = (await saveRes.json()) as { message?: string };
         if (!saveRes.ok) {
-          setError(saveData.message ?? "Failed to save profile picture.");
+          setError(saveData.message ?? Messages.unableToSaveProfilePicture);
           setPending(false);
           return;
         }

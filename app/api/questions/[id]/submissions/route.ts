@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok } from "@/lib/api";
 import {
   canUserEditQuestion,
   getQuestionById,
@@ -27,20 +27,20 @@ export async function GET(
   const session = await getSession();
 
   if (!session) {
-    return fail("Unauthorized.", 401);
+    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
   }
 
   const { id } = await context.params;
   const question = await getQuestionById(id);
 
   if (!question) {
-    return fail("Question not found.", 404);
+    return fail(Messages.questionNotFound, 404, { code: ErrorCode.NOT_FOUND });
   }
 
   const canViewQuestion = question.isPublished || canUserEditQuestion(session, question);
 
   if (!canViewQuestion) {
-    return fail("Forbidden.", 403);
+    return fail(Messages.forbidden, 403, { code: ErrorCode.FORBIDDEN });
   }
 
   const limit = parsePositiveInt(request.nextUrl.searchParams.get("limit"), DEFAULT_LIMIT);

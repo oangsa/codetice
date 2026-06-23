@@ -1,12 +1,12 @@
 import { getSession, requireAdmin } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { classroomSchema } from "@/lib/validations/classroom";
 import { createClassroom, listClassroomsForUser } from "@/server/services/classroom-service";
 
 export async function GET() {
   const session = await getSession();
   if (!session) {
-    return fail("Unauthorized.", 401);
+    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
   }
 
   const classrooms = await listClassroomsForUser(session.userId, session.role);
@@ -19,7 +19,8 @@ export async function POST(request: Request) {
   const parsed = classroomSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid classroom payload.");
+    const firstError = parsed.error.issues[0]?.message ?? Messages.invalidRequest;
+    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -29,6 +30,6 @@ export async function POST(request: Request) {
     });
     return ok({ classroom });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to create classroom.");
+    return toFailResponse(error, Messages.unableToCreateClassroom);
   }
 }

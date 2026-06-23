@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Clipboard, Check } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Messages } from "@/lib/api.constants";
 
 export function InviteCodeSection({ inviteCode, className }: { inviteCode: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -15,7 +16,7 @@ export function InviteCodeSection({ inviteCode, className }: { inviteCode: strin
       toast.success("Invite code copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy invite code.");
+      toast.error(Messages.somethingWrong);
     }
   };
 

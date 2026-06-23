@@ -6,7 +6,8 @@ import argon2 from "argon2";
 import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { passwordResetTokens, users } from "@/db/schema";
-import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/lib/constants";
+import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/lib/auth.constants";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/lib/types";
 
@@ -37,7 +38,7 @@ export async function registerUser(input: { username: string; password: string }
   });
 
   if (existing) {
-    throw new Error("Username already exists.");
+    throw new AppError(Messages.usernameTaken, 409, ErrorCode.CONFLICT);
   }
 
   const passwordHash = await argon2.hash(input.password);
@@ -58,7 +59,7 @@ export async function registerUser(input: { username: string; password: string }
     });
 
   if (!user) {
-    throw new Error("Unable to create user.");
+    throw new AppError(Messages.unableToSubmit, 500, ErrorCode.INTERNAL);
   }
 
   return toSessionUser(user);
@@ -71,13 +72,13 @@ export async function loginUser(input: { username: string; password: string }) {
   });
 
   if (!user) {
-    throw new Error("Invalid username or password.");
+    throw new AppError(Messages.invalidCredentials, 401, ErrorCode.UNAUTHORIZED);
   }
 
   const valid = await argon2.verify(user.passwordHash, input.password);
 
   if (!valid) {
-    throw new Error("Invalid username or password.");
+    throw new AppError(Messages.invalidCredentials, 401, ErrorCode.UNAUTHORIZED);
   }
 
   return toSessionUser(user);
@@ -140,18 +141,18 @@ export async function changePassword(input: {
   });
 
   if (!user) {
-    throw new Error("User not found.");
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   const valid = await argon2.verify(user.passwordHash, input.currentPassword);
 
   if (!valid) {
-    throw new Error("Current password is incorrect.");
+    throw new AppError(Messages.currentPasswordIncorrect, 400, ErrorCode.VALIDATION);
   }
 
   const updatedUser = await updateUserPassword(user.id, input.newPassword);
   if (!updatedUser) {
-    throw new Error("Unable to update password.");
+    throw new AppError(Messages.unableToChangePassword, 500, ErrorCode.INTERNAL);
   }
   return toSessionUser(updatedUser);
 }
@@ -167,7 +168,7 @@ export async function adminResetPassword(input: {
   });
 
   if (!user) {
-    throw new Error("User not found.");
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   await updateUserPassword(user.id, input.newPassword);
@@ -184,7 +185,7 @@ export async function createPasswordResetToken(input: { userId: string }) {
   });
 
   if (!user) {
-    throw new Error("User not found.");
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   const token = randomBytes(32).toString("base64url");
@@ -233,7 +234,7 @@ export async function resetPasswordWithToken(input: {
   });
 
   if (!resetToken?.user) {
-    throw new Error("This reset link is invalid or has expired.");
+    throw new AppError(Messages.resetLinkInvalid, 400, ErrorCode.VALIDATION);
   }
 
   await updateUserPassword(resetToken.user.id, input.newPassword);
@@ -291,7 +292,7 @@ export async function updateProfilePicture(userId: string, profilePicture: strin
     });
 
   if (!updatedUser) {
-    throw new Error("User not found.");
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   return toSessionUser(updatedUser);
@@ -308,7 +309,7 @@ export async function updateUsername(userId: string, newUsername: string) {
     if (existing.id === userId) {
       return toSessionUser(existing);
     }
-    throw new Error("Username already exists.");
+    throw new AppError(Messages.usernameTaken, 409, ErrorCode.CONFLICT);
   }
 
   const [updatedUser] = await db
@@ -327,7 +328,7 @@ export async function updateUsername(userId: string, newUsername: string) {
     });
 
   if (!updatedUser) {
-    throw new Error("User not found.");
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   return toSessionUser(updatedUser);

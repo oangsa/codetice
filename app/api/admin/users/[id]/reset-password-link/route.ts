@@ -1,4 +1,4 @@
-import { fail, ok, RateLimitError } from "@/lib/api";
+import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
 import { assertRateLimit } from "@/server/services/rate-limit-service";
@@ -11,7 +11,7 @@ export async function POST(
   try {
     await requireAdmin();
   } catch {
-    return fail("Unauthorized.", 401);
+    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
   }
 
   const { id } = await params;
@@ -33,9 +33,6 @@ export async function POST(
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return fail("Too many attempts. Please try again later.", 429);
-    }
-    return fail(error instanceof Error ? error.message : "Unable to generate reset link.");
+    return toFailResponse(error, Messages.unableToGenerateResetLink);
   }
 }

@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok } from "@/lib/api";
 import { getSubmissionDetail } from "@/server/services/submission-service";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -9,13 +9,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
 
   if (!UUID_RE.test(id)) {
-    return fail("Invalid submission ID.", 400);
+    return fail(Messages.submissionNotFound, 400, { code: ErrorCode.VALIDATION });
   }
 
   const submission = await getSubmissionDetail(id, session.userId, session.role);
 
   if (!submission) {
-    return fail("Submission not found.", 404);
+    return fail(Messages.submissionNotFound, 404, { code: ErrorCode.NOT_FOUND });
   }
 
   return ok({ submission });

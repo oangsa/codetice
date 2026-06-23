@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
 import { getDb } from "@/lib/db";
 import { getLanguageDiagnostics } from "@/lib/grader/language-diagnostics";
-import { MAX_SUBMISSION_SOURCE_CHARS } from "@/lib/constants";
+import { MAX_SUBMISSION_SOURCE_CHARS } from "@/lib/submission.constants";
 
 export const runtime = "nodejs";
 
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return fail("Invalid JSON payload.");
+    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
   }
 
   const sourceCode =
@@ -26,15 +26,15 @@ export async function POST(request: Request) {
       : null;
 
   if (!sourceCode) {
-    return fail("sourceCode is required.");
+    return fail(Messages.codeRequired, 400, { code: ErrorCode.VALIDATION });
   }
 
   if (!languageSlug) {
-    return fail("language is required.");
+    return fail(Messages.languageRequired, 400, { code: ErrorCode.VALIDATION });
   }
 
   if (sourceCode.length > MAX_SUBMISSION_SOURCE_CHARS) {
-    return fail(`sourceCode must be at most ${MAX_SUBMISSION_SOURCE_CHARS} characters.`);
+    return fail(Messages.codeTooLong(MAX_SUBMISSION_SOURCE_CHARS), 400, { code: ErrorCode.VALIDATION });
   }
 
   const db = getDb();
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   });
 
   if (!language || !language.isEnabled) {
-    return fail("Language not supported.", 404);
+    return fail(Messages.languageNotFound, 404, { code: ErrorCode.NOT_FOUND });
   }
 
   try {
@@ -57,6 +57,6 @@ export async function POST(request: Request) {
 
     return ok({ diagnostics });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to compute diagnostics.", 400);
+    return toFailResponse(error, Messages.unableToComputeDiagnostics);
   }
 }

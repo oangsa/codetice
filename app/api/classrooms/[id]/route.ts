@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, Messages, ErrorCode } from "@/lib/api";
 import { getClassroomById } from "@/server/services/classroom-service";
 
 export async function GET(
@@ -8,13 +8,13 @@ export async function GET(
 ) {
   const session = await getSession();
   if (!session) {
-    return fail("Unauthorized.", 401);
+    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
   }
 
   const { id } = await context.params;
   const classroom = await getClassroomById(id);
   if (!classroom) {
-    return fail("Classroom not found.", 404);
+    return fail(Messages.classroomNotFound, 404, { code: ErrorCode.NOT_FOUND });
   }
 
   return ok({ classroom });

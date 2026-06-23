@@ -1,7 +1,7 @@
 import { after } from "next/server";
 
 import { requireAdmin } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { completeRejudgeJob, processGradingJob, rejudgeSubmission } from "@/server/services/submission-service";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,7 +14,7 @@ export async function POST(
   const { id } = await context.params;
 
   if (!UUID_RE.test(id)) {
-    return fail("Invalid submission ID.", 400);
+    return fail(Messages.submissionNotFound, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -28,6 +28,6 @@ export async function POST(
 
     return ok({ rejudgeJob, gradingJob });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to rejudge submission.");
+    return toFailResponse(error, Messages.unableToRejudge);
   }
 }

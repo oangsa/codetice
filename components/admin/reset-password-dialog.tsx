@@ -5,6 +5,7 @@ import { Loader2, Lock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Messages } from "@/lib/api.constants";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +67,7 @@ export function ResetPasswordDialog({ userId, username }: ResetPasswordDialogPro
       const data = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        setError(data.message ?? "Failed to reset password.");
+        setError(data.message ?? Messages.unableToResetPassword);
         return;
       }
 

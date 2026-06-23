@@ -1,5 +1,5 @@
 import { getSession, requireAdmin } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
 import { questionSchema } from "@/lib/validations/question";
 import { createQuestion, listQuestionsForUser } from "@/server/services/question-service";
 
@@ -15,7 +15,8 @@ export async function POST(request: Request) {
   const parsed = questionSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid question payload.");
+    const firstError = parsed.error.issues[0]?.message ?? Messages.invalidRequest;
+    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -25,6 +26,6 @@ export async function POST(request: Request) {
     });
     return ok({ question });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to create question.");
+    return toFailResponse(error, Messages.unableToCreateQuestion);
   }
 }

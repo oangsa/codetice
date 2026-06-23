@@ -1,8 +1,8 @@
 import { after } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import { fail, ok, RateLimitError } from "@/lib/api";
-import { IDEMPOTENCY_KEY_HEADER } from "@/lib/constants";
+import { fail, ok, Messages, ErrorCode } from "@/lib/api";
+import { IDEMPOTENCY_KEY_HEADER } from "@/lib/api.constants";
 import { getRequestIdentifier } from "@/lib/request";
 import { submitSchema } from "@/lib/validations/submission";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/server/services/idempotency-service";
 import { assertRateLimit } from "@/server/services/rate-limit-service";
 import { enqueueOfficialSubmission, processGradingJob } from "@/server/services/submission-service";
+import { toErrorInfo } from "@/lib/errors";
 
 export async function POST(request: Request) {
   const session = await requireUser();
@@ -20,17 +21,18 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return fail("Invalid JSON payload.");
+    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
   }
   const parsed = submitSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid submit payload.");
+    const firstError = parsed.error.issues[0]?.message ?? Messages.invalidRequest;
+    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
   }
 
   const idempotencyKey = request.headers.get(IDEMPOTENCY_KEY_HEADER)?.trim();
   if (!idempotencyKey) {
-    return fail("Missing idempotency key.", 400);
+    return fail(Messages.refreshRetry, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -93,24 +95,16 @@ export async function POST(request: Request) {
 
     return ok(responseBody);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to submit solution.";
-    const status =
-      error instanceof RateLimitError
-        ? 429
-        : message === "A matching request is already in progress."
-          ? 409
-          : message === "Idempotency key was reused with a different payload."
-            ? 409
-            : 400;
+    const { message, status, code } = toErrorInfo(error, Messages.unableToSubmit);
 
     if (idempotencyState) {
       await completeIdempotentRequest({
         keyId: idempotencyState.keyId,
         status,
-        body: { message },
+        body: { message, code },
       });
     }
 
-    return fail(message, status);
+    return fail(message, status, { code });
   }
 }

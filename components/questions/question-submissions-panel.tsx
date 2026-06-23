@@ -5,6 +5,7 @@ import { LoaderCircle } from "lucide-react";
 
 import { SubmissionTable } from "@/components/submissions/submission-table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Messages } from "@/lib/api.constants";
 
 const PAGE_SIZE = 24;
 const LOAD_MORE_THRESHOLD_PX = 240;
@@ -63,7 +64,7 @@ export function QuestionSubmissionsPanel({
       const payload = (await response.json()) as SubmissionPageResponse;
 
       if (!response.ok) {
-        throw new Error(payload.message ?? "Unable to load more submissions.");
+        throw new Error(payload.message ?? Messages.somethingWrong);
       }
 
       startTransition(() => {
@@ -76,7 +77,7 @@ export function QuestionSubmissionsPanel({
       setHasMore(payload.hasMore);
       setNextOffset(payload.nextOffset ?? null);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Unable to load more submissions.");
+      setLoadError(error instanceof Error ? error.message : Messages.somethingWrong);
     } finally {
       setIsLoadingMore(false);
     }

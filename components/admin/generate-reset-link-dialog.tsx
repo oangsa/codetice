@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Messages } from "@/lib/api.constants";
 
 interface GenerateResetLinkDialogProps {
   userId: string;
@@ -73,7 +74,7 @@ export function GenerateResetLinkDialog({
       };
 
       if (!response.ok || !data.resetUrl || !data.expiresAt) {
-        setError(data.message ?? "Failed to generate reset link.");
+        setError(data.message ?? Messages.unableToGenerateResetLink);
         return;
       }
 
@@ -95,7 +96,7 @@ export function GenerateResetLinkDialog({
       await navigator.clipboard.writeText(resetUrl);
       toast.success("Reset link copied.");
     } catch {
-      toast.error("Unable to copy reset link.");
+      toast.error(Messages.somethingWrong);
     }
   }
 

@@ -9,6 +9,7 @@ import {
   classrooms,
   questions,
 } from "@/db/schema";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 
 function generateInviteCode() {
@@ -27,7 +28,7 @@ export async function createClassroom(input: { name: string; createdBy: string }
     .returning();
 
   if (!classroom) {
-    throw new Error("Unable to create classroom.");
+    throw new AppError(Messages.unableToCreateClassroom, 500, ErrorCode.INTERNAL);
   }
 
   await db.insert(classroomMembers).values({
@@ -46,7 +47,7 @@ export async function joinClassroom(inviteCode: string, userId: string) {
   });
 
   if (!classroom) {
-    throw new Error("Classroom not found.");
+    throw new AppError(Messages.classroomNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   const existing = await db.query.classroomMembers.findFirst({
@@ -169,7 +170,7 @@ export async function createAssignment(input: {
     .returning();
 
   if (!assignment) {
-    throw new Error("Unable to create assignment.");
+    throw new AppError(Messages.unableToCreateAssignment, 500, ErrorCode.INTERNAL);
   }
 
   await db.insert(assignmentQuestions).values(

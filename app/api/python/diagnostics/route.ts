@@ -1,5 +1,5 @@
-import { fail, ok } from "@/lib/api";
-import { MAX_SUBMISSION_SOURCE_CHARS } from "@/lib/constants";
+import { ErrorCode, Messages, fail, ok } from "@/lib/api";
+import { MAX_SUBMISSION_SOURCE_CHARS } from "@/lib/submission.constants";
 import { getPyrightDiagnostics } from "@/lib/grader/pyright";
 
 export async function POST(request: Request) {
@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return fail("Invalid JSON payload.");
+    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
   }
 
   const sourceCode =
@@ -16,11 +16,11 @@ export async function POST(request: Request) {
       : null;
 
   if (!sourceCode) {
-    return fail("sourceCode is required.");
+    return fail(Messages.codeRequired, 400, { code: ErrorCode.VALIDATION });
   }
 
   if (sourceCode.length > MAX_SUBMISSION_SOURCE_CHARS) {
-    return fail(`sourceCode must be at most ${MAX_SUBMISSION_SOURCE_CHARS} characters.`);
+    return fail(Messages.codeTooLong(MAX_SUBMISSION_SOURCE_CHARS), 400, { code: ErrorCode.VALIDATION });
   }
 
   const diagnostics = await getPyrightDiagnostics(sourceCode);

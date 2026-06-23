@@ -5,7 +5,8 @@ import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 
-import { MAX_GRADER_OUTPUT_BYTES } from "@/lib/constants";
+import { MAX_GRADER_OUTPUT_BYTES } from "@/lib/grader.constants";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getPyrightDiagnostics, type PyrightDiagnostic } from "@/lib/grader/pyright";
 
 export type LanguageDiagnostic = PyrightDiagnostic;
@@ -41,7 +42,7 @@ async function ensureDockerAvailable() {
   }
 
   if (!dockerAvailability) {
-    throw new Error("Docker grading runtime is unavailable.");
+    throw new AppError(Messages.gradingUnavailable, 503, ErrorCode.UNAVAILABLE);
   }
 }
 

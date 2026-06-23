@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ok, toFailResponse, Messages } from "@/lib/api";
 import { completeRejudgeJob, processGradingJob, rejudgeQuestion } from "@/server/services/submission-service";
 
 export async function POST(
@@ -26,6 +26,6 @@ export async function POST(
     if (rejudgeJob) {
       await completeRejudgeJob(rejudgeJob.id, "failed");
     }
-    return fail(error instanceof Error ? error.message : "Unable to rejudge question.");
+    return toFailResponse(error, Messages.unableToRejudge);
   }
 }

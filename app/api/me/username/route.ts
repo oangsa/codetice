@@ -1,5 +1,5 @@
 import { requireUser, createUserSession } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
 import { updateUsername } from "@/server/services/auth-service";
 import { z } from "zod";
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const parsed = updateUsernameSchema.safeParse(body);
 
     if (!parsed.success) {
-      return fail(parsed.error.issues[0]?.message || "Invalid username.");
+      return fail(parsed.error.issues[0]?.message || Messages.invalidUsername, 400, { code: ErrorCode.VALIDATION });
     }
 
     const updatedUser = await updateUsername(session.userId, parsed.data.username);
@@ -28,6 +28,6 @@ export async function POST(request: Request) {
 
     return ok({ user: updatedUser });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to update username.", 400);
+    return toFailResponse(error, Messages.unableToUpdateUsername);
   }
 }

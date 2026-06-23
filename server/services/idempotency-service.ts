@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { idempotencyKeys } from "@/db/schema";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 
 type CachedResponse<T> = {
@@ -59,11 +60,11 @@ export async function beginIdempotentRequest<T>(input: {
   });
 
   if (!existing) {
-    throw new Error("Unable to resolve idempotency state.");
+    throw new AppError(Messages.idempotencyUnresolved, 500, ErrorCode.INTERNAL);
   }
 
   if (existing.requestHash !== input.requestHash) {
-    throw new Error("Idempotency key was reused with a different payload.");
+    throw new AppError(Messages.requestConflict, 409, ErrorCode.CONFLICT);
   }
 
   if (existing.responseStatus !== null && existing.responseBody) {
@@ -100,7 +101,7 @@ export async function beginIdempotentRequest<T>(input: {
     }
   }
 
-  throw new Error("A matching request is already in progress.");
+  throw new AppError(Messages.requestInProgress, 409, ErrorCode.CONFLICT);
 }
 
 export async function completeIdempotentRequest(input: {

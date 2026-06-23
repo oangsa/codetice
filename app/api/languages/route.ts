@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
 import { supportedLanguageSchema } from "@/lib/validations/language";
 import {
   createUniqueSupportedLanguageSlug,
@@ -16,7 +16,7 @@ function formatLanguageValidationError(error: { flatten: () => { fieldErrors: Re
   const firstError = Object.entries(fieldErrors).find(([, messages]) => messages.length > 0);
 
   if (!firstError) {
-    return "Invalid language payload.";
+    return Messages.invalidRequest;
   }
 
   const [field, messages] = firstError;
@@ -34,12 +34,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return fail("Invalid JSON payload.", 400);
+    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
   }
   const parsed = supportedLanguageSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail(formatLanguageValidationError(parsed.error), 400, { errors: parsed.error.flatten() });
+    return fail(formatLanguageValidationError(parsed.error), 400, { errors: parsed.error.flatten(), code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -49,6 +49,6 @@ export async function POST(request: Request) {
     const languages = await listAllSupportedLanguages();
     return ok({ language, languages }, { status: 201 });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to create language.", 400);
+    return toFailResponse(error, Messages.unableToCreateLanguage);
   }
 }

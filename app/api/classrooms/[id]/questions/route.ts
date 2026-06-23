@@ -2,7 +2,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 
 import { requireUser } from "@/lib/auth";
-import { ok, fail } from "@/lib/api";
+import { ok, fail, Messages, ErrorCode } from "@/lib/api";
 import { getDb } from "@/lib/db";
 import { assignmentQuestions, assignments, classroomMembers, questions, testcases } from "@/db/schema";
 import { createUniqueQuestionSlug } from "@/server/services/question-service";
@@ -47,14 +47,14 @@ export async function POST(
       ),
     });
     if (!membership || membership.role !== "teacher") {
-      return fail("Forbidden.", 403);
+      return fail(Messages.forbidden, 403, { code: ErrorCode.FORBIDDEN });
     }
   }
 
   const body = await _request.json();
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+    return fail(parsed.error.issues[0]?.message ?? Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
   }
 
   const input = parsed.data;
@@ -81,7 +81,7 @@ export async function POST(
     .returning();
 
   if (!question) {
-    return fail("Failed to create question.", 500);
+    return fail(Messages.unableToCreateQuestion, 500, { code: ErrorCode.INTERNAL });
   }
 
   // Create testcases
@@ -121,7 +121,7 @@ export async function POST(
   }
 
   if (!assignment) {
-    return fail("Failed to create assignment.", 500);
+    return fail(Messages.unableToCreateAssignment, 500, { code: ErrorCode.INTERNAL });
   }
 
   // Add question to assignment

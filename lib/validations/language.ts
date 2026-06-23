@@ -1,22 +1,23 @@
 import { z } from "zod";
+import { Messages } from "@/lib/api.constants";
 
 const diagnosticsFormatSchema = z.enum(["none", "pyright", "compiler"]);
 
 const supportedLanguageBaseSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  dockerImage: z.string().trim().min(1).max(255),
+  name: z.string().trim().min(1, "Language name is required.").max(100, "Name is too long (max 100 characters)."),
+  dockerImage: z.string().trim().min(1, "Docker image is required.").max(255, "Docker image name is too long (max 255 characters)."),
   fileExtension: z
     .string()
     .trim()
-    .min(1)
-    .max(20)
+    .min(1, "File extension is required.")
+    .max(20, "File extension is too long (max 20 characters).")
     .regex(/^[a-z0-9]+$/, "File extension must be alphanumeric."),
-  runCommand: z.string().trim().min(1).max(500),
+  runCommand: z.string().trim().min(1, "Run command is required.").max(500, "Run command is too long (max 500 characters)."),
   editorLanguage: z
     .string()
     .trim()
-    .min(1)
-    .max(50)
+    .min(1, "Editor language is required.")
+    .max(50, "Editor language is too long (max 50 characters).")
     .regex(/^[a-z0-9_#+-]+$/, "Editor language must be a Monaco language id.")
     .default("plaintext"),
   diagnosticsFormat: diagnosticsFormatSchema.default("none"),
@@ -35,7 +36,7 @@ function validateDiagnosticsCommand(
   if (value.diagnosticsFormat === "compiler" && !value.diagnosticsCommand) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Diagnostics command is required when diagnostics format is compiler.",
+      message: Messages.langDiagnosticsCommandRequired,
       path: ["diagnosticsCommand"],
     });
   }

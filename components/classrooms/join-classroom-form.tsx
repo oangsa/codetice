@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Messages } from "@/lib/api.constants";
 
 export function JoinClassroomForm() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export function JoinClassroomForm() {
 
     const payload = (await response.json()) as { message?: string };
     if (!response.ok) {
-      toast.error(payload.message ?? "Unable to join workspace.");
+      toast.error(payload.message ?? Messages.unableToJoinClassroom);
       setPending(false);
       return;
     }

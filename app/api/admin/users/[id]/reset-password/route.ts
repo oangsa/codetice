@@ -1,4 +1,4 @@
-import { fail, ok } from "@/lib/api";
+import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { adminResetPasswordSchema } from "@/lib/validations/auth";
 import { adminResetPassword } from "@/server/services/auth-service";
@@ -10,7 +10,7 @@ export async function POST(
   try {
     await requireAdmin();
   } catch {
-    return fail("Unauthorized.", 401);
+    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
   }
 
   const { id } = await params;
@@ -20,7 +20,7 @@ export async function POST(
 
   if (!parsed.success) {
     const firstError = parsed.error.issues[0]?.message ?? "Invalid payload.";
-    return fail(firstError);
+    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -31,7 +31,6 @@ export async function POST(
 
     return ok({ message: "Password reset successfully." });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to reset password.");
+    return toFailResponse(error, Messages.unableToResetPassword);
   }
 }
-

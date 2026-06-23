@@ -6,6 +6,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Messages } from "@/lib/api.constants";
 
 export function RejudgeButton({ submissionId }: { submissionId: string }) {
   const router = useRouter();
@@ -19,7 +20,7 @@ export function RejudgeButton({ submissionId }: { submissionId: string }) {
 
     const payload = (await response.json()) as { message?: string };
     if (!response.ok) {
-      toast.error(payload.message ?? "Unable to rejudge submission.");
+      toast.error(payload.message ?? Messages.unableToRejudge);
       setPending(false);
       return;
     }

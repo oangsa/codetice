@@ -1,5 +1,5 @@
 import { requireUser, createUserSession } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
 import { updateProfilePicture } from "@/server/services/auth-service";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const parsed = updateProfilePictureSchema.safeParse(body);
 
     if (!parsed.success) {
-      return fail(parsed.error.issues[0]?.message || "Invalid payload.");
+      return fail(parsed.error.issues[0]?.message || Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
     }
 
     const updatedUser = await updateProfilePicture(session.userId, parsed.data.profilePicture);
@@ -24,6 +24,6 @@ export async function POST(request: Request) {
 
     return ok({ user: updatedUser });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to update profile picture.", 400);
+    return toFailResponse(error, Messages.unableToSaveProfilePicture);
   }
 }

@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { cn, formatScore, formatDate } from "@/lib/utils";
+import { Messages } from "@/lib/api.constants";
 
 type QuestionRow = {
   rowNumber: number;
@@ -176,8 +177,8 @@ export function QuestionTable({
 
       toast.success("Question deleted successfully.");
       router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete question.");
+    } catch {
+      toast.error(Messages.unableToDeleteQuestion);
     }
   }
 

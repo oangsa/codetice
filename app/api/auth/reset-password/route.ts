@@ -1,4 +1,4 @@
-import { fail, ok, RateLimitError } from "@/lib/api";
+import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { getRequestIdentifier } from "@/lib/request";
 import { resetPasswordWithTokenSchema } from "@/lib/validations/auth";
 import { assertRateLimit } from "@/server/services/rate-limit-service";
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     const firstError = parsed.error.issues[0]?.message ?? "Invalid payload.";
-    return fail(firstError);
+    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -28,9 +28,6 @@ export async function POST(request: Request) {
 
     return ok({ message: "Password reset successfully." });
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return fail("Too many attempts. Please try again later.", 429);
-    }
-    return fail(error instanceof Error ? error.message : "Unable to reset password.");
+    return toFailResponse(error, Messages.unableToResetPassword);
   }
 }

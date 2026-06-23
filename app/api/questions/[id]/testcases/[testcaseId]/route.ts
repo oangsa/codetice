@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { fail, ok } from "@/lib/api";
+import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
 import { testcaseSchema } from "@/lib/validations/question";
 import { canUserEditQuestion, deleteTestcase, getQuestionById, updateTestcase } from "@/server/services/question-service";
 
@@ -12,21 +12,22 @@ export async function PATCH(
 
   const question = await getQuestionById(id);
   if (!question || !canUserEditQuestion(session, question)) {
-    return fail("Forbidden.", 403);
+    return fail(Messages.forbidden, 403, { code: ErrorCode.FORBIDDEN });
   }
 
   const body = await request.json();
   const parsed = testcaseSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid testcase payload.");
+    const firstError = parsed.error.issues[0]?.message ?? Messages.invalidRequest;
+    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
     const testcase = await updateTestcase(testcaseId, parsed.data);
     return ok({ testcase });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unable to update testcase.");
+    return toFailResponse(error, Messages.unableToUpdateTestcase);
   }
 }
 
@@ -39,7 +40,7 @@ export async function DELETE(
 
   const question = await getQuestionById(id);
   if (!question || !canUserEditQuestion(session, question)) {
-    return fail("Forbidden.", 403);
+    return fail(Messages.forbidden, 403, { code: ErrorCode.FORBIDDEN });
   }
 
   await deleteTestcase(testcaseId);

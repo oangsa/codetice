@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Messages } from "@/lib/api.constants";
 
 export function ChangePasswordForm({ onCancel }: { onCancel?: () => void }) {
   const [pending, setPending] = useState(false);
@@ -49,7 +50,7 @@ export function ChangePasswordForm({ onCancel }: { onCancel?: () => void }) {
       const data = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        setError(data.message ?? "Failed to change password.");
+        setError(data.message ?? Messages.unableToChangePassword);
         return;
       }
 

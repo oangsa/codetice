@@ -1,4 +1,4 @@
-import { DEFAULT_GRADING_WORKER_POLL_MS } from "@/lib/constants";
+import { DEFAULT_GRADING_WORKER_POLL_MS } from "@/lib/grader.constants";
 import { closeDb } from "@/lib/db";
 import { cleanupOldRateLimits } from "@/server/services/rate-limit-service";
 import { processPendingGradingJobs } from "@/server/services/submission-service";

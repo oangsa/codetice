@@ -1,5 +1,5 @@
 import { createUserSession } from "@/lib/auth";
-import { fail, ok, RateLimitError } from "@/lib/api";
+import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { getRequestIdentifier } from "@/lib/request";
 import { loginSchema } from "@/lib/validations/auth";
 import { loginUser } from "@/server/services/auth-service";
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const parsed = loginSchema.safeParse(body);
 
   if (!parsed.success) {
-    return fail("Invalid login payload.");
+    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
   }
 
   try {
@@ -24,9 +24,6 @@ export async function POST(request: Request) {
     await createUserSession(user);
     return ok({ user });
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return fail("Too many attempts. Please try again later.", 429);
-    }
-    return fail(error instanceof Error ? error.message : "Unable to login.", 401);
+    return toFailResponse(error, Messages.invalidCredentials);
   }
 }

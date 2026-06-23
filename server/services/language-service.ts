@@ -3,6 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 import { slugify } from "@/lib/utils";
 
@@ -92,7 +93,7 @@ export async function updateSupportedLanguage(
   });
 
   if (!existing) {
-    throw new Error("Language not found.");
+    throw new AppError(Messages.languageNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   const normalizedInput = normalizeLanguageInput({

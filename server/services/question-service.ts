@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { leaderboards, questionScores, questions, submissions, testcases } from "@/db/schema";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import type { AuthSession } from "@/lib/types";
@@ -164,11 +165,11 @@ export async function createQuestion(input: {
     .returning();
 
   if (!question) {
-    throw new Error("Unable to create question.");
+    throw new AppError(Messages.unableToCreateQuestion, 500, ErrorCode.INTERNAL);
   }
 
   if (input.isPublished) {
-    throw new Error("Add at least one testcase before publishing.");
+    throw new AppError(Messages.publishNeedsTestcase, 400, ErrorCode.VALIDATION);
   }
 
   return question;
@@ -197,7 +198,7 @@ export async function updateQuestion(
     .where(eq(testcases.questionId, questionId));
 
   if (input.isPublished && (existingTestcases[0]?.count ?? 0) === 0) {
-    throw new Error("A question must have at least one testcase before publishing.");
+    throw new AppError(Messages.publishNeedsTestcase, 400, ErrorCode.VALIDATION);
   }
 
   const [question] = await db
@@ -220,7 +221,7 @@ export async function updateQuestion(
     .returning();
 
   if (!question) {
-    throw new Error("Question not found.");
+    throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   return question;
@@ -295,7 +296,7 @@ export async function updateTestcase(
     .returning();
 
   if (!testcase) {
-    throw new Error("Testcase not found.");
+    throw new AppError(Messages.testcaseNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   return testcase;

@@ -12,7 +12,8 @@ import {
   supportedLanguages,
   testcaseResults,
 } from "@/db/schema";
-import { DEFAULT_GRADING_JOB_LEASE_SECONDS } from "@/lib/constants";
+import { DEFAULT_GRADING_JOB_LEASE_SECONDS } from "@/lib/grader.constants";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb, getSqlClient } from "@/lib/db";
 import { calculateScore } from "@/lib/grader/score";
 import { gradeCode } from "@/server/services/grading-service";
@@ -143,7 +144,7 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
   });
 
   if (!submission) {
-    throw new Error("Submission not found.");
+    throw new AppError(Messages.submissionNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   const language = await db.query.supportedLanguages.findFirst({
@@ -151,7 +152,7 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
   });
 
   if (!language || !language.isEnabled) {
-    throw new Error("Submission language is not available.");
+    throw new AppError(Messages.languageUnavailable, 400, ErrorCode.VALIDATION);
   }
 
   const results = await gradeCode({
@@ -258,18 +259,18 @@ export async function runSampleSubmission(input: {
   ]);
 
   if (!question) {
-    throw new Error("Question not found.");
+    throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   if (question.allowedLanguages) {
     const allowed = JSON.parse(question.allowedLanguages) as string[];
     if (allowed.length > 0 && !allowed.includes(input.language)) {
-      throw new Error(`Language '${input.language}' is not allowed for this question.`);
+      throw new AppError(Messages.languageNotAllowed, 400, ErrorCode.VALIDATION);
     }
   }
 
   if (!language || !language.isEnabled) {
-    throw new Error("Language not supported.");
+    throw new AppError(Messages.languageNotSupported, 400, ErrorCode.VALIDATION);
   }
 
   const sampleCases = question.testcases
@@ -335,24 +336,24 @@ export async function enqueueOfficialSubmission(input: {
   ]);
 
   if (!question) {
-    throw new Error("Question not found.");
+    throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   if (question.allowedLanguages) {
     const allowed = JSON.parse(question.allowedLanguages) as string[];
     if (allowed.length > 0 && !allowed.includes(input.language)) {
-      throw new Error(`Language '${input.language}' is not allowed for this question.`);
+      throw new AppError(Messages.languageNotAllowed, 400, ErrorCode.VALIDATION);
     }
   }
 
   if (!language || !language.isEnabled) {
-    throw new Error("Selected language is not available.");
+    throw new AppError(Messages.languageUnavailable, 400, ErrorCode.VALIDATION);
   }
 
   const isLate = !!(assignment?.dueAt && new Date(assignment.dueAt) < new Date());
 
   if (question.testcases.length === 0) {
-    throw new Error("Question has no testcases.");
+    throw new AppError(Messages.questionNotReady, 400, ErrorCode.VALIDATION);
   }
 
   const [submission] = await db
@@ -369,7 +370,7 @@ export async function enqueueOfficialSubmission(input: {
     .returning();
 
   if (!submission) {
-    throw new Error("Unable to create submission.");
+    throw new AppError(Messages.unableToSubmit, 500, ErrorCode.INTERNAL);
   }
 
   const [gradingJob] = await db
@@ -396,7 +397,7 @@ async function processClaimedGradingJob(jobId: string) {
   });
 
   if (!job) {
-    throw new Error("Grading job not found.");
+    throw new AppError(Messages.gradingJobNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   await db
@@ -422,8 +423,8 @@ async function processClaimedGradingJob(jobId: string) {
       .returning();
 
     return updatedJob;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal grading failure.";
+  } catch {
+    const message = Messages.somethingWrong;
 
     await db
       .update(submissions)
@@ -479,7 +480,7 @@ export async function rejudgeSubmission(submissionId: string, requestedBy: strin
   });
 
   if (!submission) {
-    throw new Error("Submission not found.");
+    throw new AppError(Messages.submissionNotFound, 404, ErrorCode.NOT_FOUND);
   }
 
   const [job] = await db

@@ -2,7 +2,7 @@ import "server-only";
 
 import { SignJWT, jwtVerify } from "jose";
 
-import { SESSION_COOKIE } from "@/lib/constants";
+import { SESSION_COOKIE } from "@/lib/auth.constants";
 import type { AuthSession } from "@/lib/types";
 
 const encoder = new TextEncoder();

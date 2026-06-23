@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { buildSessionCookie, decryptSession, encryptSession, type SessionPayload } from "@/lib/session";
-import { SESSION_COOKIE } from "@/lib/constants";
+import { SESSION_COOKIE } from "@/lib/auth.constants";
 import { getSessionUserById } from "@/server/services/auth-service";
 import type { AuthSession } from "@/lib/types";
 

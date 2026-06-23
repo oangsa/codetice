@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Messages } from "@/lib/api.constants";
 
 export function CreateClassroomForm() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export function CreateClassroomForm() {
 
     const payload = (await response.json()) as { message?: string };
     if (!response.ok) {
-      toast.error(payload.message ?? "Unable to create workspace.");
+      toast.error(payload.message ?? Messages.unableToCreateClassroom);
       setPending(false);
       return;
     }
