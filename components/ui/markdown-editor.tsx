@@ -12,15 +12,30 @@ export function MarkdownEditor({
   required,
   rows = 10,
   placeholder,
+  value,
+  onChange,
 }: {
   name: string;
   defaultValue?: string;
   required?: boolean;
   rows?: number;
   placeholder?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
-  const [value, setValue] = useState(defaultValue);
+  const isControlled = value !== undefined && onChange !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultValue ?? "");
   const [tab, setTab] = useState<"write" | "preview">("write");
+
+  const editorValue = isControlled ? value : internalValue;
+
+  const handleChange = (nextValue: string) => {
+    if (value !== undefined && onChange !== undefined) {
+      onChange(nextValue);
+      return;
+    }
+    setInternalValue(nextValue);
+  };
 
   return (
     <div className="space-y-0">
@@ -45,12 +60,12 @@ export function MarkdownEditor({
       </div>
 
       {/* Hidden input that carries the actual value in the form */}
-      <input type="hidden" name={name} value={value} required={required} />
+      <input type="hidden" name={name} value={editorValue} required={required} />
 
       {tab === "write" ? (
         <Textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          value={editorValue}
+          onChange={(e) => handleChange(e.target.value)}
           rows={rows}
           placeholder={
             placeholder ??
@@ -60,8 +75,8 @@ export function MarkdownEditor({
         />
       ) : (
         <div className="min-h-32 rounded-b-md border border-t-0 border-slate-200 bg-white p-4">
-          {value.trim() ? (
-            <Markdown>{value}</Markdown>
+          {editorValue.trim() ? (
+            <Markdown>{editorValue}</Markdown>
           ) : (
             <p className="text-sm text-slate-400 italic">Nothing to preview yet.</p>
           )}

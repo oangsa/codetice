@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CHECKER_TYPES } from "@/lib/constants";
+import { CHECKER_TYPES } from "@/lib/question.constants";
+import { Messages } from "@/lib/api.constants";
 
 type TestcaseRecord = {
   id?: string;
@@ -47,10 +48,12 @@ export function TestcaseDialog({
   questionId,
   testcase,
   triggerLabel,
+  trigger,
 }: {
   questionId: string;
   testcase?: TestcaseRecord;
   triggerLabel: string;
+  trigger?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -87,7 +90,7 @@ export function TestcaseDialog({
 
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      toast.error(data.message ?? "Unable to save testcase.");
+      toast.error(data.message ?? Messages.unableToSaveTestcase);
       setPending(false);
       return;
     }
@@ -101,9 +104,11 @@ export function TestcaseDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={testcase ? "outline" : "default"} size="sm">
-          {triggerLabel}
-        </Button>
+        {trigger ?? (
+          <Button variant={testcase ? "outline" : "default"} size="sm">
+            {triggerLabel}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

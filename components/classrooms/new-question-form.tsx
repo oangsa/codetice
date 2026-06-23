@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Textarea } from "@/components/ui/textarea";
+import { Messages } from "@/lib/api.constants";
 
 type Testcase = {
   id: string; // local id for React key
@@ -147,7 +148,7 @@ export function NewQuestionForm({
     };
 
     if (!response.ok) {
-      toast.error(json.message ?? "Failed to create question.");
+      toast.error(json.message ?? Messages.unableToCreateQuestion);
       setPending(false);
       return;
     }
@@ -165,12 +166,12 @@ export function NewQuestionForm({
           <CardTitle>Question details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <FormField label="Title" htmlFor="title">
+          <FormField label="Title" htmlFor="title" required>
             <Input id="title" name="title" required />
           </FormField>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Description</label>
+            <label className="text-sm font-medium text-slate-700">Description <span className="ml-0.5 text-red-500">*</span></label>
             <MarkdownEditor name="description" required rows={8} />
           </div>
 
@@ -228,7 +229,7 @@ export function NewQuestionForm({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Assignment name" htmlFor="assignmentTitle">
+            <FormField label="Assignment name" htmlFor="assignmentTitle" required>
               <Input
                 id="assignmentTitle"
                 name="assignmentTitle"
@@ -279,7 +280,7 @@ export function NewQuestionForm({
           {testcases.map((tc, index) => (
             <div key={tc.id} className="space-y-3 rounded-lg border border-slate-200 p-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-700">
+                <div className="text-sm font-semibold text-slate-700">
                   Testcase {index + 1}
                   {tc.isSample && (
                     <Badge variant="secondary" className="ml-2">
@@ -291,12 +292,13 @@ export function NewQuestionForm({
                       Visible
                     </Badge>
                   )}
-                </p>
+                </div>
                 {testcases.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeTestcase(tc.id)}
-                    className="text-slate-400 hover:text-red-500"
+                    title="Delete testcase"
+                    className="inline-flex items-center justify-center h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

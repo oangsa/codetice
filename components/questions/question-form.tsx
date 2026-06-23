@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Edit, Plus, Trash2, Upload } from "lucide-react";
 
 import { TestcaseDialog } from "@/components/questions/testcase-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { QUESTION_DIFFICULTIES } from "@/lib/constants";
+import { QUESTION_DIFFICULTIES } from "@/lib/question.constants";
+import { Messages } from "@/lib/api.constants";
 
 type CreateTestcase = {
   id: string;
@@ -81,9 +82,11 @@ export function QuestionForm({
   const [difficulty, setDifficulty] = useState(question?.difficulty ?? "easy");
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingMd, setUploadingMd] = useState(false);
   const [createTestcases, setCreateTestcases] = useState<CreateTestcase[]>([newCreateTestcase()]);
   const [assignmentTitle, setAssignmentTitle] = useState("General");
   const [assignmentDueAt, setAssignmentDueAt] = useState("");
+  const [description, setDescription] = useState(question?.description ?? "");
 
   // Derive initial allowed languages: empty array means "all languages"
   const [allowedLangs, setAllowedLangs] = useState<string[]>(
@@ -107,6 +110,39 @@ export function QuestionForm({
     setCreateTestcases((prev) =>
       prev.map((tc) => (tc.id === id ? { ...tc, [field]: value } : tc)),
     );
+  }
+
+  async function handleMdUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length !== 1) {
+      toast.error("Please select exactly one .md file.");
+      e.target.value = "";
+      return;
+    }
+    const file = files[0];
+    const isMarkdown =
+      file.name.toLowerCase().endsWith(".md") || file.type === "text/markdown";
+    if (!isMarkdown) {
+      toast.error("Only .md files are allowed.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toast.error("File too large (max 1 MB).");
+      e.target.value = "";
+      return;
+    }
+    setUploadingMd(true);
+    try {
+      const content = await file.text();
+      setDescription(content);
+      toast.success("Description imported.");
+    } catch {
+      toast.error(Messages.somethingWrong);
+    } finally {
+      setUploadingMd(false);
+      e.target.value = "";
+    }
   }
 
   async function handleTxtUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -235,7 +271,7 @@ export function QuestionForm({
     const data = (await response.json()) as { message?: string; question?: { id: string } };
 
     if (!response.ok) {
-      toast.error(data.message ?? "Unable to save question.");
+      toast.error(data.message ?? Messages.unableToSaveQuestion);
       setPending(false);
       return;
     }
@@ -257,7 +293,7 @@ export function QuestionForm({
     });
 
     if (!response.ok) {
-      toast.error("Unable to delete testcase.");
+      toast.error(Messages.unableToDeleteTestcase);
       return;
     }
 
@@ -279,14 +315,30 @@ export function QuestionForm({
               await handleSubmit(formData);
             }}
           >
-            <FormField label="Title" htmlFor="title">
+            <FormField label="Title" htmlFor="title" required>
               <Input id="title" name="title" defaultValue={question?.title ?? ""} required />
             </FormField>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Description</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700">Description <span className="ml-0.5 text-red-500">*</span></label>
+                <label className={uploadingMd ? "cursor-not-allowed opacity-50" : "cursor-pointer"}>
+                  <input
+                    type="file"
+                    accept=".md,text/markdown"
+                    className="sr-only"
+                    disabled={uploadingMd}
+                    onChange={handleMdUpload}
+                  />
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadingMd ? "Importing…" : "Upload .md"}
+                  </span>
+                </label>
+              </div>
               <MarkdownEditor
                 name="description"
-                defaultValue={question?.description ?? ""}
+                value={description}
+                onChange={setDescription}
                 required
               />
             </div>
@@ -340,7 +392,7 @@ export function QuestionForm({
             </div>
             {isClassroomCreate ? (
               <div className="grid gap-4 md:grid-cols-2">
-                <FormField label="Assignment name" htmlFor="assignmentTitle">
+                <FormField label="Assignment name" htmlFor="assignmentTitle" required>
                   <Input
                     id="assignmentTitle"
                     name="assignmentTitle"
@@ -424,7 +476,7 @@ export function QuestionForm({
             {createTestcases.map((testcase, index) => (
               <div key={testcase.id} className="space-y-3 rounded-lg border border-slate-200 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-700">
+                  <div className="text-sm font-semibold text-slate-700">
                     Testcase {index + 1}
                     {testcase.isSample ? (
                       <Badge variant="secondary" className="ml-2">
@@ -436,12 +488,13 @@ export function QuestionForm({
                         Visible
                       </Badge>
                     ) : null}
-                  </p>
+                  </div>
                   {createTestcases.length > 1 ? (
                     <button
                       type="button"
                       onClick={() => removeCreateTestcase(testcase.id)}
-                      className="text-slate-400 hover:text-red-500"
+                      title="Delete testcase"
+                      className="inline-flex items-center justify-center h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -580,11 +633,31 @@ export function QuestionForm({
                       </div>
                     </TableCell>
                     <TableCell>{testcase.sortOrder}</TableCell>
-                    <TableCell className="flex justify-end gap-2">
-                      <TestcaseDialog questionId={question.id} testcase={testcase} triggerLabel="Edit" />
-                      <Button variant="destructive" size="sm" onClick={() => void handleDeleteTestcase(testcase.id)}>
-                        Delete
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <TestcaseDialog
+                          questionId={question.id}
+                          testcase={testcase}
+                          triggerLabel="Edit"
+                          trigger={
+                            <button
+                              type="button"
+                              title="Edit testcase"
+                              className="inline-flex items-center justify-center h-8 w-8 rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          }
+                        />
+                        <button
+                          type="button"
+                          title="Delete testcase"
+                          onClick={() => void handleDeleteTestcase(testcase.id)}
+                          className="inline-flex items-center justify-center h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
