@@ -1,5 +1,5 @@
 # =============================================================
-# vibe-grader - Docker Compose stack
+# codetice - Docker Compose stack
 #
 # Services:
 #   db       - PostgreSQL 17 database
