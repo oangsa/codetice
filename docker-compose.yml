@@ -2,7 +2,7 @@
 # vibe-grader - Docker Compose stack
 #
 # Services:
-#   db       - PostgreSQL 16 database
+#   db       - PostgreSQL 17 database
 #   web      - Next.js web application
 #   worker   - Grading-job background worker
 #
@@ -18,7 +18,7 @@ services:
   # PostgreSQL database
   # -------------------------------------------
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-vibe_grader}
