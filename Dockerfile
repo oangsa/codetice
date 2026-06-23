@@ -98,7 +98,7 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 worker && \
     adduser  --system --uid 1001 --ingroup worker worker
 
-RUN apk add --no-cache docker-cli
+RUN apk add --no-cache docker-cli libstdc++ libgcc
 
 COPY --from=worker-builder /app/worker-bin ./worker
 
