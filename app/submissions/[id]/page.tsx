@@ -65,7 +65,7 @@ export default async function SubmissionDetailPage(props: {
               <ChevronRight className="h-4 w-4" />
             </>
           )}
-          <span className="truncate text-slate-900 dark:text-slate-200">Submission Details</span>
+          <span className="truncate text-slate-900 dark:text-white">Submission Details</span>
         </nav>
 
         {/* Header Panel */}

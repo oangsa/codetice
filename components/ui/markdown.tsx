@@ -97,7 +97,7 @@ const COMPONENTS: Components = {
   ),
   hr: () => <hr className="my-4 border-slate-200 dark:border-slate-800" />,
   pre: ({ children }) => (
-    <pre className="my-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 p-4 text-sm leading-6">
+    <pre className="my-3 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10 bg-slate-800 p-4 text-sm leading-6">
       {children}
     </pre>
   ),
@@ -107,13 +107,13 @@ const COMPONENTS: Components = {
 
     if (isBlock) {
       return (
-        <code className={cn("block font-mono text-slate-800 dark:text-slate-200", className)}>
+        <code className={cn("block font-mono text-slate-900", className)}>
           {children}
         </code>
       );
     }
     return (
-      <code className="rounded bg-slate-100 dark:bg-slate-800/60 px-1.5 py-0.5 font-mono text-xs text-slate-800 dark:text-slate-200">
+      <code className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-xs text-slate-900">
         {children}
       </code>
     );
