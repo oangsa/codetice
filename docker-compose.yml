@@ -78,6 +78,11 @@ services:
       GRADING_RUNTIME:           docker
       GRADING_WORKER_POLL_MS:    ${GRADING_WORKER_POLL_MS:-2000}
       GRADING_WORKER_BATCH_SIZE: ${GRADING_WORKER_BATCH_SIZE:-5}
+    # Add the host docker group so the non-root worker user can
+    # access /var/run/docker.sock. Set DOCKER_GID in .env to match
+    # your host: stat -c '%g' /var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-999}"
     volumes:
       # Bind-mount the host Docker socket so the worker can run
       # sandboxed code-execution containers as siblings.
