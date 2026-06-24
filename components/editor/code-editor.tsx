@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Editor, { type Monaco } from "@monaco-editor/react";
+import type { Monaco } from "@monaco-editor/react";
 import type * as monacoEditor from "monaco-editor";
 import { Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IDEMPOTENCY_KEY_HEADER, Messages } from "@/lib/api.constants";
 import { createEditorDraftStorageKey, readEditorDraft, writeEditorDraft } from "@/lib/editor-drafts";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/lib/submission-feedback";
+import { MonacoCodeEditor, resolveMonacoLanguage } from "@/components/editor/monaco-code-editor";
 
 const EDITOR_MARKER_OWNER = "language-diagnostics";
 
@@ -28,21 +29,6 @@ type ResultRow = {
   errorMessage: string | null;
   isHidden: boolean;
 };
-
-function resolveMonacoLanguage(language: string) {
-  const normalized = language.trim().toLowerCase();
-
-  // Backward compatibility for rows that previously stored tool names instead of Monaco ids.
-  if (["pyright", "python-lsp", "python-lsp-server", "pylsp"].includes(normalized)) {
-    return "python";
-  }
-
-  if (["c", "cc", "c++", "cplusplus", "clang", "clangd"].includes(normalized)) {
-    return "cpp";
-  }
-
-  return normalized || "plaintext";
-}
 
 export function CodeEditor({
   questionId,
@@ -63,8 +49,6 @@ export function CodeEditor({
     [questionId, assignmentId],
   );
 
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [mounted, setMounted] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.slug ?? "python");
   const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>(() => {
     const initialLanguage = languages[0]?.slug ?? "python";
@@ -106,37 +90,13 @@ export function CodeEditor({
   );
 
   useEffect(() => {
-    const updateTheme = () => {
-      setTheme(
-        document.documentElement.classList.contains("dark")
-          ? "dark"
-          : "light"
-      );
-    };
-
-    const animationFrame = window.requestAnimationFrame(() => {
-      updateTheme();
-      const draft = readEditorDraft(draftStorageKey);
-      if (draft) {
-        setCodeByLanguage((current) => ({
-          ...current,
-          ...draft,
-        }));
-      }
-      setMounted(true);
-    });
-
-    const observer = new MutationObserver(updateTheme);
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      observer.disconnect();
-    };
+    const draft = readEditorDraft(draftStorageKey);
+    if (draft) {
+      setCodeByLanguage((current) => ({
+        ...current,
+        ...draft,
+      }));
+    }
   }, [draftStorageKey]);
 
   useEffect(() => {
@@ -344,23 +304,6 @@ export function CodeEditor({
 
   function handleMount(editor: monacoEditor.editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;
-
-    monaco.editor.defineTheme("codetice-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#0d0e12",
-        "editorGutter.background": "#0d0e12",
-        "editorLineNumber.foreground": "#6b7280",
-        "editor.lineHighlightBackground": "#13151b",
-        "editorCursor.foreground": "#ffffff",
-      },
-    });
-
-    // Explicitly apply the correct theme after defining it to ensure it takes effect
-    const currentTheme = document.documentElement.classList.contains("dark") ? "dark" : "light";
-    monaco.editor.setTheme(currentTheme === "dark" ? "codetice-dark" : "vs");
   }
 
   return (
@@ -410,31 +353,24 @@ export function CodeEditor({
               {submissionSummary.errorMessage}
             </pre>
           ) : null}
-          <div className="overflow-hidden rounded-[22px] border border-slate-200 flex-1 min-h-0">
-            {mounted ? (
-              <Editor
-                height="100%"
-                language={editorLanguage}
-                value={code}
-                onChange={(value) => {
-                  setCodeByLanguage((current) => {
-                    const next = {
-                      ...current,
-                      [selectedLanguage]: value ?? "",
-                    };
-                    writeEditorDraft(draftStorageKey, next);
-                    return next;
-                  });
-                }}
-                onMount={handleMount}
-                options={monacoOptions}
-                theme={theme === "dark" ? "codetice-dark" : "vs"}
-              />
-            ) : (
-              <div className="h-full bg-white dark:bg-[#0d0e12] flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-              </div>
-            )}
+          <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white flex-1 min-h-0 dark:border-white/10 dark:bg-[#0d0e12]">
+            <MonacoCodeEditor
+              height="100%"
+              language={editorLanguage}
+              value={code}
+              onChange={(value) => {
+                setCodeByLanguage((current) => {
+                  const next = {
+                    ...current,
+                    [selectedLanguage]: value ?? "",
+                  };
+                  writeEditorDraft(draftStorageKey, next);
+                  return next;
+                });
+              }}
+              onMount={handleMount}
+              options={monacoOptions}
+            />
           </div>
         </CardContent>
       </Card>
