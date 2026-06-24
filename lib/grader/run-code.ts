@@ -80,6 +80,25 @@ function validateSourcePolicy(input: RunCodeInput) {
   return null;
 }
 
+export function resolveRunCommand(command: string, fileName: string) {
+  const workspaceFileName = `/workspace/${fileName}`;
+  const binaryPath = "/tmp/main";
+
+  return command
+    .replaceAll("{file}", workspaceFileName)
+    .replaceAll("{workspace}", "/workspace")
+    .replaceAll("{tmp}", "/tmp")
+    .replaceAll("{binary}", binaryPath)
+    .replaceAll("main.py", fileName)
+    .replaceAll("main.js", fileName)
+    .replaceAll("main.ts", fileName)
+    .replaceAll(" -o main", ` -o ${binaryPath}`)
+    .replaceAll(" -o /workspace/main", ` -o ${binaryPath}`)
+    .replaceAll("&& ./main", `&& ${binaryPath}`)
+    .replaceAll("; ./main", `; ${binaryPath}`)
+    .replaceAll(" ./main", ` ${binaryPath}`);
+}
+
 async function commandExists(command: string) {
   try {
     const child = spawn(command, ["--version"], { stdio: "ignore" });
@@ -287,12 +306,7 @@ export async function runCode(input: RunCodeInput) {
       throw new AppError(Messages.gradingMisconfigured, 500, ErrorCode.INTERNAL);
     }
 
-    const workspaceFileName = `/workspace/${fileName}`;
-    const resolvedRunCommand = runCommand
-      .replaceAll("{file}", workspaceFileName)
-      .replaceAll("main.py", fileName)
-      .replaceAll("main.js", fileName)
-      .replaceAll("main.ts", fileName);
+    const resolvedRunCommand = resolveRunCommand(runCommand, fileName);
 
     return await runWithDocker(
       workspace,

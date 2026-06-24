@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildDockerRunArgs, runCode } from "./run-code";
+import { buildDockerRunArgs, resolveRunCommand, runCode } from "./run-code";
 
 describe("buildDockerRunArgs", () => {
   test("runs the database-configured command through the container shell", () => {
@@ -36,6 +36,20 @@ describe("buildDockerRunArgs", () => {
     expect(args).toContain("no-new-privileges");
     expect(args).toContain("/tmp:rw,exec,nosuid,size=64m,mode=1777");
     expect(args).toContain("/tmp/vibe-grader-test:/workspace:ro");
+  });
+});
+
+describe("compiled language run commands", () => {
+  test("supports explicit writable binary placeholder", () => {
+    expect(resolveRunCommand("gcc {file} -o {binary} && {binary}", "main.c")).toBe(
+      "gcc /workspace/main.c -o /tmp/main && /tmp/main",
+    );
+  });
+
+  test("keeps common compiled-language commands away from read-only workspace", () => {
+    expect(resolveRunCommand("gcc {file} -o main && ./main", "main.c")).toBe(
+      "gcc /workspace/main.c -o /tmp/main && /tmp/main",
+    );
   });
 });
 

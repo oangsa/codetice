@@ -249,12 +249,12 @@ function LanguageDialog({
           <FormField
             label="Run command"
             htmlFor="runCommand"
-            description="Command executed inside the container. Use {file} as the script placeholder."
+            description="Command executed inside the container. Use {file} for source and {binary} for compiled output in writable /tmp."
           >
             <Input
               id="runCommand"
               name="runCommand"
-              placeholder="e.g. python {file}"
+              placeholder="e.g. gcc {file} -o {binary} && {binary}"
               defaultValue={language?.runCommand ?? ""}
               required
             />
