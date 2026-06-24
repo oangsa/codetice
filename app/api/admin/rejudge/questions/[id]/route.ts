@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { ok, toFailResponse, Messages } from "@/lib/api";
-import { completeRejudgeJob, processGradingJob, rejudgeQuestion } from "@/server/services/submission-service";
+import { rejudgeQuestion } from "@/server/services/submission-service";
 
 export async function POST(
   _request: Request,
@@ -13,19 +13,8 @@ export async function POST(
   try {
     const result = await rejudgeQuestion(id, session.userId);
     rejudgeJob = result.rejudgeJob;
-    const processedJobs = [];
-
-    for (const gradingJob of result.gradingJobs) {
-      processedJobs.push(await processGradingJob(gradingJob.id));
-    }
-
-    const rejudgeStatus = processedJobs.some((job) => job?.status !== "completed") ? "failed" : "completed";
-    await completeRejudgeJob(rejudgeJob.id, rejudgeStatus);
-    return ok({ rejudgeJob, gradingJobs: processedJobs });
+    return ok({ rejudgeJob, gradingJobs: result.gradingJobs });
   } catch (error) {
-    if (rejudgeJob) {
-      await completeRejudgeJob(rejudgeJob.id, "failed");
-    }
     return toFailResponse(error, Messages.unableToRejudge);
   }
 }

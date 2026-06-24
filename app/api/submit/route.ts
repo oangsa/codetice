@@ -1,5 +1,3 @@
-import { after } from "next/server";
-
 import { requireUser } from "@/lib/auth";
 import { fail, ok, Messages, ErrorCode } from "@/lib/api";
 import { IDEMPOTENCY_KEY_HEADER } from "@/lib/api.constants";
@@ -11,7 +9,7 @@ import {
   hashIdempotencyPayload,
 } from "@/server/services/idempotency-service";
 import { assertRateLimit } from "@/server/services/rate-limit-service";
-import { enqueueOfficialSubmission, processGradingJob } from "@/server/services/submission-service";
+import { enqueueOfficialSubmission } from "@/server/services/submission-service";
 import { toErrorInfo } from "@/lib/errors";
 
 export async function POST(request: Request) {
@@ -70,10 +68,6 @@ export async function POST(request: Request) {
     const { submission, gradingJob } = await enqueueOfficialSubmission({
       ...parsed.data,
       userId: session.userId,
-    });
-
-    after(async () => {
-      await processGradingJob(gradingJob.id);
     });
 
     const responseBody = {
