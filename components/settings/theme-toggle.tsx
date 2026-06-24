@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { THEME_COOKIE_MAX_AGE, THEME_COOKIE_NAME, THEME_STORAGE_KEY } from "@/lib/theme";
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -19,14 +20,15 @@ export function ThemeToggle() {
 
     setHasClicked(true);
     setTheme(newTheme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    document.cookie = `${THEME_COOKIE_NAME}=${newTheme}; Path=/; Max-Age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
+
     if (newTheme === "dark") {
       document.documentElement.classList.add("dark");
       document.documentElement.style.colorScheme = "dark";
-      window.localStorage.setItem("codetice-theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
       document.documentElement.style.colorScheme = "light";
-      window.localStorage.setItem("codetice-theme", "light");
     }
   }
 

@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 
 import "./globals.css";
 
 import { Providers } from "@/components/providers";
 import { RootLayoutClient } from "@/components/root-layout-client";
 import { getCurrentUser } from "@/lib/auth";
+import { normalizeThemePreference, THEME_COOKIE_NAME, THEME_STORAGE_KEY } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,7 +23,11 @@ export const metadata: Metadata = {
 const themeScript = `
 (() => {
   try {
-    const theme = window.localStorage.getItem("codetice-theme") || "light";
+    const cookieTheme = document.cookie
+      .split("; ")
+      .find((item) => item.startsWith("${THEME_COOKIE_NAME}="))
+      ?.split("=")[1];
+    const theme = cookieTheme || window.localStorage.getItem("${THEME_STORAGE_KEY}") || "light";
     const isDark = theme === "dark";
     document.documentElement.classList.toggle("dark", isDark);
     document.documentElement.style.colorScheme = isDark ? "dark" : "light";
@@ -37,10 +43,17 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getCurrentUser();
+  const [session, cookieStore] = await Promise.all([getCurrentUser(), cookies()]);
+  const theme = normalizeThemePreference(cookieStore.get(THEME_COOKIE_NAME)?.value);
+  const isDark = theme === "dark";
 
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable}${isDark ? " dark" : ""}`}
+      style={{ colorScheme: theme }}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
