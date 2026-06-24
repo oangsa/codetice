@@ -18,6 +18,20 @@ export const metadata: Metadata = {
   description: "Python coding grader with local auth, admin authoring, and testcase-based scoring.",
 };
 
+const themeScript = `
+(() => {
+  try {
+    const theme = window.localStorage.getItem("codetice-theme") || "light";
+    const isDark = theme === "dark";
+    document.documentElement.classList.toggle("dark", isDark);
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+  } catch {
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.colorScheme = "light";
+  }
+})();
+`;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -26,7 +40,10 @@ export default async function RootLayout({
   const session = await getCurrentUser();
 
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers />
         <RootLayoutClient user={session}>
