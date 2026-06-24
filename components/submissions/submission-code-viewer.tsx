@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Editor, { type Monaco } from "@monaco-editor/react";
 
+const DARK_EDITOR_THEME = "codetice-dark";
+
 function resolveMonacoLanguage(language: string) {
   const normalized = language.trim().toLowerCase();
 
@@ -48,8 +50,14 @@ export function SubmissionCodeViewer({
     };
   }, []);
 
-  function handleMount(_editor: unknown, monaco: Monaco) {
-    monaco.editor.defineTheme("codetice-dark", {
+  useEffect(() => {
+    void import("monaco-editor").then((monaco) => {
+      monaco.editor.setTheme(theme === "dark" ? DARK_EDITOR_THEME : "vs");
+    });
+  }, [theme]);
+
+  function defineDarkTheme(monaco: Monaco) {
+    monaco.editor.defineTheme(DARK_EDITOR_THEME, {
       base: "vs-dark",
       inherit: true,
       rules: [],
@@ -63,13 +71,21 @@ export function SubmissionCodeViewer({
     });
   }
 
+  function handleMount(_editor: unknown, monaco: Monaco) {
+    defineDarkTheme(monaco);
+    monaco.editor.setTheme(
+      document.documentElement.classList.contains("dark") ? DARK_EDITOR_THEME : "vs",
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-[16px] border border-black/5 bg-white dark:border-white/10 dark:bg-[#0d0e12]">
       <Editor
         height={height}
         language={editorLanguage}
         value={sourceCode}
-        theme={theme === "dark" ? "codetice-dark" : "vs"}
+        beforeMount={defineDarkTheme}
+        theme={theme === "dark" ? DARK_EDITOR_THEME : "vs"}
         onMount={handleMount}
         options={{
           readOnly: true,
