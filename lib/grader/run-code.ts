@@ -53,6 +53,35 @@ const HARNESS_PREFIX = "__VIBE_GRADER__";
 
 let dockerAvailability: boolean | null = null;
 
+/**
+ * validatePythonSourcePolicy
+ *
+ * First-line filter: rejects the most common accidental or naive uses of
+ * import/exec that students might write. Catches the easy cases fast and
+ * returns a friendly error before we even spin up a container.
+ *
+ * THIS IS NOT A SECURITY BOUNDARY.
+ *
+ * The regex is trivially bypassed:
+ *   - exec("import os")              — exec is a builtin, needs no import
+ *   - __builtins__.__import__('os')  — __builtins__ always available
+ *   - open('/etc/passwd').read()     — open is a builtin
+ *   - __imp"+"ort__('os')            — string concatenation defeats the regex
+ *
+ * The REAL security boundary is the Docker sandbox:
+ *   --network none      → no outbound/inbound network
+ *   --read-only         → no filesystem writes outside /tmp
+ *   --cap-drop ALL      → no privilege escalation
+ *   --security-opt no-new-privileges
+ *   --pids-limit 64     → no fork bombs
+ *   --ulimit nofile=64  → no fd exhaustion
+ *   --ulimit nproc=32   → second layer against fork bombs
+ *
+ * A student who bypasses this regex still can't exfiltrate data, write
+ * persistent files, or escape the container. Do not tighten this regex
+ * in an attempt to make it the security boundary — that battle is unwinnable.
+ * Harden the Docker flags instead.
+ */
 function validatePythonSourcePolicy(sourceCode: string) {
   const importStatementPattern = /(^|\n)\s*(?:from\s+[\w.]+\s+import\b|import\s+[\w.]+)/m;
   if (importStatementPattern.test(sourceCode)) {
@@ -238,6 +267,10 @@ export function buildDockerRunArgs({
     "1",
     "--pids-limit",
     "64",
+    "--ulimit",
+    "nofile=64:64",
+    "--ulimit",
+    "nproc=32:32",
     "--read-only",
     "--cap-drop",
     "ALL",
@@ -288,6 +321,10 @@ export function buildDockerBatchRunArgs({
     "1",
     "--pids-limit",
     "64",
+    "--ulimit",
+    "nofile=64:64",
+    "--ulimit",
+    "nproc=32:32",
     "--read-only",
     "--cap-drop",
     "ALL",

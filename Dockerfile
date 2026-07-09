@@ -63,27 +63,44 @@ EXPOSE 3000
 CMD ["bun", "server.js"]
 
 # =============================================================
-# Stage 4 - worker
-#   Runs the background grading-job poller.
-#   Needs access to the Docker daemon (bind-mount the host socket
-#   or use Docker-in-Docker) so it can spawn sandboxed containers.
+# Stage 4a - worker-builder
+#   Compiles the worker script + deps into a standalone binary
+#   so the final worker image needs no node_modules at all.
 # =============================================================
-FROM oven/bun:1-alpine AS worker
+FROM oven/bun:1-alpine AS worker-builder
 
 WORKDIR /app
 
-# Docker CLI is required to launch code-execution containers
-RUN apk add --no-cache docker-cli
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-ENV NODE_ENV=production
+COPY scripts/ ./scripts/
+COPY server/  ./server/
+COPY lib/     ./lib/
+COPY db/      ./db/
+COPY tsconfig.json package.json ./
 
-# Copy only what the worker script needs at runtime
-COPY --from=deps    /app/node_modules    ./node_modules
-COPY --from=builder /app/scripts         ./scripts
-COPY --from=builder /app/server          ./server
-COPY --from=builder /app/lib             ./lib
-COPY --from=builder /app/db              ./db
-COPY --from=builder /app/tsconfig.json   ./tsconfig.json
-COPY --from=builder /app/package.json    ./package.json
+RUN bun build ./scripts/process-grading-jobs.ts \
+      --compile \
+      --conditions react-server \
+      --target bun-linux-x64-musl \
+      --outfile /app/worker-bin
 
-CMD ["bun", "scripts/process-grading-jobs.ts"]
+# =============================================================
+# Stage 4b - worker
+#   Minimal image that runs the compiled grading-job poller.
+#   Needs Docker CLI to spawn sandboxed code-execution containers.
+# =============================================================
+FROM alpine:3.20 AS worker
+
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 worker && \
+    adduser  --system --uid 1001 --ingroup worker worker
+
+RUN apk add --no-cache docker-cli libstdc++ libgcc
+
+COPY --from=worker-builder /app/worker-bin ./worker
+
+USER worker
+CMD ["./worker"]

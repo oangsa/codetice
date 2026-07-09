@@ -264,7 +264,7 @@ function LanguageDialog({
           <FormField
             label="Run command"
             htmlFor="runCommand"
-            description="Command executed for each testcase. Use {file} as the script placeholder or run a /tmp build artifact."
+            description="Command executed for each testcase. Use {file} as the source placeholder or run a /tmp build artifact."
           >
             <Input
               id="runCommand"
