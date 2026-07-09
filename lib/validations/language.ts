@@ -12,6 +12,7 @@ const supportedLanguageBaseSchema = z.object({
     .min(1, "File extension is required.")
     .max(20, "File extension is too long (max 20 characters).")
     .regex(/^[a-z0-9]+$/, "File extension must be alphanumeric."),
+  buildCommand: z.string().trim().max(500, "Build command is too long (max 500 characters).").optional().nullable(),
   runCommand: z.string().trim().min(1, "Run command is required.").max(500, "Run command is too long (max 500 characters)."),
   editorLanguage: z
     .string()

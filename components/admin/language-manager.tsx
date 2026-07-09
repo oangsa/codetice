@@ -51,6 +51,7 @@ export type Language = {
   slug: string;
   dockerImage: string;
   fileExtension: string;
+  buildCommand: string | null;
   runCommand: string;
   editorLanguage: string;
   diagnosticsFormat: "none" | "pyright" | "compiler";
@@ -129,6 +130,7 @@ function LanguageDialog({
       name: String(formData.get("name") ?? ""),
       dockerImage: String(formData.get("dockerImage") ?? ""),
       fileExtension: String(formData.get("fileExtension") ?? ""),
+      buildCommand: String(formData.get("buildCommand") ?? "") || null,
       runCommand: String(formData.get("runCommand") ?? ""),
       editorLanguage: getCompatibleMonacoLanguage(String(formData.get("editorLanguage") ?? "") || "plaintext"),
       diagnosticsFormat: String(formData.get("diagnosticsFormat") ?? "none"),
@@ -247,9 +249,22 @@ function LanguageDialog({
           </FormField>
 
           <FormField
+            label="Build command"
+            htmlFor="buildCommand"
+            description="Optional. Runs once before testcases. Use {file} and write build artifacts to /tmp."
+          >
+            <Input
+              id="buildCommand"
+              name="buildCommand"
+              placeholder="e.g. rustc {file} -o /tmp/main"
+              defaultValue={language?.buildCommand ?? ""}
+            />
+          </FormField>
+
+          <FormField
             label="Run command"
             htmlFor="runCommand"
-            description="Command executed inside the container. Use {file} as the script placeholder."
+            description="Command executed for each testcase. Use {file} as the script placeholder or run a /tmp build artifact."
           >
             <Input
               id="runCommand"
@@ -357,6 +372,7 @@ function LanguageCard({
         name: language.name,
         dockerImage: language.dockerImage,
         fileExtension: language.fileExtension,
+        buildCommand: language.buildCommand,
         runCommand: language.runCommand,
         editorLanguage: language.editorLanguage,
         diagnosticsFormat: language.diagnosticsFormat,
@@ -499,6 +515,13 @@ function LanguageCard({
             <div>
               <p className="font-medium text-muted-foreground">Docker image</p>
               <code className="text-foreground">{language.dockerImage}</code>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <Terminal className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-muted-foreground">Build command</p>
+              <code className="text-foreground">{language.buildCommand ?? "None"}</code>
             </div>
           </div>
           <div className="flex items-start gap-2">

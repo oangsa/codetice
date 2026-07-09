@@ -1,9 +1,10 @@
 import { compareOutput } from "@/lib/grader/compare-output";
-import { runCode } from "@/lib/grader/run-code";
+import { runCodeBatch } from "@/lib/grader/run-code";
 
 type GradeInput = {
   language: string;
   fileExtension?: string | null;
+  buildCommand?: string | null;
   runCommand?: string | null;
   dockerImage?: string | null;
   sourceCode: string;
@@ -21,19 +22,22 @@ type GradeInput = {
 };
 
 export async function gradeCode(input: GradeInput) {
-  const results = [];
-
-  for (const testcase of input.testcases) {
-    const run = await runCode({
-      language: input.language,
-      sourceCode: input.sourceCode,
+  const runs = await runCodeBatch({
+    language: input.language,
+    sourceCode: input.sourceCode,
+    timeLimitMs: input.timeLimitMs,
+    memoryLimitMb: input.memoryLimitMb,
+    fileExtension: input.fileExtension,
+    buildCommand: input.buildCommand,
+    runCommand: input.runCommand,
+    dockerImage: input.dockerImage,
+    testcases: input.testcases.map((testcase) => ({
       stdin: testcase.input,
-      timeLimitMs: input.timeLimitMs,
-      memoryLimitMb: input.memoryLimitMb,
-      fileExtension: input.fileExtension,
-      runCommand: input.runCommand,
-      dockerImage: input.dockerImage,
-    });
+    })),
+  });
+
+  return input.testcases.map((testcase, index) => {
+    const run = runs[index];
     const passed =
       !run.timedOut &&
       !run.oomKilled &&
@@ -50,7 +54,7 @@ export async function gradeCode(input: GradeInput) {
             ? "accepted"
             : "wrong_answer";
 
-    results.push({
+    return {
       testcaseId: testcase.id,
       name: testcase.name,
       status,
@@ -61,8 +65,6 @@ export async function gradeCode(input: GradeInput) {
       expectedOutput: testcase.expectedOutput,
       errorMessage: run.stderr || null,
       isHidden: testcase.isHidden,
-    });
-  }
-
-  return results;
+    };
+  });
 }

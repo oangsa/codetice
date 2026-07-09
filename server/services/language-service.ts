@@ -12,6 +12,7 @@ export type LanguageInput = {
   slug: string;
   dockerImage: string;
   fileExtension: string;
+  buildCommand?: string | null;
   runCommand: string;
   editorLanguage?: string | null;
   diagnosticsFormat?: "none" | "pyright" | "compiler" | null;
@@ -23,6 +24,7 @@ export type LanguageInput = {
 function normalizeLanguageInput(input: LanguageInput) {
   return {
     ...input,
+    buildCommand: input.buildCommand?.trim() || null,
     editorLanguage: input.editorLanguage?.trim() || "plaintext",
     diagnosticsFormat: input.diagnosticsFormat ?? "none",
     diagnosticsCommand: input.diagnosticsCommand?.trim() || null,
@@ -107,6 +109,7 @@ export async function updateSupportedLanguage(
       name: normalizedInput.name,
       dockerImage: normalizedInput.dockerImage,
       fileExtension: normalizedInput.fileExtension,
+      buildCommand: normalizedInput.buildCommand,
       runCommand: normalizedInput.runCommand,
       editorLanguage: normalizedInput.editorLanguage,
       diagnosticsFormat: normalizedInput.diagnosticsFormat,

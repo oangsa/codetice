@@ -158,6 +158,7 @@ async function applySubmissionResults(submissionId: string, sourceCode: string) 
   const results = await gradeCode({
     language: submission.language,
     fileExtension: language.fileExtension,
+    buildCommand: language.buildCommand,
     runCommand: language.runCommand,
     dockerImage: language.dockerImage,
     sourceCode,
@@ -280,6 +281,7 @@ export async function runSampleSubmission(input: {
   const results = await gradeCode({
     language: input.language,
     fileExtension: language.fileExtension,
+    buildCommand: language.buildCommand,
     runCommand: language.runCommand,
     dockerImage: language.dockerImage,
     sourceCode: input.sourceCode,

@@ -22,7 +22,7 @@ export default async function AdminLanguagesPage() {
 
       <SurfaceCard
         title="Configured languages"
-        description="Each language maps to a Docker image and run command used in the grading sandbox."
+        description="Each language maps to a Docker image, optional build command, and testcase run command used in the grading sandbox."
       >
         <LanguageManager languages={languages} />
       </SurfaceCard>
