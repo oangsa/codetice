@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Search, Trash2, Edit, Filter, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,9 +89,11 @@ export function QuestionTable({
   canManage?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [editMode, setEditMode] = useState(false);
+  const editMode = canManage && searchParams.get("editMode") === "1";
   const [filterValues, setFilterValues] = useState<Record<string, string>>({
     difficulty: "",
     status: "",
@@ -151,6 +153,19 @@ export function QuestionTable({
     setPage(1);
   };
 
+  const handleEditModeChange = (checked: boolean) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+
+    if (checked) {
+      nextParams.set("editMode", "1");
+    } else {
+      nextParams.delete("editMode");
+    }
+
+    const queryString = nextParams.toString();
+    router.replace(`${pathname}${queryString ? `?${queryString}` : ""}`, { scroll: false });
+  };
+
   const filtered = useMemo(() => {
     return visibleQuestions.filter((q) => {
       const matchesSearch = search ? q.title.toLowerCase().includes(search.toLowerCase()) : true;
@@ -183,7 +198,8 @@ export function QuestionTable({
   }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -231,7 +247,7 @@ export function QuestionTable({
                   <span className="text-sm font-medium text-slate-700">
                     Edit Mode
                   </span>
-                  <Switch checked={editMode} onCheckedChange={setEditMode} />
+                  <Switch checked={editMode} onCheckedChange={handleEditModeChange} />
                 </div>
                 <Button
                   asChild
@@ -259,11 +275,11 @@ export function QuestionTable({
                 key={field.key}
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs gap-1.5 rounded-full px-3 text-slate-700 border-slate-200"
+                className="h-7 text-xs gap-1.5 rounded-full px-3 text-slate-700 border-slate-200 hover:bg-background hover:text-slate-700"
                 onClick={() => handleClearSingleFilter(field.key)}
               >
                 <span>{field.label}: {displayValue}</span>
-                <X className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+                <X className="h-3 w-3 text-slate-400" />
               </Button>
             ))}
             <Button
@@ -299,20 +315,22 @@ export function QuestionTable({
                 </TableCell>
               </TableRow>
             ) : (
-              pageItems.map((q) => (
+              pageItems.map((q, index) => (
                 <TableRow
                   key={q.questionId}
                   className="cursor-pointer hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors"
                   onClick={() => router.push(`/questions/${q.slug}?assignmentId=${q.assignmentId}&classroomId=${classroomId}`)}
                 >
-                  <TableCell className="text-slate-400 tabular-nums">{q.rowNumber}</TableCell>
+                  <TableCell className="text-slate-400 tabular-nums">
+                    {(currentPage - 1) * PAGE_SIZE + index + 1}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-slate-900">
                         {q.title}
                       </span>
                       {!q.isPublished && (
-                        <Badge variant="default" className="bg-slate-100 text-slate-500 hover:bg-slate-100 py-0 text-[10px]">
+                        <Badge variant="default" className="bg-slate-100 text-slate-500 py-0 text-[10px]">
                           Hidden
                         </Badge>
                       )}
@@ -388,19 +406,19 @@ export function QuestionTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-slate-500">
           <span>
-            Page {page} of {totalPages}
+            Page {currentPage} of {totalPages}
           </span>
           <div className="flex gap-1">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              onClick={() => setPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
               className="rounded-md border border-slate-200 px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
             >
               Prev
             </button>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
               className="rounded-md border border-slate-200 px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
             >
               Next

@@ -13,18 +13,25 @@ import { getClassroomLeaderboard } from "@/server/services/leaderboard-service";
 
 export default async function ClassroomDetailPage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ editMode?: string | string[] }>;
 }) {
-  const session = await requireUser();
-  const { id } = await props.params;
+  const [session, params, searchParams] = await Promise.all([
+    requireUser(),
+    props.params,
+    props.searchParams,
+  ]);
+  const { id } = params;
 
   const classroom = await getClassroomById(id);
   if (!classroom) notFound();
 
   const membership = classroom.members.find((m) => m.user.id === session.userId);
   const canManage = session.role === "admin" || membership?.role === "teacher";
+  const editModeParam = Array.isArray(searchParams.editMode) ? searchParams.editMode[0] : searchParams.editMode;
+  const includeHiddenQuestions = canManage && editModeParam === "1";
 
   const [questionRows, leaderboard] = await Promise.all([
-    getClassroomQuestionsForUser(id, session.userId, canManage),
+    getClassroomQuestionsForUser(id, session.userId, includeHiddenQuestions),
     getClassroomLeaderboard(id),
   ]);
 

@@ -1,25 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { THEME_COOKIE_MAX_AGE, THEME_COOKIE_NAME, THEME_STORAGE_KEY } from "@/lib/theme";
+import {
+  THEME_COOKIE_MAX_AGE,
+  THEME_COOKIE_NAME,
+  THEME_STORAGE_KEY,
+  type ThemePreference,
+} from "@/lib/theme";
 
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof document === "undefined") {
-      return "light";
-    }
+const THEME_CHANGE_EVENT = "codetice-theme-change";
 
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
+function getDomTheme(): ThemePreference {
+  if (typeof document === "undefined") {
+    return "light";
+  }
+
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+function subscribeToThemeChange(onStoreChange: () => void) {
+  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  return () => window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+}
+
+export function ThemeToggle({ initialTheme }: { initialTheme: ThemePreference }) {
+  const theme = useSyncExternalStore(
+    subscribeToThemeChange,
+    getDomTheme,
+    () => initialTheme,
+  );
   const [hasClicked, setHasClicked] = useState(false);
 
-  function handleThemeChange(newTheme: "light" | "dark") {
+  function handleThemeChange(newTheme: ThemePreference) {
     if (newTheme === theme) return;
 
     setHasClicked(true);
-    setTheme(newTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, newTheme);
     document.cookie = `${THEME_COOKIE_NAME}=${newTheme}; Path=/; Max-Age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
 
@@ -30,6 +47,8 @@ export function ThemeToggle() {
       document.documentElement.classList.remove("dark");
       document.documentElement.style.colorScheme = "light";
     }
+
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }
 
   const activeIndex = theme === "light" ? 0 : 1;
@@ -88,4 +107,3 @@ export function ThemeToggle() {
     </div>
   );
 }
-

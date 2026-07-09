@@ -21,7 +21,7 @@ export function VerdictBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("hover:bg-transparent", verdictVariants[verdict], className)}
+      className={cn(verdictVariants[verdict], className)}
       {...props}
     />
   );

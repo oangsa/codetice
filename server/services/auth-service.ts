@@ -5,7 +5,7 @@ import { randomBytes, createHash } from "node:crypto";
 import argon2 from "argon2";
 import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 
-import { passwordResetTokens, users } from "@/db/schema";
+import { classrooms, passwordResetTokens, questions, rejudgeJobs, users } from "@/db/schema";
 import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/lib/auth.constants";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
@@ -128,6 +128,136 @@ export async function listAllUsers() {
     })
     .from(users)
     .orderBy(asc(users.createdAt), asc(users.username));
+}
+
+async function countAdmins() {
+  const db = getDb();
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.role, "admin"));
+
+  return rows.length;
+}
+
+export async function adminCreateUser(input: {
+  username: string;
+  password: string;
+  role: "student" | "admin";
+}) {
+  const db = getDb();
+  const existing = await db.query.users.findFirst({
+    where: eq(users.username, input.username),
+  });
+
+  if (existing) {
+    throw new AppError(Messages.usernameTaken, 409, ErrorCode.CONFLICT);
+  }
+
+  const passwordHash = await argon2.hash(input.password);
+  const [user] = await db
+    .insert(users)
+    .values({
+      username: input.username,
+      passwordHash,
+      role: input.role,
+    })
+    .returning({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      createdAt: users.createdAt,
+    });
+
+  if (!user) {
+    throw new AppError(Messages.unableToCreateUser, 500, ErrorCode.INTERNAL);
+  }
+
+  return user;
+}
+
+export async function adminUpdateUser(input: {
+  currentUserId: string;
+  targetUserId: string;
+  username: string;
+  role: "student" | "admin";
+}) {
+  const db = getDb();
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, input.targetUserId),
+  });
+
+  if (!user) {
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
+  }
+
+  if (user.id === input.currentUserId && input.role !== "admin") {
+    throw new AppError("You can't remove your own admin access.", 400, ErrorCode.VALIDATION);
+  }
+
+  if (user.role === "admin" && input.role !== "admin" && await countAdmins() <= 1) {
+    throw new AppError("At least one admin account is required.", 400, ErrorCode.VALIDATION);
+  }
+
+  const existing = await db.query.users.findFirst({
+    where: eq(users.username, input.username),
+  });
+
+  if (existing && existing.id !== input.targetUserId) {
+    throw new AppError(Messages.usernameTaken, 409, ErrorCode.CONFLICT);
+  }
+
+  const roleChanged = user.role !== input.role;
+  const updateValues = {
+    username: input.username,
+    role: input.role,
+    updatedAt: new Date(),
+    ...(roleChanged ? { tokenVersion: sql`${users.tokenVersion} + 1` } : {}),
+  };
+  const [updatedUser] = await db
+    .update(users)
+    .set(updateValues)
+    .where(eq(users.id, input.targetUserId))
+    .returning({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      createdAt: users.createdAt,
+    });
+
+  if (!updatedUser) {
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
+  }
+
+  return updatedUser;
+}
+
+export async function adminDeleteUser(input: {
+  currentUserId: string;
+  targetUserId: string;
+}) {
+  const db = getDb();
+
+  if (input.currentUserId === input.targetUserId) {
+    throw new AppError("You can't delete your own account.", 400, ErrorCode.VALIDATION);
+  }
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, input.targetUserId),
+  });
+
+  if (!user) {
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
+  }
+
+  if (user.role === "admin" && await countAdmins() <= 1) {
+    throw new AppError("At least one admin account is required.", 400, ErrorCode.VALIDATION);
+  }
+
+  await db.update(questions).set({ createdBy: null }).where(eq(questions.createdBy, input.targetUserId));
+  await db.update(classrooms).set({ createdBy: null }).where(eq(classrooms.createdBy, input.targetUserId));
+  await db.update(rejudgeJobs).set({ requestedBy: null }).where(eq(rejudgeJobs.requestedBy, input.targetUserId));
+  await db.delete(users).where(eq(users.id, input.targetUserId));
 }
 
 export async function changePassword(input: {

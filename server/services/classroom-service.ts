@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import {
   assignmentQuestions,
@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
+import { buildClassroomQuestionRows } from "@/lib/classroom-question-rows";
 
 function generateInviteCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -245,35 +246,33 @@ export async function getAssignmentById(assignmentId: string) {
 // NOTE: We intentionally avoid nesting questionScores inside the classroom query because
 // Drizzle generates a join alias like "classrooms_assignments_assignmentQuestions_question_questionScores"
 // which exceeds PostgreSQL's 63-character identifier limit and gets silently truncated.
-export async function getClassroomQuestionsForUser(classroomId: string, userId: string, isManager: boolean = false) {
+export async function getClassroomQuestionsForUser(classroomId: string, userId: string, includeHidden: boolean = false) {
   const db = getDb();
+  const visibilityFilter = includeHidden
+    ? eq(assignments.classroomId, classroomId)
+    : and(eq(assignments.classroomId, classroomId), eq(questions.isPublished, true));
 
-  // Step 1: fetch classroom + assignments + assignmentQuestions + question (no nested questionScores)
-  const classroom = await db.query.classrooms.findFirst({
-    where: eq(classrooms.id, classroomId),
-    with: {
-      assignments: {
-        with: {
-          assignmentQuestions: {
-            with: {
-              question: true,
-            },
-            orderBy: (fields, ops) => [ops.asc(fields.sortOrder)],
-          },
-        },
-        orderBy: (fields, ops) => [ops.asc(fields.dueAt), ops.asc(fields.createdAt)],
-      },
-    },
-  });
-
-  if (!classroom) return [];
+  // Step 1: fetch assignment questions as flat rows so hidden questions are filtered in SQL.
+  const questionRows = await db
+    .select({
+      assignmentId: assignments.id,
+      assignmentTitle: assignments.title,
+      dueAt: assignments.dueAt,
+      questionId: questions.id,
+      title: questions.title,
+      slug: questions.slug,
+      difficulty: questions.difficulty,
+      totalScore: questions.totalScore,
+      isPublished: questions.isPublished,
+    })
+    .from(assignments)
+    .innerJoin(assignmentQuestions, eq(assignmentQuestions.assignmentId, assignments.id))
+    .innerJoin(questions, eq(questions.id, assignmentQuestions.questionId))
+    .where(visibilityFilter)
+    .orderBy(asc(assignments.dueAt), asc(assignments.createdAt), asc(assignmentQuestions.sortOrder));
 
   // Collect unique question IDs across all assignments
-  const allQuestionIds = [
-    ...new Set(
-      classroom.assignments.flatMap((a) => a.assignmentQuestions.map((aq) => aq.questionId)),
-    ),
-  ];
+  const allQuestionIds = [...new Set(questionRows.map((row) => row.questionId))];
 
   // Step 2: fetch questionScores separately to avoid identifier truncation
   const userScores =
@@ -285,57 +284,7 @@ export async function getClassroomQuestionsForUser(classroomId: string, userId: 
         })
       : [];
 
-  const scoreByQuestionId = new Map(userScores.map((s) => [s.questionId, s]));
-
-  const seen = new Set<string>();
-  const items: Array<{
-    rowNumber: number;
-    assignmentId: string;
-    assignmentTitle: string;
-    dueAt: Date | null;
-    questionId: string;
-    title: string;
-    slug: string;
-    difficulty: string;
-    totalScore: string;
-    bestScore: string | null;
-    attempts: number;
-    status: "todo" | "attempted" | "accepted";
-    isPublished: boolean;
-  }> = [];
-
-  let rowNum = 0;
-  for (const assignment of classroom.assignments) {
-    for (const aq of assignment.assignmentQuestions) {
-      if (!isManager && !aq.question.isPublished) continue;
-      if (seen.has(aq.questionId)) continue;
-      seen.add(aq.questionId);
-      rowNum++;
-      const score = scoreByQuestionId.get(aq.questionId) ?? null;
-      const bestScore = score?.bestScore ?? null;
-      const attempts = score?.attempts ?? 0;
-      const totalScore = parseFloat(aq.question.totalScore);
-      const best = bestScore ? parseFloat(bestScore) : 0;
-      const status: "todo" | "attempted" | "accepted" =
-        attempts === 0 ? "todo" : best >= totalScore ? "accepted" : "attempted";
-      items.push({
-        rowNumber: rowNum,
-        assignmentId: assignment.id,
-        assignmentTitle: assignment.title,
-        dueAt: assignment.dueAt,
-        questionId: aq.question.id,
-        title: aq.question.title,
-        slug: aq.question.slug,
-        difficulty: aq.question.difficulty,
-        totalScore: aq.question.totalScore,
-        bestScore,
-        attempts,
-        status,
-        isPublished: aq.question.isPublished,
-      });
-    }
-  }
-  return items;
+  return buildClassroomQuestionRows(questionRows, userScores, { includeHidden });
 }
 
 // Get classrooms with stats (member count, question count, user progress)

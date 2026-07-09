@@ -108,7 +108,7 @@ export function MultiSelect({
                 type="button"
                 aria-label={`Remove ${opt.label}`}
                 onClick={(e) => removeItem(opt.value, e)}
-                className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 focus:outline-none focus:ring-1 focus:ring-ring"
+                className="ml-0.5 rounded-full p-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -122,7 +122,7 @@ export function MultiSelect({
               type="button"
               aria-label="Clear all"
               onClick={clearAll}
-              className="rounded-full p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="rounded-full p-0.5 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <X className="h-3.5 w-3.5" />
             </button>

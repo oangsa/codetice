@@ -12,6 +12,16 @@ export const registerSchema = z.object({
 export const loginSchema = registerSchema;
 
 const passwordSchema = z.string().min(1, "Password is required.").max(100);
+const userRoleSchema = z.enum(["student", "admin"]);
+
+export const adminCreateUserSchema = registerSchema.extend({
+  role: userRoleSchema.default("student"),
+});
+
+export const adminUpdateUserSchema = z.object({
+  username: registerSchema.shape.username,
+  role: userRoleSchema,
+});
 
 export const changePasswordSchema = z
   .object({

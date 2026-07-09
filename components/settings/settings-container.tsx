@@ -7,9 +7,16 @@ import { ChevronRight, X } from "lucide-react";
 import { ProfileDetailsForm } from "@/components/auth/profile-details-form";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { ThemeToggle } from "@/components/settings/theme-toggle";
+import type { ThemePreference } from "@/lib/theme";
 import type { SessionUser } from "@/lib/types";
 
-export function SettingsContainer({ session }: { session: SessionUser }) {
+export function SettingsContainer({
+  session,
+  initialTheme,
+}: {
+  session: SessionUser;
+  initialTheme: ThemePreference;
+}) {
   const router = useRouter();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -85,7 +92,7 @@ export function SettingsContainer({ session }: { session: SessionUser }) {
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             Theme
           </h3>
-          <ThemeToggle />
+          <ThemeToggle initialTheme={initialTheme} />
         </div>
       </div>
 

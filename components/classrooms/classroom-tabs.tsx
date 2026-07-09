@@ -179,7 +179,11 @@ export function ClassroomTabs({
 
       {/* Tabs Content */}
       <TabsContent value="assignments" className="mt-3 focus-visible:outline-none">
-        <QuestionTable questions={questions} classroomId={classroomId} canManage={canManage} />
+        <QuestionTable
+          questions={questions}
+          classroomId={classroomId}
+          canManage={canManage}
+        />
       </TabsContent>
 
       {/* ── Scoreboard ── */}

@@ -2,7 +2,7 @@
 
 import NextImage from "next/image";
 import Link from "next/link";
-import { Settings, Shield, Languages } from "lucide-react";
+import { Settings, Shield, Languages, Users } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -40,6 +40,12 @@ export function UserMenu({ user }: { user: SessionUser }) {
               <Link href="/admin">
                 <Shield className="mr-2 h-4 w-4" />
                 Admin Panel
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin/users">
+                <Users className="mr-2 h-4 w-4" />
+                Users
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
