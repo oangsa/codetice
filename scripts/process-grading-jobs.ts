@@ -16,20 +16,12 @@ async function prepareEnabledLanguageImages() {
   const images = [...new Set(languages.map((language) => language.dockerImage.trim()).filter(Boolean))];
 
   if (images.length === 0) {
-    console.log("No enabled language Docker images to prepare.");
     return;
   }
 
-  console.log(`Preparing ${images.length} enabled language Docker image(s).`);
-
   for (const image of images) {
     try {
-      const result = await prepareDockerImage(image);
-      console.log(
-        result.pulled
-          ? `Pulled Docker image '${result.image}'.`
-          : `Docker image '${result.image}' is ready.`,
-      );
+      await prepareDockerImage(image);
     } catch (error) {
       console.error(`Docker image preparation failed for '${image}':`, error);
     }
@@ -52,23 +44,22 @@ async function main() {
   let lastImagePrep = 0;
 
   do {
-    if (Date.now() - lastImagePrep > imagePrepIntervalMs) {
+    try {
+      await processPendingGradingJobs(batchSize);
+      backoff = pollMs; // reset backoff on success
+    } catch (err) {
+      console.error("Grading worker error (will retry):", err);
+      // exponential backoff capped at 30s
+      backoff = Math.min(backoff * 2, 30_000);
+    }
+
+    if (!runOnce && Date.now() - lastImagePrep > imagePrepIntervalMs) {
       try {
         await prepareEnabledLanguageImages();
       } catch (err) {
         console.error("Docker image preparation pass failed:", err);
       }
       lastImagePrep = Date.now();
-    }
-
-    try {
-      const count = await processPendingGradingJobs(batchSize);
-      console.log(`Processed ${count} grading job(s).`);
-      backoff = pollMs; // reset backoff on success
-    } catch (err) {
-      console.error("Grading worker error (will retry):", err);
-      // exponential backoff capped at 30s
-      backoff = Math.min(backoff * 2, 30_000);
     }
 
     if (Date.now() - lastCleanup > 3_600_000) {
