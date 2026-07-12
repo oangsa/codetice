@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783763815223,
+      "tag": "0000_romantic_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783763885548,
+      "tag": "0001_adopt_legacy_classrooms",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783767119346,
+      "tag": "0002_deferred-submission-run-pointers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783769378528,
+      "tag": "0003_rename-classroom-to-workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783774080962,
+      "tag": "0004_remove_assignments",
+      "breakpoints": true
+    }
+  ]
+}

@@ -74,6 +74,9 @@ async function main() {
           editorLanguage: language.editorLanguage,
           diagnosticsFormat: language.diagnosticsFormat,
           diagnosticsCommand: language.diagnosticsCommand,
+          runtimeStatus: "pending",
+          runtimeCheckedAt: null,
+          runtimeError: null,
         })
         .where(eq(supportedLanguages.id, existingLanguage.id));
     }
