@@ -28,8 +28,11 @@ async function claimNextSandboxJob(workerId: string) {
   const rows = await getSqlClient()<ClaimedSandboxJob[]>`
     with candidate as (
       select id from sandbox_jobs
-      where status = 'queued'
-         or (status = 'running' and completed_at is null and lease_expires_at < now())
+      where expires_at > now()
+        and (
+          status = 'queued'
+          or (status = 'running' and completed_at is null and lease_expires_at < now())
+        )
       order by created_at asc, id asc
       for update skip locked
       limit 1

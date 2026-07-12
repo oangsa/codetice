@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 
 import { sandboxJobs, supportedLanguages } from "@/db/schema";
 import { getDb } from "@/lib/db";
@@ -126,9 +126,16 @@ export async function getSandboxJob(input: {
 }
 
 export async function cleanupExpiredSandboxJobs() {
+  const now = new Date();
   await getDb().delete(sandboxJobs).where(and(
-    inArray(sandboxJobs.status, ["completed", "failed", "cancelled"]),
-    lt(sandboxJobs.expiresAt, new Date()),
+    lt(sandboxJobs.expiresAt, now),
+    or(
+      inArray(sandboxJobs.status, ["queued", "completed", "failed", "cancelled"]),
+      and(
+        eq(sandboxJobs.status, "running"),
+        or(isNull(sandboxJobs.leaseExpiresAt), lt(sandboxJobs.leaseExpiresAt, now)),
+      ),
+    ),
   ));
 }
 

@@ -240,6 +240,45 @@ suite("legacy ownership migration reaches the workspace schema", () => {
     expect(table?.sandbox_jobs).toBe("sandbox_jobs");
   });
 
+  test("removes expired queued sandbox source when no worker claimed it", async () => {
+    const jobId = "00000000-0000-0000-0000-000000000951";
+    await client`
+      insert into sandbox_jobs (
+        id, workspace_id, question_id, requested_by, kind, language, source_code, status, expires_at
+      ) values (
+        ${jobId},
+        '00000000-0000-0000-0000-000000000101',
+        '00000000-0000-0000-0000-000000000201',
+        '00000000-0000-0000-0000-000000000002',
+        'sample', 'python', 'sensitive source', 'queued', now() - interval '1 second'
+      )
+    `;
+
+    const child = Bun.spawn([
+      "bun",
+      "--conditions",
+      "react-server",
+      "tests/integration/helpers/sandbox-cleanup-smoke.ts",
+    ], {
+      cwd: process.cwd(),
+      env: { ...process.env, DATABASE_URL: testDatabaseUrl! },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [exitCode, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(exitCode, stderr).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({ processed: 0 });
+
+    const [remaining] = await client<Array<{ count: number }>>`
+      select count(*)::int as count from sandbox_jobs where id = ${jobId}
+    `;
+    expect(remaining?.count).toBe(0);
+  });
+
   test("serves the first scoreboard page from the migrated schema", async () => {
     const child = Bun.spawn([
       "bun",
