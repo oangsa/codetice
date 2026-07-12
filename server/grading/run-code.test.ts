@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 import {
   buildDockerBuilderArgs,
@@ -65,6 +66,18 @@ describe("buildDockerRunArgs", () => {
     expect(args).toContain("/tmp/vibe-grader-test:/workspace:ro");
     expect(args).toContain("--user");
     expect(args).toContain("65532:65532");
+  });
+});
+
+describe("container startup timing", () => {
+  test("disarms the startup deadline once execution begins", () => {
+    const source = readFileSync(new URL("./run-code.ts", import.meta.url), "utf8");
+    const beginTimer = source.slice(
+      source.indexOf("const beginExecutionTimer"),
+      source.indexOf("const startProbe"),
+    );
+
+    expect(beginTimer).toContain("clearTimeout(startupTimer)");
   });
 });
 

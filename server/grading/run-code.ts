@@ -53,6 +53,7 @@ type HarnessEvent =
 
 const SANDBOX_USER = "65532:65532";
 const BUILD_TIMEOUT_MS = 30_000;
+const CONTAINER_START_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
 const HARNESS_PREFIX = "__VIBE_GRADER__";
 
@@ -303,6 +304,19 @@ async function removeContainer(containerName: string) {
   });
 }
 
+async function isContainerRunning(containerName: string) {
+  const child = spawn("docker", ["inspect", "--format", "{{.State.Running}}", containerName], { stdio: "pipe" });
+  let output = "";
+  child.stdout?.on("data", (chunk: Buffer) => {
+    output += chunk.toString("utf8");
+  });
+  const code = await new Promise<number | null>((resolve) => {
+    child.on("error", () => resolve(null));
+    child.on("close", resolve);
+  });
+  return code === 0 && output.trim() === "true";
+}
+
 async function runDockerProcess(input: {
   args: string[];
   containerName: string;
@@ -314,19 +328,48 @@ async function runDockerProcess(input: {
 }) {
   const child = spawn("docker", input.args, { stdio: "pipe" });
   const startedAt = Date.now();
+  let executionStartedAt: number | null = null;
   let stdout = "";
   let stderr = "";
   let timedOut = false;
   let artifactLimitExceeded = false;
   let aborted = false;
   let outputExceeded = false;
+  let startupTimedOut = false;
+  let finished = false;
+  let probing = false;
   const maxArtifacts = Math.max(1, Number(process.env.GRADING_MAX_ARTIFACT_BYTES ?? DEFAULT_MAX_ARTIFACT_BYTES));
 
   const terminate = () => child.kill("SIGKILL");
-  const timer = setTimeout(() => {
-    timedOut = true;
+  let executionTimer: ReturnType<typeof setTimeout> | null = null;
+  let startupTimer: ReturnType<typeof setTimeout> | null = null;
+  const beginExecutionTimer = () => {
+    if (executionTimer || finished) return;
+    if (startupTimer) {
+      clearTimeout(startupTimer);
+      startupTimer = null;
+    }
+    executionStartedAt = Date.now();
+    executionTimer = setTimeout(() => {
+      timedOut = true;
+      terminate();
+    }, input.timeoutMs);
+  };
+  startupTimer = setTimeout(() => {
+    startupTimedOut = true;
     terminate();
-  }, input.timeoutMs);
+  }, CONTAINER_START_TIMEOUT_MS);
+  const startProbe = setInterval(() => {
+    if (probing || executionTimer || finished) return;
+    probing = true;
+    void isContainerRunning(input.containerName)
+      .then((running) => {
+        if (running) beginExecutionTimer();
+      })
+      .finally(() => {
+        probing = false;
+      });
+  }, 25);
   const artifactTimer = input.artifactDirectory ? setInterval(() => {
     void directorySize(input.artifactDirectory!).then((size) => {
       if (size > maxArtifacts) {
@@ -366,7 +409,10 @@ async function runDockerProcess(input: {
     child.stdin?.end(input.stdin);
   });
 
-  clearTimeout(timer);
+  finished = true;
+  if (startupTimer) clearTimeout(startupTimer);
+  clearInterval(startProbe);
+  if (executionTimer) clearTimeout(executionTimer);
   if (artifactTimer) clearInterval(artifactTimer);
   input.signal?.removeEventListener("abort", abort);
   await removeContainer(input.containerName);
@@ -376,17 +422,18 @@ async function runDockerProcess(input: {
     && !artifactLimitExceeded
     && !outputExceeded
     && !aborted;
-  const infrastructure = aborted || unexpectedMissingExit || exitCode === 125;
+  const infrastructure = startupTimedOut || aborted || unexpectedMissingExit || exitCode === 125;
   return result({
     stdout,
     stderr: [
       stderr,
       artifactLimitExceeded ? "Build artifact limit exceeded." : "",
       outputExceeded ? "Output limit exceeded." : "",
+      startupTimedOut ? "Container startup timed out." : "",
       aborted ? "Grading lease was lost." : "",
     ].filter(Boolean).join("\n"),
     exitCode,
-    runtimeMs: Date.now() - startedAt,
+    runtimeMs: Date.now() - (executionStartedAt ?? startedAt),
     timedOut,
     oomKilled: exitCode === 137 && !timedOut,
     failureKind: infrastructure
