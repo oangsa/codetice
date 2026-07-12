@@ -40,6 +40,12 @@ async function adoptDatabaseBaseline() {
   if (assignmentRemovalIndex === -1) {
     throw new Error("The checked-in assignment removal migration is missing.");
   }
+  const sandboxJobsIndex = migrations.findIndex((migration) =>
+    migration.sql.some((statement) => statement.includes('CREATE TABLE "sandbox_jobs"')),
+  );
+  if (sandboxJobsIndex === -1) {
+    throw new Error("The checked-in sandbox jobs migration is missing.");
+  }
 
   const [state] = await client<
     Array<{
@@ -48,6 +54,7 @@ async function adoptDatabaseBaseline() {
       has_workspace_ownership: boolean;
       classroom_schema_complete: boolean;
       workspace_assignment_schema_complete: boolean;
+      workspace_pre_sandbox_schema_complete: boolean;
       workspace_schema_complete: boolean;
     }>
   >`
@@ -92,6 +99,21 @@ async function adoptDatabaseBaseline() {
         and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'is_late')
         and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'testcase_results' and column_name = 'submission_run_id')
         and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'grading_jobs' and column_name = 'submission_run_id')
+      ) as workspace_pre_sandbox_schema_complete,
+      (
+        to_regclass('public.workspaces') is not null
+        and to_regclass('public.workspace_members') is not null
+        and to_regclass('public.submission_runs') is not null
+        and to_regclass('public.sandbox_jobs') is not null
+        and to_regclass('public.assignments') is null
+        and to_regclass('public.assignment_questions') is null
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'questions' and column_name = 'workspace_id')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'rejudge_jobs' and column_name = 'workspace_id')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'latest_run_id')
+        and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'assignment_id')
+        and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'is_late')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'testcase_results' and column_name = 'submission_run_id')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'grading_jobs' and column_name = 'submission_run_id')
       ) as workspace_schema_complete
   `;
 
@@ -127,6 +149,11 @@ async function adoptDatabaseBaseline() {
 
   if (state.workspace_schema_complete) {
     await recordThrough(migrations.length, "Adopted the verified workspace schema at the current migration version.");
+    return;
+  }
+
+  if (state.workspace_pre_sandbox_schema_complete) {
+    await recordThrough(sandboxJobsIndex, "Adopted the verified workspace schema before sandbox jobs.");
     return;
   }
 

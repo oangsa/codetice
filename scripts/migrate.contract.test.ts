@@ -13,6 +13,9 @@ describe("migration adoption contract", () => {
     expect(source).toContain("workspace_assignment_schema_complete");
     expect(source).toContain("recordThrough(assignmentRemovalIndex");
     expect(source).toContain("assignment removal migration is missing");
+    expect(source).toContain("workspace_pre_sandbox_schema_complete");
+    expect(source).toContain("recordThrough(sandboxJobsIndex");
+    expect(source).toContain("sandbox jobs migration is missing");
     expect(source).toContain("partial ownership schema");
     expect(source).toContain("unknown Drizzle migration history");
   });

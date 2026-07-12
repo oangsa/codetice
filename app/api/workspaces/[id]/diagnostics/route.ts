@@ -8,13 +8,10 @@ import { AppError, ErrorCode } from "@/lib/errors";
 import { getRequestIdentifier } from "@/lib/request";
 import { MAX_SUBMISSION_SOURCE_CHARS } from "@/modules/submissions/constants";
 import { getLanguageDiagnostics } from "@/server/grading/language-diagnostics";
-import {
-  requiresPreparedRuntimeForDiagnostics,
-  type DiagnosticsFormat,
-} from "@/server/languages/diagnostics-readiness";
+import { enqueueCompilerDiagnosticsJob } from "@/server/grading/sandbox-jobs";
+import type { DiagnosticsFormat } from "@/server/languages/diagnostics-readiness";
 import { getWorkspaceQuestionById } from "@/server/questions/queries";
 import { assertRateLimit } from "@/server/security/rate-limit";
-import { requireWorkspaceMember } from "@/server/workspaces/authorization";
 import { eq } from "drizzle-orm";
 
 const diagnosticsSchema = z.object({
@@ -29,10 +26,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const actor = await requireApiUser();
     const { id: workspaceId } = await context.params;
-    const access = await requireWorkspaceMember(actor, workspaceId);
     const body = diagnosticsSchema.parse(await request.json());
-    const question = await getWorkspaceQuestionById(workspaceId, body.questionId);
-    if (!question || (!access.staff && !question.isPublished)) {
+    const question = await getWorkspaceQuestionById(actor, workspaceId, body.questionId);
+    if (!question) {
       throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
     }
     if (question.allowedLanguages.length > 0 && !question.allowedLanguages.includes(body.language)) {
@@ -46,17 +42,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       throw new AppError(Messages.languageNotSupported, 400, ErrorCode.VALIDATION);
     }
     const diagnosticsFormat = language.diagnosticsFormat as DiagnosticsFormat;
-    if (requiresPreparedRuntimeForDiagnostics(diagnosticsFormat) && language.runtimeStatus !== "ready") {
-      throw new AppError(Messages.languageUnavailable, 503, ErrorCode.UNAVAILABLE);
-    }
-
     await assertRateLimit({
       identifier: await getRequestIdentifier(actor.userId),
       action: `workspace:${workspaceId}:diagnostics`,
       limit: 120,
       windowMinutes: 15,
     });
+    if (diagnosticsFormat === "compiler") {
+      return ok(await enqueueCompilerDiagnosticsJob({ actor, workspaceId, ...body }), { status: 202 });
+    }
     return ok({
+      mode: "immediate",
       diagnostics: await getLanguageDiagnostics({
         diagnosticsFormat,
         diagnosticsCommand: language.diagnosticsCommand,

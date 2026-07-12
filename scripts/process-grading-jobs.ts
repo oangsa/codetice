@@ -4,8 +4,11 @@ import { prepareEnabledLanguageRuntime } from "@/server/languages/runtime-prepar
 import { listEnabledLanguageRuntimes } from "@/server/languages/service";
 import { cleanupOldRateLimits } from "@/server/security/rate-limit";
 import { processPendingGradingJobs } from "@/server/grading/worker";
+import { processPendingSandboxJobs } from "@/server/grading/sandbox-worker";
+import { cleanupExpiredSandboxJobs } from "@/server/grading/sandbox-jobs";
 
 const DEFAULT_IMAGE_PREP_INTERVAL_MS = 60_000;
+let nextQueue: "grading" | "sandbox" = "grading";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -26,6 +29,24 @@ async function prepareEnabledLanguageImages() {
   }
 }
 
+async function processPendingJobs(limit: number) {
+  let processed = 0;
+  while (processed < limit) {
+    const first = nextQueue === "grading" ? processPendingGradingJobs : processPendingSandboxJobs;
+    const second = nextQueue === "grading" ? processPendingSandboxJobs : processPendingGradingJobs;
+    nextQueue = nextQueue === "grading" ? "sandbox" : "grading";
+    const firstCount = await first(1);
+    if (firstCount > 0) {
+      processed += firstCount;
+      continue;
+    }
+    const secondCount = await second(1);
+    if (secondCount === 0) break;
+    processed += secondCount;
+  }
+  return processed;
+}
+
 async function main() {
   const pollMs = Math.max(250, Number(process.env.GRADING_WORKER_POLL_MS ?? DEFAULT_GRADING_WORKER_POLL_MS));
   const batchSize = Math.max(1, Number(process.env.GRADING_WORKER_BATCH_SIZE ?? 100));
@@ -43,8 +64,8 @@ async function main() {
 
   do {
     try {
-      const count = await processPendingGradingJobs(batchSize);
-      if (count > 0) console.log(`Processed ${count} grading job(s).`);
+      const count = await processPendingJobs(batchSize);
+      if (count > 0) console.log(`Processed ${count} execution job(s).`);
       backoff = pollMs; // reset backoff on success
     } catch (err) {
       console.error("Grading worker error (will retry):", err);
@@ -64,6 +85,7 @@ async function main() {
     if (Date.now() - lastCleanup > 3_600_000) {
       try {
         await cleanupOldRateLimits();
+        await cleanupExpiredSandboxJobs();
       } catch (err) {
         console.error("Rate limit cleanup error:", err);
       }

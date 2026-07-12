@@ -6,6 +6,7 @@ import {
   gradingJobs,
   questions,
   rejudgeJobs,
+  sandboxJobs,
   submissionRuns,
   submissions,
   testcaseResults,
@@ -46,5 +47,21 @@ describe("workspace grading schema contract", () => {
       expect.arrayContaining(["workspace_id", "submission_id", "total_count", "failed_count"]),
     );
     expect(workspaceMembers.role.default).toBe("student");
+  });
+
+  test("sandbox work is queued independently from immutable grading runs", async () => {
+    expect(columnNames(sandboxJobs)).toEqual(expect.arrayContaining([
+      "workspace_id",
+      "question_id",
+      "requested_by",
+      "kind",
+      "source_code",
+      "result",
+      "lease_expires_at",
+    ]));
+    const schemaSource = await Bun.file(new URL("./schema.ts", import.meta.url)).text();
+    expect(schemaSource).toContain("sandbox_jobs_kind_check");
+    expect(schemaSource).toContain("sandbox_jobs_status_lease_created_idx");
+    expect(schemaSource).toContain("sandbox_jobs_status_expires_idx");
   });
 });

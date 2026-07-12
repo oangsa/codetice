@@ -7,11 +7,9 @@ import {
   questions,
   submissionRuns,
   submissions,
-  testcases,
 } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
-import { gradeCode } from "@/server/grading/service";
 import { enabledLanguageOptionsWhere } from "@/server/languages/options";
 import { executeIdempotentMutation } from "@/server/security/idempotency";
 import type { WorkspaceActor } from "@/server/workspaces/authorization";
@@ -35,75 +33,6 @@ function assertLanguageAllowed(question: { allowedLanguages: string | null }, la
   if (allowed.length > 0 && !allowed.includes(language)) {
     throw new AppError(Messages.languageNotAllowed, 400, ErrorCode.VALIDATION);
   }
-}
-
-async function loadEnabledLanguage(slug: string) {
-  const db = getDb();
-  const language = await db.query.supportedLanguages.findFirst({
-    where: enabledLanguageOptionsWhere(slug),
-  });
-  if (!language) throw new AppError(Messages.languageUnavailable, 400, ErrorCode.VALIDATION);
-  return language;
-}
-
-export async function runSampleSubmission(input: {
-  actor: WorkspaceActor;
-  workspaceId: string;
-  questionId: string;
-  sourceCode: string;
-  language: string;
-}) {
-  const access = await requireWorkspaceMember(input.actor, input.workspaceId);
-  const db = getDb();
-  const [question, language] = await Promise.all([
-    db.query.questions.findFirst({
-      where: and(
-        eq(questions.id, input.questionId),
-        eq(questions.workspaceId, input.workspaceId),
-        access.staff ? undefined : eq(questions.isPublished, true),
-      ),
-      with: { testcases: { where: eq(testcases.isSample, true) } },
-    }),
-    loadEnabledLanguage(input.language),
-  ]);
-  if (!question) throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
-  assertLanguageAllowed(question, input.language);
-
-  const graded = await gradeCode({
-    language: input.language,
-    fileExtension: language.fileExtension,
-    buildCommand: language.buildCommand,
-    runCommand: language.runCommand,
-    dockerImage: language.dockerImage,
-    sourceCode: input.sourceCode,
-    testcases: question.testcases.map((testcase) => ({
-      id: testcase.id,
-      name: testcase.name,
-      input: testcase.input,
-      expectedOutput: testcase.expectedOutput,
-      isHidden: false,
-      checkerType: testcase.checkerType,
-      floatTolerance: testcase.floatTolerance,
-    })),
-    timeLimitMs: question.timeLimitMs,
-    memoryLimitMb: question.memoryLimitMb,
-  });
-
-  return {
-    questionId: question.id,
-    results: graded.results.map((item) => ({
-      testcaseId: item.testcaseId,
-      name: item.name,
-      status: item.status,
-      passed: item.passed,
-      runtimeMs: item.runtimeMs,
-      memoryKb: item.memoryKb,
-      actualOutput: item.actualOutput,
-      expectedOutput: item.expectedOutput,
-      errorMessage: item.errorMessage,
-      isHidden: item.isHidden,
-    })),
-  };
 }
 
 export async function enqueueOfficialSubmission(input: {

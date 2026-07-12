@@ -6,6 +6,7 @@ import {
   decimal,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -258,7 +259,7 @@ export const rejudgeJobs = pgTable("rejudge_jobs", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id")
     .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
+    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
   submissionId: uuid("submission_id").references(() => submissions.id, { onDelete: "cascade" }),
   questionId: uuid("question_id").references(() => questions.id, { onDelete: "cascade" }),
   requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
@@ -308,6 +309,45 @@ export const gradingJobs = pgTable("grading_jobs", {
   rejudgeIdx: index("grading_jobs_rejudge_idx").on(table.rejudgeJobId, table.createdAt),
   statusCreatedAtIdx: index("grading_jobs_status_created_at_idx").on(table.status, table.createdAt),
   leaseIdx: index("grading_jobs_lease_idx").on(table.status, table.leaseExpiresAt, table.createdAt),
+}));
+
+export const sandboxJobs = pgTable("sandbox_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  questionId: uuid("question_id")
+    .notNull()
+    .references(() => questions.id, { onDelete: "cascade" }),
+  requestedBy: uuid("requested_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: varchar("kind", { length: 30 }).notNull(),
+  language: varchar("language", { length: 50 }).notNull(),
+  sourceCode: text("source_code"),
+  status: varchar("status", { length: 30 }).notNull().default("queued"),
+  result: jsonb("result").$type<Record<string, unknown> | null>(),
+  attempts: integer("attempts").notNull().default(0),
+  lockedBy: varchar("locked_by", { length: 255 }),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: false }),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: false }),
+  completedAt: timestamp("completed_at", { withTimezone: false }),
+  expiresAt: timestamp("expires_at", { withTimezone: false }).notNull(),
+}, (table) => ({
+  statusLeaseCreatedIdx: index("sandbox_jobs_status_lease_created_idx").on(
+    table.status,
+    table.leaseExpiresAt,
+    table.createdAt,
+  ),
+  requesterCreatedIdx: index("sandbox_jobs_requester_created_idx").on(table.requestedBy, table.createdAt),
+  statusExpiresIdx: index("sandbox_jobs_status_expires_idx").on(table.status, table.expiresAt),
+  kindCheck: check("sandbox_jobs_kind_check", sql`${table.kind} in ('sample', 'compiler_diagnostics')`),
+  statusCheck: check(
+    "sandbox_jobs_status_check",
+    sql`${table.status} in ('queued', 'running', 'completed', 'failed', 'cancelled')`,
+  ),
 }));
 
 export const customCheckers = pgTable("custom_checkers", {
@@ -493,6 +533,12 @@ export const gradingJobsRelations = relations(gradingJobs, ({ one }) => ({
   }),
 }));
 
+export const sandboxJobsRelations = relations(sandboxJobs, ({ one }) => ({
+  workspace: one(workspaces, { fields: [sandboxJobs.workspaceId], references: [workspaces.id] }),
+  question: one(questions, { fields: [sandboxJobs.questionId], references: [questions.id] }),
+  requester: one(users, { fields: [sandboxJobs.requestedBy], references: [users.id] }),
+}));
+
 export const rejudgeJobsRelations = relations(rejudgeJobs, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [rejudgeJobs.workspaceId],
@@ -552,6 +598,7 @@ export type SubmissionRun = typeof submissionRuns.$inferSelect;
 export type TestcaseResult = typeof testcaseResults.$inferSelect;
 export type QuestionScore = typeof questionScores.$inferSelect;
 export type GradingJob = typeof gradingJobs.$inferSelect;
+export type SandboxJob = typeof sandboxJobs.$inferSelect;
 export type SupportedLanguage = typeof supportedLanguages.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
