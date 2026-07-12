@@ -27,47 +27,47 @@ The project was migrated from a dark/cyber aesthetic (deep navy + cyan accents) 
 - Dark button → `border border-slate-200 bg-white text-slate-700`
 - Avatar → `bg-slate-900 text-white`
 
-### `components/commons/page-header.tsx`
+### `components/common/page-header.tsx`
 - Removed frosted glass `bg-white/[0.03] border-white/10 backdrop-blur`
 - Simple flex row: title left, actions right, no background
 
-### `components/commons/metric-card.tsx`
+### `components/common/metric-card.tsx`
 - `bg-[#0f172a]/80 border-white/10` → `bg-white border-slate-200 shadow-sm`
 - Icon box: `bg-cyan-400/10 text-cyan-300` → `bg-slate-50 border-slate-200 text-slate-600`
 
-### `components/commons/surface-card.tsx`
+### `components/common/surface-card.tsx`
 - Removed `bg-[#111827]/88 border-white/10` dark background overrides
 - Now uses standard Card without background override
 - Border: `border-white/8` → `border-slate-100`
 
-### `components/auth/auth-form.tsx`
+### `modules/auth/components/auth-form.tsx`
 - Card: removed `bg-[#0f172a]/88 border-white/10` → standard Card
 - Inputs: removed `border-white/10 bg-white/[0.04] text-slate-100` overrides
 - Submit button: removed cyan override → standard Button
 - Added user/lock icons on inputs (matching reference style)
 
-### `components/questions/question-card.tsx`
+### `modules/questions/components/question-card.tsx`
 - Card: `bg-[#0f172a]/88 border-white/10` → standard white Card
 - Title: `text-slate-100` → standard
 - Button: cyan → standard Button
 
-### `components/submissions/submission-table.tsx`
+### `modules/submissions/components/submission-table.tsx`
 - Removed `text-slate-300`, `border-white/8`, `hover:bg-white/[0.03]`
 - Score Badge: removed cyan override → standard `variant="info"`
 - View link: `text-cyan-300` → `text-sky-600`
 
-### `components/submissions/submission-status-badge.tsx`
+### `modules/submissions/components/submission-status-badge.tsx`
 - Removed `border-white/10 bg-white/[0.04] uppercase tracking-[0.08em]`
 - Now uses `className="capitalize"` only
 
-### `components/editor/code-editor.tsx`
+### `modules/questions/editor/code-editor.tsx`
 - Card: `bg-[#111827]/88` → standard
 - Select: removed dark overrides
 - Buttons: cyan → standard; secondary button simplified
 - Editor theme: `vs-dark` → `vs` (light Monaco theme)
 - Tabs: removed dark custom classes
 
-### `components/editor/output-panel.tsx` + `testcase-results.tsx`
+### `modules/questions/editor/output-panel.tsx` + `testcase-results.tsx`
 - `bg-[#0f172a]/88 border-white/8` → standard Card
 - `bg-black/25 text-slate-200` pre blocks → `bg-slate-50 border-slate-200 text-slate-800`
 

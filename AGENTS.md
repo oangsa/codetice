@@ -911,7 +911,7 @@ Show rankings based on user scores.
 
 * Global leaderboard
 * Leaderboard per question
-* Leaderboard per course/classroom
+* Leaderboard per course/workspace
 * Sort by total score
 * Sort by solved questions
 * Sort by fastest accepted submission
@@ -933,7 +933,7 @@ CREATE TABLE leaderboards (
 
 ---
 
-## 21.2 Course and Classroom System
+## 21.2 Course and Workspace System
 
 ### Description
 
@@ -941,17 +941,17 @@ Allow admins or teachers to group users and questions into classes.
 
 ### Features
 
-* Create classrooms
-* Join classroom by invite code
-* Assign questions to a classroom
+* Create workspaces
+* Join workspace by invite code
+* Assign questions to a workspace
 * View class progress
 * View class leaderboard
-* Manage students in a classroom
+* Manage students in a workspace
 
 ### Suggested Tables
 
 ```sql
-CREATE TABLE classrooms (
+CREATE TABLE workspaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   invite_code VARCHAR(50) NOT NULL UNIQUE,
@@ -959,14 +959,14 @@ CREATE TABLE classrooms (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE classroom_members (
+CREATE TABLE workspace_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  classroom_id UUID NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role VARCHAR(20) NOT NULL DEFAULT 'student',
   joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-  UNIQUE(classroom_id, user_id)
+  UNIQUE(workspace_id, user_id)
 );
 ```
 
@@ -993,7 +993,7 @@ Allow questions to be assigned with deadlines.
 ```sql
 CREATE TABLE assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  classroom_id UUID REFERENCES classrooms(id) ON DELETE CASCADE,
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT,
   start_at TIMESTAMP,

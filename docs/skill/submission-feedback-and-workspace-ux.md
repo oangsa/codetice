@@ -1,4 +1,4 @@
-# Skill: submission feedback and classroom UX
+# Skill: submission feedback and workspace UX
 
 ## Submission UX
 
@@ -8,9 +8,9 @@
   - show whether the submission was accepted or not
   - include passed testcase count and score in the final feedback
 
-## Classroom UX
+## Workspace UX
 
-- Student classroom pages should stay focused on solving work:
+- Student workspace pages should stay focused on solving work:
   - do not show invite code in the student view
   - merge membership and question progress into a single summary card
   - keep teacher/admin controls separate from student-facing summaries
