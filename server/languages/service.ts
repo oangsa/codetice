@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, eq, gt, or } from "drizzle-orm";
+import { and, asc, eq, gt, ilike, ne, or, type SQL } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
 import { decodeCursor, encodeCursor } from "@/lib/cursor";
+import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getDb } from "@/lib/db";
 import { validateDockerImage } from "@/server/languages/docker-image";
 import {
@@ -78,9 +79,60 @@ function parseLanguageCursor(cursor: string | null, endpoint: string, filters: s
   }
 }
 
-export async function listPublicLanguagesPage(input: { limit: number; cursor: string | null }) {
+export const publicLanguageSearchConfig = {
+  fields: {
+    name: ["CONTAINS", "STARTWITH", "EQUAL"] as const,
+    slug: ["CONTAINS", "STARTWITH", "EQUAL"] as const,
+  },
+  searchTermFields: ["name", "slug"] as const,
+};
+
+export const adminLanguageSearchConfig = {
+  fields: {
+    ...publicLanguageSearchConfig.fields,
+    isEnabled: ["EQUAL"] as const,
+    runtimeStatus: ["EQUAL", "NOTEQUAL"] as const,
+  },
+  searchTermFields: publicLanguageSearchConfig.searchTermFields,
+};
+
+function languageTextCondition(name: "name" | "slug", condition: string, value: string) {
+  const column = name === "name" ? supportedLanguages.name : supportedLanguages.slug;
+  if (condition === "CONTAINS") return ilike(column, `%${escapeLikePattern(value)}%`);
+  if (condition === "STARTWITH") return ilike(column, `${escapeLikePattern(value)}%`);
+  if (condition === "EQUAL") return eq(column, value);
+  throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+}
+
+function languageSearchWhere(search: ParsedCollectionSearch) {
+  const conditions: SQL[] = [];
+  for (const item of search.search) {
+    if (item.name === "name" || item.name === "slug") {
+      conditions.push(languageTextCondition(item.name, item.condition, String(item.value)));
+      continue;
+    }
+    if (item.name === "isEnabled") {
+      if (typeof item.value !== "boolean") throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+      conditions.push(eq(supportedLanguages.isEnabled, item.value));
+      continue;
+    }
+    const value = String(item.value);
+    if (!(["pending", "ready", "error"] as const).includes(value as "pending" | "ready" | "error")) {
+      throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+    }
+    conditions.push(item.condition === "EQUAL" ? eq(supportedLanguages.runtimeStatus, value) : ne(supportedLanguages.runtimeStatus, value));
+  }
+  if (search.searchTerm) {
+    conditions.push(or(...search.searchTerm.names.map((name) => (
+      languageTextCondition(name as "name" | "slug", "CONTAINS", search.searchTerm!.value)
+    )))!);
+  }
+  return and(...conditions);
+}
+
+async function queryPublicLanguagesPage(search: ParsedCollectionSearch) {
   const endpoint = "enabled-languages";
-  const filters = "enabled=true";
+  const filters = JSON.stringify({ enabled: true, search: search.filters });
   const db = getDb();
   const rows = await db.select({
     id: supportedLanguages.id,
@@ -92,10 +144,38 @@ export async function listPublicLanguagesPage(input: { limit: number; cursor: st
     defaultStarterCode: supportedLanguages.defaultStarterCode,
   }).from(supportedLanguages).where(and(
     enabledLanguageOptionsWhere(),
-    parseLanguageCursor(input.cursor, endpoint, filters),
-  )).orderBy(asc(supportedLanguages.name), asc(supportedLanguages.id)).limit(input.limit + 1);
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit);
+    languageSearchWhere(search),
+    parseLanguageCursor(search.cursor, endpoint, filters),
+  )).orderBy(asc(supportedLanguages.name), asc(supportedLanguages.id)).limit(search.limit + 1);
+  const hasMore = rows.length > search.limit;
+  const items = rows.slice(0, search.limit);
+  const last = items.at(-1);
+  return {
+    items,
+    hasMore,
+    nextCursor: hasMore && last ? encodeCursor({ endpoint, scope: "global", filters, keys: [last.name, last.id] }) : null,
+  };
+}
+
+export async function listPublicLanguagesPage(input: { limit: number; cursor: string | null }) {
+  return queryPublicLanguagesPage(parseCollectionSearch(input, publicLanguageSearchConfig));
+}
+
+export function searchPublicLanguagesPage(body: unknown) {
+  return queryPublicLanguagesPage(parseCollectionSearch(body, publicLanguageSearchConfig));
+}
+
+async function queryAdminLanguagesPage(search: ParsedCollectionSearch) {
+  const endpoint = "admin-languages";
+  const filters = search.filters;
+  const db = getDb();
+  const rows = await db.query.supportedLanguages.findMany({
+    where: and(languageSearchWhere(search), parseLanguageCursor(search.cursor, endpoint, filters)),
+    orderBy: (fields, ops) => [ops.asc(fields.name), ops.asc(fields.id)],
+    limit: search.limit + 1,
+  });
+  const hasMore = rows.length > search.limit;
+  const items = rows.slice(0, search.limit);
   const last = items.at(-1);
   return {
     items,
@@ -105,22 +185,11 @@ export async function listPublicLanguagesPage(input: { limit: number; cursor: st
 }
 
 export async function listAdminLanguagesPage(input: { limit: number; cursor: string | null }) {
-  const endpoint = "admin-languages";
-  const filters = "";
-  const db = getDb();
-  const rows = await db.query.supportedLanguages.findMany({
-    where: parseLanguageCursor(input.cursor, endpoint, filters),
-    orderBy: (fields, ops) => [ops.asc(fields.name), ops.asc(fields.id)],
-    limit: input.limit + 1,
-  });
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit);
-  const last = items.at(-1);
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({ endpoint, scope: "global", filters, keys: [last.name, last.id] }) : null,
-  };
+  return queryAdminLanguagesPage(parseCollectionSearch(input, adminLanguageSearchConfig));
+}
+
+export function searchAdminLanguagesPage(body: unknown) {
+  return queryAdminLanguagesPage(parseCollectionSearch(body, adminLanguageSearchConfig));
 }
 
 export async function listSupportedLanguages() {

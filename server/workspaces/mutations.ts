@@ -5,17 +5,20 @@ import { and, eq } from "drizzle-orm";
 import { workspaceMembers, workspaces } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
+import type { WorkspaceActor } from "@/server/workspaces/authorization";
+import { requireWorkspaceAdmin } from "@/server/workspaces/authorization";
 
 function generateInviteCode() {
   return crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
 }
 
-export async function createWorkspace(input: { name: string; createdBy: string }) {
+export async function createWorkspace(input: { actor: WorkspaceActor; name: string }) {
+  if (input.actor.role !== "admin") throw new AppError(Messages.forbidden, 403, ErrorCode.FORBIDDEN);
   const db = getDb();
   const [workspace] = await db.insert(workspaces).values({
     name: input.name,
     inviteCode: generateInviteCode(),
-    createdBy: input.createdBy,
+    createdBy: input.actor.userId,
   }).returning();
 
   if (!workspace) {
@@ -24,7 +27,7 @@ export async function createWorkspace(input: { name: string; createdBy: string }
   return workspace;
 }
 
-export async function joinWorkspace(inviteCode: string, userId: string) {
+export async function joinWorkspace(actor: WorkspaceActor, inviteCode: string) {
   const db = getDb();
   return db.transaction(async (tx) => {
     const workspace = await tx.query.workspaces.findFirst({
@@ -37,7 +40,7 @@ export async function joinWorkspace(inviteCode: string, userId: string) {
 
     await tx.insert(workspaceMembers).values({
       workspaceId: workspace.id,
-      userId,
+      userId: actor.userId,
       role: "student",
     }).onConflictDoNothing({
       target: [workspaceMembers.workspaceId, workspaceMembers.userId],
@@ -46,7 +49,8 @@ export async function joinWorkspace(inviteCode: string, userId: string) {
   });
 }
 
-export async function updateWorkspace(workspaceId: string, name: string) {
+export async function updateWorkspace(actor: WorkspaceActor, workspaceId: string, name: string) {
+  await requireWorkspaceAdmin(actor, workspaceId);
   const db = getDb();
   const [updated] = await db.update(workspaces).set({ name }).where(eq(workspaces.id, workspaceId)).returning();
   if (!updated) {
@@ -55,7 +59,8 @@ export async function updateWorkspace(workspaceId: string, name: string) {
   return updated;
 }
 
-export async function deleteWorkspace(workspaceId: string) {
+export async function deleteWorkspace(actor: WorkspaceActor, workspaceId: string) {
+  await requireWorkspaceAdmin(actor, workspaceId);
   const db = getDb();
   const [deleted] = await db.delete(workspaces).where(eq(workspaces.id, workspaceId)).returning({ id: workspaces.id });
   if (!deleted) {
@@ -64,10 +69,12 @@ export async function deleteWorkspace(workspaceId: string) {
 }
 
 export async function updateWorkspaceMemberRole(
+  actor: WorkspaceActor,
   workspaceId: string,
   userId: string,
   role: "student" | "ta",
 ) {
+  await requireWorkspaceAdmin(actor, workspaceId);
   const db = getDb();
   const [updated] = await db.update(workspaceMembers).set({ role }).where(and(
     eq(workspaceMembers.workspaceId, workspaceId),
@@ -79,7 +86,8 @@ export async function updateWorkspaceMemberRole(
   return updated;
 }
 
-export async function removeWorkspaceMember(workspaceId: string, userId: string) {
+export async function removeWorkspaceMember(actor: WorkspaceActor, workspaceId: string, userId: string) {
+  await requireWorkspaceAdmin(actor, workspaceId);
   const db = getDb();
   const [deleted] = await db.delete(workspaceMembers).where(and(
     eq(workspaceMembers.workspaceId, workspaceId),

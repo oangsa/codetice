@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = process.cwd();
@@ -15,7 +15,13 @@ describe("workspace-scoped route contract", () => {
       "app/api/workspaces/[id]/submissions/route.ts",
       "app/api/workspaces/[id]/diagnostics/route.ts",
       "app/api/workspaces/[id]/run-sample/route.ts",
+      "app/api/workspaces/[id]/sandbox-jobs/[jobId]/route.ts",
+      "app/api/workspaces/[id]/questions/search/route.ts",
+      "app/api/workspaces/[id]/members/search/route.ts",
+      "app/api/workspaces/[id]/submissions/search/route.ts",
+      "app/api/workspaces/[id]/scoreboard/search/route.ts",
       "app/api/workspaces/[id]/submit/route.ts",
+      "app/api/workspaces/search/route.ts",
       "app/workspaces/[id]/questions/[questionId]/page.tsx",
       "app/workspaces/[id]/submissions/page.tsx",
     ];
@@ -71,5 +77,18 @@ describe("workspace-scoped route contract", () => {
       .filter((entry) => exists(`app/workspaces/[id]/questions/${entry}/page.tsx`));
 
     expect(dynamicSegments).toEqual(["[questionId]"]);
+  });
+
+  test("allows members to read published question detail while keeping mutations staff-only", () => {
+    const route = readFileSync(
+      resolve(root, "app/api/workspaces/[id]/questions/[questionId]/route.ts"),
+      "utf8",
+    );
+    const getHandler = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function PATCH"));
+    const mutations = route.slice(route.indexOf("export async function PATCH"));
+
+    expect(getHandler).toContain("requireWorkspaceMember");
+    expect(getHandler).not.toContain("requireWorkspaceStaff");
+    expect(mutations).toContain("requireWorkspaceStaff");
   });
 });

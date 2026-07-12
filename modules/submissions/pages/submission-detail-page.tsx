@@ -29,7 +29,7 @@ export default async function WorkspaceSubmissionDetailPage({
 
   const [submission, workspace] = await Promise.all([
     getWorkspaceSubmissionDetail(actor, id, submissionId).catch(() => null),
-    getWorkspaceDetail(id, access),
+    getWorkspaceDetail(actor, id),
   ]);
   if (!submission) notFound();
 

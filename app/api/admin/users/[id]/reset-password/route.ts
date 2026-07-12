@@ -9,21 +9,13 @@ export async function POST(
 ) {
   try {
     await requireApiAdmin();
-  } catch {
-    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
-  }
-
-  const { id } = await params;
-
-  const body = await request.json();
-  const parsed = adminResetPasswordSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? "Invalid payload.";
-    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
-  }
-
-  try {
+    const { id } = await params;
+    const body = await request.json();
+    const parsed = adminResetPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message ?? "Invalid payload.";
+      return fail(firstError, 400, { code: ErrorCode.VALIDATION });
+    }
     await adminResetPassword({
       targetUserId: id,
       newPassword: parsed.data.newPassword,

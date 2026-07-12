@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { DataTable, type DataTableColumn } from "@/components/common/data-table";
+import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn } from "@/components/common/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useCollectionSearch } from "@/lib/use-collection-search";
 
 type Member = {
   id: string;
@@ -18,15 +19,24 @@ type Member = {
 
 export function MemberManager({
   workspaceId,
-  initialMembers,
+  initialPage,
   canManage,
 }: {
   workspaceId: string;
-  initialMembers: Member[];
+  initialPage: { items: Member[]; nextCursor: string | null; hasMore: boolean };
   canManage: boolean;
 }) {
-  const [members, setMembers] = useState(initialMembers);
+  const [search, setSearch] = useState("");
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const request = useMemo(() => ({
+    limit: 25,
+    ...(search.trim() ? { searchTerm: { name: "username", value: search } } : {}),
+  }), [search]);
+  const collection = useCollectionSearch<Member>({
+    endpoint: `/api/workspaces/${workspaceId}/members/search`,
+    initialPage,
+    request,
+  });
 
   async function setRole(member: Member, role: "student" | "ta") {
     setPendingUserId(member.userId);
@@ -37,7 +47,7 @@ export function MemberManager({
     });
     const body = await response.json() as { message?: string };
     if (response.ok) {
-      setMembers((current) => current.map((item) => item.userId === member.userId ? { ...item, role } : item));
+      collection.reload();
       toast.success(`${member.username} is now ${role === "ta" ? "a TA" : "a student"}.`);
     } else {
       toast.error(body.message ?? "Unable to update member.");
@@ -51,7 +61,7 @@ export function MemberManager({
     const response = await fetch(`/api/workspaces/${workspaceId}/members/${member.userId}`, { method: "DELETE" });
     const body = await response.json() as { message?: string };
     if (response.ok) {
-      setMembers((current) => current.filter((item) => item.userId !== member.userId));
+      collection.reload();
       toast.success(`${member.username} was removed.`);
     } else {
       toast.error(body.message ?? "Unable to remove member.");
@@ -90,13 +100,20 @@ export function MemberManager({
   return (
     <DataTable
       title="Members"
-      rows={members}
+      rows={collection.page.items}
       columns={columns}
       getRowKey={(member) => member.id}
-      emptyMessage="No members yet."
+      emptyMessage={collection.error ?? (search ? "No members match your search." : "No members yet.")}
+      search={<DataTableSearch value={search} onValueChange={setSearch} placeholder="Search members" />}
       rowClassName={(_member, index) =>
         index % 2 === 1 ? "bg-black/[0.02] dark:bg-white/[0.02]" : undefined
       }
+      pagination={collection.hasPrevious || collection.page.nextCursor ? (
+        <DataTablePagination
+          previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
+          next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
+        />
+      ) : null}
     />
   );
 }

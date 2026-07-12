@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   try {
     const actor = await requireApiAdmin();
     const parsed = workspaceSchema.parse(await request.json());
-    const workspace = await createWorkspace({ name: parsed.name, createdBy: actor.userId });
+    const workspace = await createWorkspace({ actor, name: parsed.name });
     return ok({ workspace }, { status: 201 });
   } catch (error) {
     return toFailResponse(error, error instanceof z.ZodError ? Messages.invalidRequest : Messages.unableToCreateWorkspace);

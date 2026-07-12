@@ -1,10 +1,12 @@
 import "server-only";
 
-import { and, desc, eq, gt, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { z } from "zod";
 
 import { workspaceMembers, questions, submissionRuns, submissions, testcaseResults, users } from "@/db/schema";
 import { decodeCursor, encodeCursor } from "@/lib/cursor";
+import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getDb } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import type { AuthorizedWorkspace, WorkspaceActor } from "@/server/workspaces/authorization";
@@ -16,11 +18,10 @@ function parseSubmissionCursor(cursor: string | null, scope: string, filters: st
     const decoded = decodeCursor(cursor, { endpoint: "workspace-submissions", scope, filters });
     const [createdAtValue, id] = decoded.keys;
     if (typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
-    const createdAt = new Date(createdAtValue);
-    if (Number.isNaN(createdAt.getTime())) throw new Error();
+    if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
     return or(
-      lt(submissions.createdAt, createdAt),
-      and(eq(submissions.createdAt, createdAt), lt(submissions.id, id)),
+      sql`${submissions.createdAt} < ${createdAtValue}::timestamp`,
+      and(sql`${submissions.createdAt} = ${createdAtValue}::timestamp`, lt(submissions.id, id)),
     );
   } catch {
     throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
@@ -69,11 +70,78 @@ export async function listWorkspaceSubmissionsPage(input: {
   const access = await requireWorkspaceMember(input.actor, input.workspaceId);
   await validateSubmissionFilters({ ...input, access });
   const effectiveStudentId = access.staff ? input.studentId : input.actor.userId;
-  const filters = `question=${input.questionId ?? ""}&student=${effectiveStudentId ?? ""}`;
-  const after = parseSubmissionCursor(input.cursor, input.workspaceId, filters);
+  const search = parseCollectionSearch({
+    limit: input.limit,
+    cursor: input.cursor,
+    search: [
+      ...(input.questionId ? [{ name: "questionId", condition: "EQUAL", value: input.questionId }] : []),
+      ...(effectiveStudentId ? [{ name: "studentId", condition: "EQUAL", value: effectiveStudentId }] : []),
+    ],
+  }, workspaceSubmissionSearchConfig);
+  return queryWorkspaceSubmissionsPage({ actor: input.actor, access, workspaceId: input.workspaceId, search });
+}
+
+export const workspaceSubmissionSearchConfig = {
+  fields: {
+    questionId: ["EQUAL"] as const,
+    studentId: ["EQUAL"] as const,
+    status: ["EQUAL", "NOTEQUAL"] as const,
+    isRanked: ["EQUAL"] as const,
+    createdAt: ["GREATEROREQUAL", "LESSEROREQUAL"] as const,
+  },
+  searchTermFields: ["questionTitle", "studentUsername"] as const,
+};
+
+function oneSearchValue(search: ParsedCollectionSearch, name: string) {
+  const matches = search.search.filter((item) => item.name === name);
+  if (matches.length > 1) throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+  return matches[0]?.value;
+}
+
+async function queryWorkspaceSubmissionsPage(input: {
+  actor: WorkspaceActor;
+  access: AuthorizedWorkspace;
+  workspaceId: string;
+  search: ParsedCollectionSearch;
+}) {
+  const requestedStudentId = oneSearchValue(input.search, "studentId");
+  const effectiveStudentId = input.access.staff
+    ? (requestedStudentId ? String(requestedStudentId) : null)
+    : input.actor.userId;
+  const filters = JSON.stringify({ search: input.search.filters, student: effectiveStudentId });
+  const after = parseSubmissionCursor(input.search.cursor, input.workspaceId, filters);
   const latestRun = alias(submissionRuns, "submission_latest_run_dto");
   const latestScored = alias(submissionRuns, "submission_latest_scored_dto");
   const db = getDb();
+  const searchConditions: SQL[] = [];
+  for (const item of input.search.search) {
+    const value = String(item.value);
+    if (item.name === "questionId") searchConditions.push(eq(submissions.questionId, value));
+    if (item.name === "studentId") continue;
+    if (item.name === "status") {
+      if (!(["queued", "running", "accepted", "wrong_answer", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded", "internal_error"] as const).includes(value as never)) {
+        throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+      }
+      searchConditions.push(item.condition === "EQUAL" ? eq(latestRun.status, value) : ne(latestRun.status, value));
+    }
+    if (item.name === "isRanked") {
+      if (typeof item.value !== "boolean") throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+      searchConditions.push(eq(submissions.isRanked, item.value));
+    }
+    if (item.name === "createdAt") {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+      searchConditions.push(item.condition === "GREATEROREQUAL" ? gte(submissions.createdAt, date) : lte(submissions.createdAt, date));
+    }
+  }
+  if (input.search.searchTerm) {
+    searchConditions.push(or(...input.search.searchTerm.names.map((name) => (
+      name === "questionTitle"
+        ? ilike(questions.title, `%${escapeLikePattern(input.search.searchTerm!.value)}%`)
+        : ilike(users.username, `%${escapeLikePattern(input.search.searchTerm!.value)}%`)
+    )))!);
+  }
+
   const rows = await db.select({
     id: submissions.id,
     student: { id: users.id, username: users.username },
@@ -82,21 +150,31 @@ export async function listWorkspaceSubmissionsPage(input: {
     score: latestScored.score,
     isRanked: submissions.isRanked,
     createdAt: submissions.createdAt,
+    cursorCreatedAt: sql<string>`${submissions.createdAt}::text`,
   }).from(submissions)
     .innerJoin(questions, and(eq(questions.id, submissions.questionId), eq(questions.workspaceId, input.workspaceId)))
     .innerJoin(users, eq(users.id, submissions.userId))
     .innerJoin(latestRun, eq(latestRun.id, submissions.latestRunId))
     .leftJoin(latestScored, eq(latestScored.id, submissions.latestScoredRunId))
     .where(and(
-      input.questionId ? eq(submissions.questionId, input.questionId) : undefined,
       effectiveStudentId ? eq(submissions.userId, effectiveStudentId) : undefined,
+      ...searchConditions,
       after,
     ))
     .orderBy(desc(submissions.createdAt), desc(submissions.id))
-    .limit(input.limit + 1);
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit);
-  const last = items.at(-1);
+    .limit(input.search.limit + 1);
+  const hasMore = rows.length > input.search.limit;
+  const pageRows = rows.slice(0, input.search.limit);
+  const items = pageRows.map((row) => ({
+    id: row.id,
+    student: row.student,
+    question: row.question,
+    latestStatus: row.latestStatus,
+    score: row.score,
+    isRanked: row.isRanked,
+    createdAt: row.createdAt,
+  }));
+  const last = pageRows.at(-1);
 
   return {
     items,
@@ -105,9 +183,32 @@ export async function listWorkspaceSubmissionsPage(input: {
       endpoint: "workspace-submissions",
       scope: input.workspaceId,
       filters,
-      keys: [last.createdAt.toISOString(), last.id],
+      keys: [last.cursorCreatedAt, last.id],
     }) : null,
   };
+}
+
+export async function searchWorkspaceSubmissionsPage(input: {
+  actor: WorkspaceActor;
+  workspaceId: string;
+  body: unknown;
+}) {
+  const access = await requireWorkspaceMember(input.actor, input.workspaceId);
+  const search = parseCollectionSearch(input.body, workspaceSubmissionSearchConfig);
+  const questionId = oneSearchValue(search, "questionId");
+  const studentId = oneSearchValue(search, "studentId");
+  const uuid = z.string().uuid();
+  if ((questionId && !uuid.safeParse(questionId).success) || (studentId && !uuid.safeParse(studentId).success)) {
+    throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+  }
+  await validateSubmissionFilters({
+    workspaceId: input.workspaceId,
+    actor: input.actor,
+    access,
+    questionId: questionId ? String(questionId) : null,
+    studentId: studentId ? String(studentId) : null,
+  });
+  return queryWorkspaceSubmissionsPage({ ...input, access, search });
 }
 
 async function requireVisibleSubmission(actor: WorkspaceActor, workspaceId: string, submissionId: string) {

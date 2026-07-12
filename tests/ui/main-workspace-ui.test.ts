@@ -95,13 +95,24 @@ describe("main-style workspace UI", () => {
     ]);
 
     expect(directory).toContain('placeholder="Search workspace"');
-    expect(directory).toContain('params.set("q", value.trim())');
+    expect(directory).toContain('endpoint: "/api/workspaces/search"');
+    expect(directory).toContain('searchTerm: { name: "name", value }');
     expect(page).toContain("<WorkspaceSearch");
-    expect(page).toContain("search: workspaceSearch");
+    expect(page).toContain("initialPage={page}");
     expect(page).toContain('className="space-y-4"');
     expect(page).toContain('className="py-0"');
     expect(page).not.toContain('className="mb-3 h-5"');
     expect(queries).toContain("ilike(workspaces.name");
-    expect(queries).toContain('filters = `q=${search}`');
+    expect(queries).toContain("workspaceSearchWhere");
+  });
+
+  test("loads draft questions when edit mode is opened directly", async () => {
+    const [table, searchHook] = await Promise.all([
+      source("modules/workspaces/components/question-table.tsx"),
+      source("lib/use-collection-search.ts"),
+    ]);
+
+    expect(table).toContain("initialRequest: publishedQuestionRequest");
+    expect(searchHook).toContain("input.initialRequest ?? input.request");
   });
 });

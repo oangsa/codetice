@@ -3,11 +3,12 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 
-import { DataTable, type DataTableColumn } from "@/components/common/data-table";
+import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn } from "@/components/common/data-table";
 import { QuestionTable, type WorkspaceQuestionRow } from "@/modules/workspaces/components/question-table";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn, formatDate, formatScore } from "@/lib/utils";
+import { useCollectionSearch } from "@/lib/use-collection-search";
 
 type ScoreboardEntry = {
   userId: string;
@@ -27,26 +28,44 @@ type WorkspaceMember = {
 };
 
 type Section = "questions" | "scoreboard" | "participants";
-type SortDirection = "asc" | "desc";
 
 export function WorkspaceTabs({
-  questions,
-  scoreboard,
-  members,
+  questionPage,
+  scoreboardPage,
+  memberPage,
   workspaceId,
   canManage,
 }: {
-  questions: WorkspaceQuestionRow[];
-  scoreboard: ScoreboardEntry[];
-  members: WorkspaceMember[];
+  questionPage: { items: WorkspaceQuestionRow[]; nextCursor: string | null; hasMore: boolean };
+  scoreboardPage: { items: ScoreboardEntry[]; nextCursor: string | null; hasMore: boolean };
+  memberPage: { items: WorkspaceMember[]; nextCursor: string | null; hasMore: boolean };
   workspaceId: string;
   canManage: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<Section>("questions");
   const [hasClicked, setHasClicked] = useState(false);
   const [animationClass, setAnimationClass] = useState("");
-  const [scoreSort, setScoreSort] = useState<SortDirection>("desc");
-  const [participantSort, setParticipantSort] = useState<SortDirection>("asc");
+  const [scoreSearch, setScoreSearch] = useState("");
+  const [participantSearch, setParticipantSearch] = useState("");
+  const scoreRequest = useMemo(() => ({
+    limit: 10,
+    ...(scoreSearch.trim() ? { searchTerm: { name: "username", value: scoreSearch } } : {}),
+  }), [scoreSearch]);
+  const memberRequest = useMemo(() => ({
+    limit: 10,
+    search: [{ name: "role", condition: "EQUAL", value: "student" }],
+    ...(participantSearch.trim() ? { searchTerm: { name: "username", value: participantSearch } } : {}),
+  }), [participantSearch]);
+  const scoreboard = useCollectionSearch<ScoreboardEntry>({
+    endpoint: `/api/workspaces/${workspaceId}/scoreboard/search`,
+    initialPage: scoreboardPage,
+    request: scoreRequest,
+  });
+  const members = useCollectionSearch<WorkspaceMember>({
+    endpoint: `/api/workspaces/${workspaceId}/members/search`,
+    initialPage: memberPage,
+    request: memberRequest,
+  });
 
   const tabs: Section[] = canManage
     ? ["questions", "scoreboard", "participants"]
@@ -56,18 +75,8 @@ export function WorkspaceTabs({
   const gap = 2;
   const totalGapWidth = (tabCount - 1) * gap;
 
-  const sortedScoreboard = useMemo(() => [...scoreboard].sort((left, right) => {
-    const difference = Number(left.totalScore) - Number(right.totalScore);
-    if (difference !== 0) return scoreSort === "desc" ? -difference : difference;
-    return left.username.localeCompare(right.username);
-  }), [scoreboard, scoreSort]);
-
-  const sortedParticipants = useMemo(() => members
-    .filter((member) => member.role === "student" && member.platformRole === "student")
-    .sort((left, right) => {
-      const difference = new Date(left.joinedAt).getTime() - new Date(right.joinedAt).getTime();
-      return participantSort === "asc" ? difference : -difference;
-    }), [members, participantSort]);
+  const sortedScoreboard = scoreboard.page.items;
+  const sortedParticipants = members.page.items;
 
   const indicatorStyle = {
     left: `calc(2px + ((100% - 4px - ${totalGapWidth}px) / ${tabCount} + ${gap}px) * ${activeIndex})`,
@@ -89,7 +98,7 @@ export function WorkspaceTabs({
       header: "Rank",
       headerClassName: "w-12 pl-4",
       cellClassName: "pl-4 font-medium tabular-nums text-slate-400",
-      cell: (_entry, index) => index + 1,
+      cell: (entry) => entry.rank,
     },
     {
       id: "username",
@@ -165,7 +174,7 @@ export function WorkspaceTabs({
       </div>
 
       <TabsContent value="questions" className="mt-3 focus-visible:outline-none">
-        <QuestionTable questions={questions} workspaceId={workspaceId} canManage={canManage} />
+        <QuestionTable initialPage={questionPage} workspaceId={workspaceId} canManage={canManage} />
       </TabsContent>
 
       <TabsContent value="scoreboard" className="mt-3 focus-visible:outline-none">
@@ -174,19 +183,15 @@ export function WorkspaceTabs({
           rows={sortedScoreboard}
           columns={scoreboardColumns}
           getRowKey={(entry) => entry.userId}
-          emptyMessage="No submissions yet."
+          emptyMessage={scoreboard.error ?? (scoreSearch.trim() ? "No users match your search." : "No submissions yet.")}
+          search={<DataTableSearch value={scoreSearch} onValueChange={setScoreSearch} placeholder="Search username" />}
           rowClassName={(_entry, index) => cn("transition-colors", index % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]")}
-          actions={(
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => setScoreSort((current) => current === "desc" ? "asc" : "desc")}
-              className="h-9 w-[150px] rounded-full bg-black px-3 font-normal !text-white transition-colors hover:bg-zinc-900/90 dark:bg-white dark:!text-black dark:hover:bg-zinc-100/90"
-            >
-              {scoreSort === "desc" ? "High → Low" : "Low → High"}
-            </Button>
-          )}
+          pagination={scoreboard.hasPrevious || scoreboard.page.nextCursor ? (
+            <DataTablePagination
+              previous={{ label: "Prev", disabled: !scoreboard.hasPrevious || scoreboard.isLoading, onClick: scoreboard.previous }}
+              next={{ label: "Next", disabled: !scoreboard.page.nextCursor || scoreboard.isLoading, onClick: scoreboard.next }}
+            />
+          ) : null}
         />
       </TabsContent>
 
@@ -197,24 +202,16 @@ export function WorkspaceTabs({
             rows={sortedParticipants}
             columns={participantColumns}
             getRowKey={(member) => member.id}
-            emptyMessage="No participants yet."
+            emptyMessage={members.error ?? (participantSearch.trim() ? "No participants match your search." : "No participants yet.")}
+            search={<DataTableSearch value={participantSearch} onValueChange={setParticipantSearch} placeholder="Search username" />}
             rowClassName={(_member, index) => cn("transition-colors", index % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]")}
-            actions={
-              <>
-                <Button asChild variant="outline" size="sm" className="h-9 rounded-full">
-                  <Link href={`/workspaces/${workspaceId}/members`}>Open roster</Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  onClick={() => setParticipantSort((current) => current === "desc" ? "asc" : "desc")}
-                  className="h-9 w-[150px] rounded-full bg-black px-3 font-normal !text-white transition-colors hover:bg-zinc-900/90 dark:bg-white dark:!text-black dark:hover:bg-zinc-100/90"
-                >
-                  {participantSort === "desc" ? "Newest → Oldest" : "Oldest → Newest"}
-                </Button>
-              </>
-            }
+            actions={<Button asChild variant="outline" size="sm" className="h-9 rounded-full"><Link href={`/workspaces/${workspaceId}/members`}>Open roster</Link></Button>}
+            pagination={members.hasPrevious || members.page.nextCursor ? (
+              <DataTablePagination
+                previous={{ label: "Prev", disabled: !members.hasPrevious || members.isLoading, onClick: members.previous }}
+                next={{ label: "Next", disabled: !members.page.nextCursor || members.isLoading, onClick: members.next }}
+              />
+            ) : null}
           />
         </TabsContent>
       ) : null}

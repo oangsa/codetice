@@ -6,10 +6,23 @@ import { questions, testcases } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { slugify } from "@/lib/utils";
-import { assertQuestionParent } from "@/server/questions/ownership";
 import type { QuestionInput, TestcaseInput } from "@/server/questions/types";
+import type { WorkspaceActor } from "@/server/workspaces/authorization";
+import { requireWorkspaceStaff } from "@/server/workspaces/authorization";
 
-export async function createUniqueQuestionSlug(workspaceId: string, title: string, questionId?: string) {
+type Db = ReturnType<typeof getDb>;
+type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+async function lockWorkspaceQuestion(tx: Transaction, workspaceId: string, questionId: string) {
+  const rows = await tx.execute<{ id: string }>(sql`
+    select id from questions
+    where workspace_id = ${workspaceId} and id = ${questionId}
+    for update
+  `);
+  if (rows.length === 0) throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
+}
+
+async function createUniqueQuestionSlug(workspaceId: string, title: string, questionId?: string) {
   const db = getDb();
   const baseSlug = slugify(title).slice(0, 240) || "question";
   let slug = baseSlug;
@@ -32,11 +45,12 @@ export async function createUniqueQuestionSlug(workspaceId: string, title: strin
 }
 
 export async function createWorkspaceQuestion(input: {
+  actor: WorkspaceActor;
   workspaceId: string;
-  createdBy: string;
   question: QuestionInput;
   testcases: TestcaseInput[];
 }) {
+  await requireWorkspaceStaff(input.actor, input.workspaceId);
   if (input.question.isPublished && input.testcases.length === 0) {
     throw new AppError(Messages.publishNeedsTestcase, 400, ErrorCode.VALIDATION);
   }
@@ -56,7 +70,7 @@ export async function createWorkspaceQuestion(input: {
       starterCodeByLanguage: JSON.stringify(input.question.starterCodeByLanguage ?? {}),
       allowedLanguages: input.question.allowedLanguages ? JSON.stringify(input.question.allowedLanguages) : null,
       isPublished: input.question.isPublished,
-      createdBy: input.createdBy,
+      createdBy: input.actor.userId,
     }).returning();
     if (!question) throw new AppError(Messages.unableToCreateQuestion, 500, ErrorCode.INTERNAL);
 
@@ -79,13 +93,16 @@ export async function createWorkspaceQuestion(input: {
 }
 
 export async function updateWorkspaceQuestion(
+  actor: WorkspaceActor,
   workspaceId: string,
   questionId: string,
   input: QuestionInput,
 ) {
+  await requireWorkspaceStaff(actor, workspaceId);
   const slug = await createUniqueQuestionSlug(workspaceId, input.title, questionId);
   const db = getDb();
   return db.transaction(async (tx) => {
+    await lockWorkspaceQuestion(tx, workspaceId, questionId);
     if (input.isPublished) {
       const [count] = await tx.select({ count: sql<number>`count(*)::int` }).from(testcases)
         .innerJoin(questions, eq(questions.id, testcases.questionId))
@@ -113,7 +130,8 @@ export async function updateWorkspaceQuestion(
   });
 }
 
-export async function deleteWorkspaceQuestion(workspaceId: string, questionId: string) {
+export async function deleteWorkspaceQuestion(actor: WorkspaceActor, workspaceId: string, questionId: string) {
+  await requireWorkspaceStaff(actor, workspaceId);
   const db = getDb();
   const [deleted] = await db.delete(questions).where(and(
     eq(questions.workspaceId, workspaceId),
@@ -122,50 +140,58 @@ export async function deleteWorkspaceQuestion(workspaceId: string, questionId: s
   if (!deleted) throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
 }
 
-export async function createWorkspaceTestcase(workspaceId: string, questionId: string, input: TestcaseInput) {
-  await assertQuestionParent(workspaceId, questionId);
+export async function createWorkspaceTestcase(actor: WorkspaceActor, workspaceId: string, questionId: string, input: TestcaseInput) {
+  await requireWorkspaceStaff(actor, workspaceId);
   const db = getDb();
-  const [created] = await db.insert(testcases).values({
-    questionId,
-    name: input.name ?? null,
-    input: input.input,
-    expectedOutput: input.expectedOutput,
-    isSample: input.isSample,
-    isHidden: input.isHidden,
-    checkerType: input.checkerType ?? "exact",
-    floatTolerance: input.floatTolerance?.toString() ?? null,
-    sortOrder: input.sortOrder,
-  }).returning();
-  return created;
+  return db.transaction(async (tx) => {
+    await lockWorkspaceQuestion(tx, workspaceId, questionId);
+    const [created] = await tx.insert(testcases).values({
+      questionId,
+      name: input.name ?? null,
+      input: input.input,
+      expectedOutput: input.expectedOutput,
+      isSample: input.isSample,
+      isHidden: input.isHidden,
+      checkerType: input.checkerType ?? "exact",
+      floatTolerance: input.floatTolerance?.toString() ?? null,
+      sortOrder: input.sortOrder,
+    }).returning();
+    return created;
+  });
 }
 
 export async function updateWorkspaceTestcase(
+  actor: WorkspaceActor,
   workspaceId: string,
   questionId: string,
   testcaseId: string,
   input: TestcaseInput,
 ) {
-  await assertQuestionParent(workspaceId, questionId);
-  const db = getDb();
-  const [updated] = await db.update(testcases).set({
-    name: input.name ?? null,
-    input: input.input,
-    expectedOutput: input.expectedOutput,
-    isSample: input.isSample,
-    isHidden: input.isHidden,
-    checkerType: input.checkerType ?? "exact",
-    floatTolerance: input.floatTolerance?.toString() ?? null,
-    sortOrder: input.sortOrder,
-    updatedAt: new Date(),
-  }).where(and(eq(testcases.id, testcaseId), eq(testcases.questionId, questionId))).returning();
-  if (!updated) throw new AppError(Messages.testcaseNotFound, 404, ErrorCode.NOT_FOUND);
-  return updated;
-}
-
-export async function deleteWorkspaceTestcase(workspaceId: string, questionId: string, testcaseId: string) {
-  await assertQuestionParent(workspaceId, questionId);
+  await requireWorkspaceStaff(actor, workspaceId);
   const db = getDb();
   return db.transaction(async (tx) => {
+    await lockWorkspaceQuestion(tx, workspaceId, questionId);
+    const [updated] = await tx.update(testcases).set({
+      name: input.name ?? null,
+      input: input.input,
+      expectedOutput: input.expectedOutput,
+      isSample: input.isSample,
+      isHidden: input.isHidden,
+      checkerType: input.checkerType ?? "exact",
+      floatTolerance: input.floatTolerance?.toString() ?? null,
+      sortOrder: input.sortOrder,
+      updatedAt: new Date(),
+    }).where(and(eq(testcases.id, testcaseId), eq(testcases.questionId, questionId))).returning();
+    if (!updated) throw new AppError(Messages.testcaseNotFound, 404, ErrorCode.NOT_FOUND);
+    return updated;
+  });
+}
+
+export async function deleteWorkspaceTestcase(actor: WorkspaceActor, workspaceId: string, questionId: string, testcaseId: string) {
+  await requireWorkspaceStaff(actor, workspaceId);
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    await lockWorkspaceQuestion(tx, workspaceId, questionId);
     const [deleted] = await tx.delete(testcases).where(and(
       eq(testcases.id, testcaseId),
       eq(testcases.questionId, questionId),

@@ -18,6 +18,7 @@ describe("workspace list SQL", () => {
     expect(query).toContain('solved_question.workspace_id = "workspaces"."id"');
     expect(query).not.toContain('workspace_id = "id"');
     expect(query).not.toContain('creator.id = "created_by"');
+    expect(query).not.toContain('"workspaces"."workspaces"');
   });
 
   test("counts personal solves from immutable scored runs, including unranked staff submissions", () => {

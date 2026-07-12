@@ -4,20 +4,19 @@ import { ok, toFailResponse, Messages } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth";
 import { parsePageLimit } from "@/lib/cursor";
 import { questionWithTestcasesSchema } from "@/modules/questions/schema";
-import { requireWorkspaceMember, requireWorkspaceStaff } from "@/server/workspaces/authorization";
 import { createWorkspaceQuestion } from "@/server/questions/mutations";
 import { listWorkspaceQuestionsPage } from "@/server/questions/queries";
+import { requireWorkspaceMember, requireWorkspaceStaff } from "@/server/workspaces/authorization";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const actor = await requireApiUser();
     const { id: workspaceId } = await context.params;
-    const access = await requireWorkspaceMember(actor, workspaceId);
+    await requireWorkspaceMember(actor, workspaceId);
     const url = new URL(request.url);
     return ok(await listWorkspaceQuestionsPage({
+      actor,
       workspaceId,
-      userId: actor.userId,
-      includeDrafts: access.staff,
       limit: parsePageLimit(url.searchParams.get("limit")),
       cursor: url.searchParams.get("cursor"),
     }));
@@ -33,8 +32,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await requireWorkspaceStaff(actor, workspaceId);
     const body = questionWithTestcasesSchema.parse(await request.json());
     const question = await createWorkspaceQuestion({
+      actor,
       workspaceId,
-      createdBy: actor.userId,
       question: body,
       testcases: body.testcases,
     });

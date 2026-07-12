@@ -3,13 +3,14 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 
 import argon2 from "argon2";
-import { and, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { passwordResetTokens, questions, users, workspaces } from "@/db/schema";
 import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/modules/auth/constants";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
 import { decodeCursor, encodeCursor } from "@/lib/cursor";
+import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import type { SessionUser } from "@/lib/types";
 
 function toSessionUser(user: {
@@ -118,21 +119,54 @@ export async function getSessionUserById(userId: string) {
   return user ? toSessionUser(user) : null;
 }
 
-export async function listUsersPage(input: { limit: number; cursor: string | null }) {
+export const adminUserSearchConfig = {
+  fields: {
+    username: ["CONTAINS", "STARTWITH", "EQUAL"] as const,
+    role: ["EQUAL", "NOTEQUAL"] as const,
+    createdAt: ["GREATEROREQUAL", "LESSEROREQUAL"] as const,
+  },
+  searchTermFields: ["username"] as const,
+};
+
+function adminUserSearchWhere(search: ParsedCollectionSearch) {
+  const conditions: SQL[] = [];
+  for (const item of search.search) {
+    const value = String(item.value);
+    if (item.name === "username") {
+      if (item.condition === "CONTAINS") conditions.push(ilike(users.username, `%${escapeLikePattern(value)}%`));
+      if (item.condition === "STARTWITH") conditions.push(ilike(users.username, `${escapeLikePattern(value)}%`));
+      if (item.condition === "EQUAL") conditions.push(eq(users.username, value));
+      continue;
+    }
+    if (item.name === "role") {
+      if (!(["student", "admin"] as const).includes(value as "student" | "admin")) {
+        throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+      }
+      conditions.push(item.condition === "EQUAL" ? eq(users.role, value) : ne(users.role, value));
+      continue;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+    conditions.push(item.condition === "GREATEROREQUAL" ? gte(users.createdAt, date) : lte(users.createdAt, date));
+  }
+  if (search.searchTerm) conditions.push(ilike(users.username, `%${escapeLikePattern(search.searchTerm.value)}%`));
+  return and(...conditions);
+}
+
+async function queryUsersPage(search: ParsedCollectionSearch) {
   const endpoint = "admin-users";
   const scope = "global";
-  const filters = "";
+  const filters = search.filters;
   let after: ReturnType<typeof or> | undefined;
-  if (input.cursor) {
+  if (search.cursor) {
     try {
-      const decoded = decodeCursor(input.cursor, { endpoint, scope, filters });
+      const decoded = decodeCursor(search.cursor, { endpoint, scope, filters });
       const [createdAtValue, id] = decoded.keys;
       if (typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
-      const createdAt = new Date(createdAtValue);
-      if (Number.isNaN(createdAt.getTime())) throw new Error();
+      if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
       after = or(
-        lt(users.createdAt, createdAt),
-        and(eq(users.createdAt, createdAt), lt(users.id, id)),
+        sql`${users.createdAt} < ${createdAtValue}::timestamp`,
+        and(sql`${users.createdAt} = ${createdAtValue}::timestamp`, lt(users.id, id)),
       );
     } catch {
       throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
@@ -143,17 +177,32 @@ export async function listUsersPage(input: { limit: number; cursor: string | nul
     username: users.username,
     role: users.role,
     createdAt: users.createdAt,
-  }).from(users).where(after).orderBy(desc(users.createdAt), desc(users.id)).limit(input.limit + 1);
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit);
-  const last = items.at(-1);
+    cursorCreatedAt: sql<string>`${users.createdAt}::text`,
+  }).from(users).where(and(adminUserSearchWhere(search), after)).orderBy(desc(users.createdAt), desc(users.id)).limit(search.limit + 1);
+  const hasMore = rows.length > search.limit;
+  const pageRows = rows.slice(0, search.limit);
+  const items = pageRows.map((row) => ({
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    createdAt: row.createdAt,
+  }));
+  const last = pageRows.at(-1);
   return {
     items,
     hasMore,
     nextCursor: hasMore && last
-      ? encodeCursor({ endpoint, scope, filters, keys: [last.createdAt.toISOString(), last.id] })
+      ? encodeCursor({ endpoint, scope, filters, keys: [last.cursorCreatedAt, last.id] })
       : null,
   };
+}
+
+export function listUsersPage(input: { limit: number; cursor: string | null }) {
+  return queryUsersPage(parseCollectionSearch(input, adminUserSearchConfig));
+}
+
+export function searchUsersPage(body: unknown) {
+  return queryUsersPage(parseCollectionSearch(body, adminUserSearchConfig));
 }
 
 async function countAdmins() {

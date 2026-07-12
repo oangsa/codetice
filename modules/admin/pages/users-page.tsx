@@ -11,10 +11,9 @@ export const metadata = {
   description: "View and manage all registered users.",
 };
 
-export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<{ cursor?: string }> }) {
+export default async function AdminUsersPage() {
   const session = await requirePageAdmin();
-  const query = await searchParams;
-  const page = await listUsersPage({ limit: 25, cursor: query.cursor ?? null });
+  const page = await listUsersPage({ limit: 10, cursor: null });
   const rows = page.items.map((user) => ({
     ...user,
     role: user.role === "admin" ? "admin" as const : "student" as const,
@@ -37,9 +36,8 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
       </div>
 
       <UserManager
-        users={rows}
+        initialPage={{ ...page, items: rows }}
         currentUserId={session.userId}
-        nextPageHref={page.nextCursor ? `/admin/users?cursor=${encodeURIComponent(page.nextCursor)}` : undefined}
       />
     </div>
   );

@@ -1,8 +1,11 @@
 import "server-only";
 
 import { decodeCursor, encodeCursor } from "@/lib/cursor";
+import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getSqlClient } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
+import type { WorkspaceActor } from "@/server/workspaces/authorization";
+import { requireWorkspaceMember } from "@/server/workspaces/authorization";
 
 type ScoreboardRow = {
   user_id: string;
@@ -12,18 +15,40 @@ type ScoreboardRow = {
   rank: number;
 };
 
-export async function getWorkspaceScoreboardPage(input: {
+export const workspaceScoreboardSearchConfig = {
+  fields: { username: ["CONTAINS", "STARTWITH", "EQUAL"] as const },
+  searchTermFields: ["username"] as const,
+};
+
+function scoreboardUsernameFilters(search: ParsedCollectionSearch) {
+  const values = { contains: null as string | null, startsWith: null as string | null, equal: null as string | null };
+  for (const item of search.search) {
+    const key = item.condition === "CONTAINS" ? "contains" : item.condition === "STARTWITH" ? "startsWith" : "equal";
+    if (values[key] !== null) throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+    values[key] = String(item.value);
+  }
+  if (search.searchTerm) {
+    if (values.contains !== null) throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+    values.contains = search.searchTerm.value;
+  }
+  return {
+    contains: values.contains === null ? null : `%${escapeLikePattern(values.contains)}%`,
+    startsWith: values.startsWith === null ? null : `${escapeLikePattern(values.startsWith)}%`,
+    equal: values.equal,
+  };
+}
+
+async function queryWorkspaceScoreboardPage(input: {
   workspaceId: string;
-  limit: number;
-  cursor: string | null;
+  search: ParsedCollectionSearch;
 }) {
   const endpoint = "workspace-scoreboard";
   const scope = input.workspaceId;
-  const filters = "published=true";
+  const filters = JSON.stringify({ published: true, search: input.search.filters });
   let cursorValues: [string, number, string, string] | null = null;
-  if (input.cursor) {
+  if (input.search.cursor) {
     try {
-      const decoded = decodeCursor(input.cursor, { endpoint, scope, filters });
+      const decoded = decodeCursor(input.search.cursor, { endpoint, scope, filters });
       const [score, solved, username, userId] = decoded.keys;
       if (typeof score !== "string" || typeof solved !== "number" || typeof username !== "string" || typeof userId !== "string") {
         throw new Error();
@@ -35,6 +60,7 @@ export async function getWorkspaceScoreboardPage(input: {
   }
 
   const client = getSqlClient();
+  const username = scoreboardUsernameFilters(input.search);
   const rows = cursorValues
     ? await client<ScoreboardRow[]>`
         with eligible as (
@@ -62,12 +88,17 @@ export async function getWorkspaceScoreboardPage(input: {
         )
         select user_id, username, total_score::text, solved_count, rank
         from ranked
-        where total_score < ${cursorValues[0]}::numeric
-           or (total_score = ${cursorValues[0]}::numeric and solved_count < ${cursorValues[1]})
-           or (total_score = ${cursorValues[0]}::numeric and solved_count = ${cursorValues[1]} and username > ${cursorValues[2]})
-           or (total_score = ${cursorValues[0]}::numeric and solved_count = ${cursorValues[1]} and username = ${cursorValues[2]} and user_id > ${cursorValues[3]}::uuid)
+        where (${username.contains}::text is null or username ilike ${username.contains})
+          and (${username.startsWith}::text is null or username ilike ${username.startsWith})
+          and (${username.equal}::text is null or username = ${username.equal})
+          and (
+            total_score < ${cursorValues[0]}::numeric
+            or (total_score = ${cursorValues[0]}::numeric and solved_count < ${cursorValues[1]})
+            or (total_score = ${cursorValues[0]}::numeric and solved_count = ${cursorValues[1]} and username > ${cursorValues[2]})
+            or (total_score = ${cursorValues[0]}::numeric and solved_count = ${cursorValues[1]} and username = ${cursorValues[2]} and user_id > ${cursorValues[3]}::uuid)
+          )
         order by total_score desc, solved_count desc, username asc, user_id asc
-        limit ${input.limit + 1}
+        limit ${input.search.limit + 1}
       `
     : await client<ScoreboardRow[]>`
         with eligible as (
@@ -87,22 +118,23 @@ export async function getWorkspaceScoreboardPage(input: {
           left join question_scores qs on qs.user_id = e.user_id
           left join questions q on q.id = qs.question_id and q.workspace_id = ${input.workspaceId}
           group by e.user_id, e.username
-        )
-        select
-          user_id,
-          username,
-          total_score::text,
-          solved_count,
-          row_number() over (
+        ), ranked as (
+          select *, row_number() over (
             order by total_score desc, solved_count desc, username asc, user_id asc
           )::int as rank
-        from totals
+          from totals
+        )
+        select user_id, username, total_score::text, solved_count, rank
+        from ranked
+        where (${username.contains}::text is null or username ilike ${username.contains})
+          and (${username.startsWith}::text is null or username ilike ${username.startsWith})
+          and (${username.equal}::text is null or username = ${username.equal})
         order by total_score desc, solved_count desc, username asc, user_id asc
-        limit ${input.limit + 1}
+        limit ${input.search.limit + 1}
       `;
 
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit).map((row) => ({
+  const hasMore = rows.length > input.search.limit;
+  const items = rows.slice(0, input.search.limit).map((row) => ({
     userId: row.user_id,
     username: row.username,
     totalScore: row.total_score,
@@ -120,4 +152,25 @@ export async function getWorkspaceScoreboardPage(input: {
       keys: [last.totalScore, last.solvedCount, last.username, last.userId],
     }) : null,
   };
+}
+
+export async function getWorkspaceScoreboardPage(input: {
+  actor: WorkspaceActor;
+  workspaceId: string;
+  limit: number;
+  cursor: string | null;
+}) {
+  await requireWorkspaceMember(input.actor, input.workspaceId);
+  const search = parseCollectionSearch({ limit: input.limit, cursor: input.cursor }, workspaceScoreboardSearchConfig);
+  return queryWorkspaceScoreboardPage({ workspaceId: input.workspaceId, search });
+}
+
+export async function searchWorkspaceScoreboardPage(input: {
+  actor: WorkspaceActor;
+  workspaceId: string;
+  body: unknown;
+}) {
+  await requireWorkspaceMember(input.actor, input.workspaceId);
+  const search = parseCollectionSearch(input.body, workspaceScoreboardSearchConfig);
+  return queryWorkspaceScoreboardPage({ workspaceId: input.workspaceId, search });
 }

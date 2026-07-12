@@ -7,12 +7,11 @@ import { InviteCodeSection } from "@/modules/workspaces/components/invite-code-s
 import { WorkspaceTabs } from "@/modules/workspaces/components/workspace-tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { requirePageUser } from "@/lib/auth";
-import { collectCursorItems } from "@/lib/pagination";
 import { formatDate } from "@/lib/utils";
-import { getWorkspaceScoreboardPage } from "@/server/scoreboard/service";
-import { listWorkspaceQuestionsPage } from "@/server/questions/queries";
+import { searchWorkspaceScoreboardPage } from "@/server/scoreboard/service";
+import { searchWorkspaceQuestionsPage } from "@/server/questions/queries";
 import { getWorkspaceAccess } from "@/server/workspaces/authorization";
-import { getWorkspaceDetail, listWorkspaceMembersPage } from "@/server/workspaces/queries";
+import { getWorkspaceDetail, getWorkspaceMembership, searchWorkspaceMembersPage } from "@/server/workspaces/queries";
 
 export default async function WorkspaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser();
@@ -20,21 +19,29 @@ export default async function WorkspaceDetailPage({ params }: { params: Promise<
   const access = await getWorkspaceAccess(actor, id);
   if (!access?.member) notFound();
 
-  const [workspace, questionItems, scoreboardItems, memberItems] = await Promise.all([
-    getWorkspaceDetail(id, access),
-    collectCursorItems((cursor) => listWorkspaceQuestionsPage({
+  const [workspace, questionPage, scoreboardPage, memberPage, membership] = await Promise.all([
+    getWorkspaceDetail(actor, id),
+    searchWorkspaceQuestionsPage({
+      actor,
       workspaceId: id,
-      userId: actor.userId,
-      includeDrafts: access.staff,
-      limit: 100,
-      cursor,
-    })),
-    collectCursorItems((cursor) => getWorkspaceScoreboardPage({ workspaceId: id, limit: 100, cursor })),
-    collectCursorItems((cursor) => listWorkspaceMembersPage({ workspaceId: id, limit: 100, cursor })),
+      body: {
+        limit: 10,
+        search: [{ name: "isPublished", condition: "EQUAL", value: true }],
+      },
+    }),
+    searchWorkspaceScoreboardPage({ actor, workspaceId: id, body: { limit: 10 } }),
+    access.staff
+      ? searchWorkspaceMembersPage({
+          actor,
+          workspaceId: id,
+          body: { limit: 10, search: [{ name: "role", condition: "EQUAL", value: "student" }] },
+        })
+      : Promise.resolve({ items: [], nextCursor: null, hasMore: false }),
+    getWorkspaceMembership(actor, id),
   ]);
 
-  const questions = questionItems.map((question) => ({
-    questionId: question.id,
+  const questions = questionPage.items.map((question) => ({
+    id: question.id,
     title: question.title,
     slug: question.slug,
     difficulty: question.difficulty,
@@ -44,9 +51,8 @@ export default async function WorkspaceDetailPage({ params }: { params: Promise<
     status: question.status,
     isPublished: question.isPublished,
   }));
-  const totalQuestions = questions.length;
-  const incompleteCount = questions.filter((question) => question.status !== "accepted").length;
-  const membership = memberItems.find((member) => member.userId === actor.userId);
+  const totalQuestions = workspace.questionCount;
+  const incompleteCount = Math.max(0, workspace.questionCount - workspace.solvedCount);
 
   return (
     <div className="space-y-6">
@@ -110,9 +116,9 @@ export default async function WorkspaceDetailPage({ params }: { params: Promise<
       </div>
 
       <WorkspaceTabs
-        questions={questions}
-        scoreboard={scoreboardItems}
-        members={access.staff ? memberItems : []}
+        questionPage={{ ...questionPage, items: questions }}
+        scoreboardPage={scoreboardPage}
+        memberPage={memberPage}
         workspaceId={id}
         canManage={access.staff}
       />

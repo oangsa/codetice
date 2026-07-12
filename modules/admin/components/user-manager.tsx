@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Messages } from "@/lib/api.constants";
+import { useCollectionSearch } from "@/lib/use-collection-search";
 import { cn } from "@/lib/utils";
 
 export type AdminUserRow = {
@@ -340,18 +341,14 @@ function DeleteUserButton({
 }
 
 export function UserManager({
-  users: initialUsers,
+  initialPage,
   currentUserId,
-  nextPageHref,
 }: {
-  users: AdminUserRow[];
+  initialPage: { items: AdminUserRow[]; nextCursor: string | null; hasMore: boolean };
   currentUserId: string;
-  nextPageHref?: string;
 }) {
   const router = useRouter();
-  const [users, setUsers] = useState(() => initialUsers.map(normalizeUser));
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [filterValues, setFilterValues] = useState<FilterValues>(createEmptyFilters);
   const [filterDraft, setFilterDraft] = useState<FilterValues>(createEmptyFilters);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
@@ -383,44 +380,39 @@ export function UserManager({
   }, [filterValues]);
 
   const activeFilterCount = activeFilters.length;
-
-  const filteredUsers = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    const registeredFrom = getDateBoundary(filterValues.registeredFrom);
-    const registeredTo = getDateBoundary(filterValues.registeredTo, true);
-
-    return users.filter((user) => {
-      const createdTime = new Date(user.createdAt).getTime();
-      const matchesSearch = normalizedSearch ? user.username.toLowerCase().includes(normalizedSearch) : true;
-      const matchesRole = filterValues.role ? user.role === filterValues.role : true;
-      const matchesFrom = registeredFrom === null ? true : createdTime >= registeredFrom;
-      const matchesTo = registeredTo === null ? true : createdTime <= registeredTo;
-
-      return matchesSearch && matchesRole && matchesFrom && matchesTo;
-    });
-  }, [users, search, filterValues]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const request = useMemo(() => ({
+    limit: PAGE_SIZE,
+    search: [
+      ...(filterValues.role ? [{ name: "role", condition: "EQUAL", value: filterValues.role }] : []),
+      ...(getDateBoundary(filterValues.registeredFrom) !== null ? [{
+        name: "createdAt",
+        condition: "GREATEROREQUAL",
+        value: new Date(getDateBoundary(filterValues.registeredFrom)!).toISOString(),
+      }] : []),
+      ...(getDateBoundary(filterValues.registeredTo, true) !== null ? [{
+        name: "createdAt",
+        condition: "LESSEROREQUAL",
+        value: new Date(getDateBoundary(filterValues.registeredTo, true)!).toISOString(),
+      }] : []),
+    ],
+    ...(search.trim() ? { searchTerm: { name: "username", value: search } } : {}),
+  }), [filterValues, search]);
+  const collection = useCollectionSearch<AdminUserRow>({
+    endpoint: "/api/admin/users/search",
+    initialPage,
+    request,
+  });
+  const pageItems = collection.page.items.map(normalizeUser);
 
   function handleSaved(user: AdminUserRow) {
-    setUsers((current) => {
-      const exists = current.some((item) => item.id === user.id);
-      if (exists) {
-        return current.map((item) => (item.id === user.id ? user : item));
-      }
-
-      return [...current, user].sort((a, b) => {
-        const byCreatedAt = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        return byCreatedAt || a.username.localeCompare(b.username);
-      });
-    });
+    void user;
+    collection.reload();
     router.refresh();
   }
 
   function handleDeleted(userId: string) {
-    setUsers((current) => current.filter((user) => user.id !== userId));
+    void userId;
+    collection.reload();
     router.refresh();
   }
 
@@ -438,7 +430,6 @@ export function UserManager({
 
   function handleApplyFilters() {
     setFilterValues(filterDraft);
-    setPage(1);
     setIsFilterDialogOpen(false);
   }
 
@@ -446,7 +437,6 @@ export function UserManager({
     const emptyFilters = createEmptyFilters();
     setFilterDraft(emptyFilters);
     setFilterValues(emptyFilters);
-    setPage(1);
     setIsFilterDialogOpen(false);
   }
 
@@ -455,7 +445,6 @@ export function UserManager({
       ...current,
       [fieldKey]: "",
     }));
-    setPage(1);
   }
 
   const columns: DataTableColumn<AdminUserRow>[] = [
@@ -510,14 +499,13 @@ export function UserManager({
         rows={pageItems}
         columns={columns}
         getRowKey={(user) => user.id}
-        emptyMessage={search || activeFilterCount > 0 ? "No users match your search." : "No users found."}
+        emptyMessage={collection.error ?? (search || activeFilterCount > 0 ? "No users match your search." : "No users found.")}
         rowClassName="hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
         search={
           <DataTableSearch
             value={search}
             onValueChange={(value) => {
               setSearch(value);
-              setPage(1);
             }}
             placeholder="Search by username"
             className="[&_input]:w-72"
@@ -568,15 +556,10 @@ export function UserManager({
             </Button>
           </div>
         ) : null}
-        pagination={totalPages > 1 || nextPageHref ? (
+        pagination={collection.hasPrevious || collection.page.nextCursor ? (
           <DataTablePagination
-            label={`Page ${currentPage} of ${totalPages}`}
-            previous={{ label: "Prev", disabled: currentPage === 1, onClick: () => setPage((current) => Math.max(1, current - 1)) }}
-            next={currentPage < totalPages
-              ? { label: "Next", onClick: () => setPage((current) => Math.min(totalPages, current + 1)) }
-              : nextPageHref
-                ? { label: "Next", href: nextPageHref }
-                : { label: "Next", disabled: true }}
+            previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
+            next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
           />
         ) : null}
       />

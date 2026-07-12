@@ -14,7 +14,7 @@ export default async function EditWorkspaceQuestionPage({ params }: { params: Pr
   const access = await getWorkspaceAccess(actor, workspaceId);
   if (!access?.staff) notFound();
   const [question, languages] = await Promise.all([
-    getWorkspaceQuestionById(workspaceId, questionId),
+    getWorkspaceQuestionById(actor, workspaceId, questionId),
     listEnabledLanguageOptions(),
   ]);
   if (!question) notFound();

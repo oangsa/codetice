@@ -15,9 +15,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   try {
     const actor = await requireApiUser();
     const { id: workspaceId, questionId } = await context.params;
-    const access = await requireWorkspaceMember(actor, workspaceId);
-    const question = await getWorkspaceQuestionById(workspaceId, questionId);
-    if (!question || (!access.staff && !question.isPublished)) {
+    await requireWorkspaceMember(actor, workspaceId);
+    const question = await getWorkspaceQuestionById(actor, workspaceId, questionId);
+    if (!question) {
       throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
     }
     return ok({
@@ -49,7 +49,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id: workspaceId, questionId } = await context.params;
     await requireWorkspaceStaff(actor, workspaceId);
     const body = questionSchema.parse(await request.json());
-    return ok({ question: await updateWorkspaceQuestion(workspaceId, questionId, body) });
+    return ok({ question: await updateWorkspaceQuestion(actor, workspaceId, questionId, body) });
   } catch (error) {
     return toFailResponse(error, error instanceof z.ZodError ? Messages.invalidRequest : Messages.unableToUpdateQuestion);
   }
@@ -59,8 +59,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   try {
     const actor = await requireApiUser();
     const { id: workspaceId, questionId } = await context.params;
-    await requireWorkspaceStaff(actor, workspaceId);
-    await deleteWorkspaceQuestion(workspaceId, questionId);
+    await deleteWorkspaceQuestion(actor, workspaceId, questionId);
     return ok({ message: "Question deleted." });
   } catch (error) {
     return toFailResponse(error, Messages.unableToDeleteQuestion);

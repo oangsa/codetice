@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { MemberManager } from "@/modules/workspaces/components/member-manager";
 import { PageHeader } from "@/components/common/page-header";
 import { requirePageUser } from "@/lib/auth";
-import { collectCursorItems } from "@/lib/pagination";
 import { getWorkspaceAccess } from "@/server/workspaces/authorization";
 import { listWorkspaceMembersPage } from "@/server/workspaces/queries";
 
@@ -13,9 +12,7 @@ export default async function WorkspaceMembersPage({ params }: { params: Promise
   const { id } = await params;
   const access = await getWorkspaceAccess(actor, id);
   if (!access?.staff) notFound();
-  const members = await collectCursorItems((cursor) => (
-    listWorkspaceMembersPage({ workspaceId: id, limit: 100, cursor })
-  ));
+  const memberPage = await listWorkspaceMembersPage({ actor, workspaceId: id, limit: 25, cursor: null });
 
   return (
     <div className="space-y-6">
@@ -25,7 +22,7 @@ export default async function WorkspaceMembersPage({ params }: { params: Promise
         description={access.admin ? "Global administrators can change roles and remove members." : "Workspace staff can view this roster. Membership changes require a global administrator."}
         actions={<Link className="text-sm underline" href={`/workspaces/${id}`}>Back to workspace</Link>}
       />
-      <MemberManager workspaceId={id} initialMembers={members} canManage={access.admin} />
+      <MemberManager workspaceId={id} initialPage={memberPage} canManage={access.admin} />
     </div>
   );
 }

@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id: workspaceId, userId } = await context.params;
     await requireWorkspaceAdmin(actor, workspaceId);
     const { role } = roleSchema.parse(await request.json());
-    return ok({ membership: await updateWorkspaceMemberRole(workspaceId, userId, role) });
+    return ok({ membership: await updateWorkspaceMemberRole(actor, workspaceId, userId, role) });
   } catch (error) {
     return toFailResponse(error, error instanceof z.ZodError ? Messages.invalidRequest : Messages.somethingWrong);
   }
@@ -24,7 +24,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const actor = await requireApiUser();
     const { id: workspaceId, userId } = await context.params;
     await requireWorkspaceAdmin(actor, workspaceId);
-    await removeWorkspaceMember(workspaceId, userId);
+    await removeWorkspaceMember(actor, workspaceId, userId);
     return ok({ message: "Member removed." });
   } catch (error) {
     return toFailResponse(error);

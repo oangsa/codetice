@@ -6,27 +6,29 @@ import {
   submissions,
   users,
   workspaceMembers,
-  workspaces,
 } from "@/db/schema";
 
 export function workspaceListStatistics(userId: string) {
+  const outerWorkspaceId = sql.raw('"workspaces"."id"');
+  const outerWorkspaceCreatorId = sql.raw('"workspaces"."created_by"');
+
   return {
     memberCount: sql<number>`(
       select count(*)::int from ${workspaceMembers} cm_count
-      where cm_count.workspace_id = ${workspaces}.${workspaces.id}
+      where cm_count.workspace_id = ${outerWorkspaceId}
     )`,
     creatorName: sql<string>`coalesce((
-      select creator.username from ${users} creator where creator.id = ${workspaces}.${workspaces.createdBy}
+      select creator.username from ${users} creator where creator.id = ${outerWorkspaceCreatorId}
     ), 'Unknown')`,
     questionCount: sql<number>`(
       select count(*)::int from ${questions} question_count
-      where question_count.workspace_id = ${workspaces}.${workspaces.id}
+      where question_count.workspace_id = ${outerWorkspaceId}
         and question_count.is_published = true
     )`,
     solvedCount: sql<number>`(
       select count(*)::int
       from ${questions} solved_question
-      where solved_question.workspace_id = ${workspaces}.${workspaces.id}
+      where solved_question.workspace_id = ${outerWorkspaceId}
         and solved_question.is_published = true
         and (
           select max(personal_scored_run.score)

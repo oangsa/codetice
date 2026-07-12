@@ -3,16 +3,14 @@ import { PageHeader } from "@/components/common/page-header";
 import { SurfaceCard } from "@/components/common/surface-card";
 import { requirePageAdmin } from "@/lib/auth";
 import { listAdminLanguagesPage } from "@/server/languages/service";
-import Link from "next/link";
 
 export const metadata = {
   title: "Language Runtimes – Admin",
 };
 
-export default async function AdminLanguagesPage({ searchParams }: { searchParams: Promise<{ cursor?: string }> }) {
+export default async function AdminLanguagesPage() {
   await requirePageAdmin();
-  const query = await searchParams;
-  const page = await listAdminLanguagesPage({ limit: 25, cursor: query.cursor ?? null });
+  const page = await listAdminLanguagesPage({ limit: 10, cursor: null });
   const languages = page.items as Language[];
 
   return (
@@ -27,9 +25,8 @@ export default async function AdminLanguagesPage({ searchParams }: { searchParam
         title="Configured languages"
         description="Each language maps to a Docker image, optional build command, and testcase run command used in the grading sandbox."
       >
-        <LanguageManager languages={languages} />
+        <LanguageManager initialPage={{ ...page, items: languages }} />
       </SurfaceCard>
-      {page.nextCursor ? <Link className="text-sm underline" href={`/admin/languages?cursor=${encodeURIComponent(page.nextCursor)}`}>Next page</Link> : null}
     </div>
   );
 }

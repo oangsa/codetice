@@ -1,4 +1,4 @@
-import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
+import { ok, toFailResponse, Messages } from "@/lib/api";
 import { createAppUrl } from "@/lib/app-url";
 import { requireApiAdmin } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
@@ -11,13 +11,7 @@ export async function POST(
 ) {
   try {
     await requireApiAdmin();
-  } catch {
-    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
-  }
-
-  const { id } = await params;
-
-  try {
+    const { id } = await params;
     await assertRateLimit({
       identifier: await getRequestIdentifier(),
       action: "admin-generate-reset-link",

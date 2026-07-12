@@ -28,9 +28,9 @@ export default async function WorkspaceQuestionPage({
   if (!access?.member) notFound();
 
   const [question, allLanguages, workspace] = await Promise.all([
-    getWorkspaceQuestionBySlug({ workspaceId, slug, includeDrafts: access.staff }),
+    getWorkspaceQuestionBySlug({ actor, workspaceId, slug }),
     listSupportedLanguages(),
-    getWorkspaceDetail(workspaceId, access),
+    getWorkspaceDetail(actor, workspaceId),
   ]);
   if (!question) notFound();
 
@@ -43,10 +43,9 @@ export default async function WorkspaceQuestionPage({
     cursor: null,
   });
   const sampleCases = question.testcases.filter((testcase) => testcase.isSample);
-  let languages = question.allowedLanguages.length > 0
+  const languages = question.allowedLanguages.length > 0
     ? allLanguages.filter((language) => question.allowedLanguages.includes(language.slug))
     : allLanguages;
-  if (languages.length === 0) languages = allLanguages;
 
   return (
     <div className="flex h-[calc(100dvh-5rem)] min-h-[560px] flex-col gap-4 overflow-hidden">

@@ -18,10 +18,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useCollectionSearch } from "@/lib/use-collection-search";
 import { cn, formatScore } from "@/lib/utils";
 
 export type WorkspaceQuestionRow = {
-  questionId: string;
+  id: string;
   title: string;
   slug: string;
   difficulty: string;
@@ -71,13 +72,17 @@ const filterFields = [
 
 const emptyFilters = { difficulty: "", status: "" };
 const pageSize = 10;
+const publishedQuestionRequest = {
+  limit: pageSize,
+  search: [{ name: "isPublished", condition: "EQUAL", value: true }],
+};
 
 export function QuestionTable({
-  questions,
+  initialPage,
   workspaceId,
   canManage = false,
 }: {
-  questions: WorkspaceQuestionRow[];
+  initialPage: { items: WorkspaceQuestionRow[]; nextCursor: string | null; hasMore: boolean };
   workspaceId: string;
   canManage?: boolean;
 }) {
@@ -85,16 +90,10 @@ export function QuestionTable({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [filterValues, setFilterValues] = useState<Record<string, string>>(emptyFilters);
   const [filterDraft, setFilterDraft] = useState<Record<string, string>>(emptyFilters);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const editMode = canManage && searchParams.get("editMode") === "1";
-
-  const visibleQuestions = useMemo(
-    () => (editMode ? questions : questions.filter((question) => question.isPublished)),
-    [editMode, questions],
-  );
   const activeFilters = useMemo(() => filterFields
     .filter((field) => Boolean(filterValues[field.key]))
     .map((field) => {
@@ -104,16 +103,22 @@ export function QuestionTable({
         displayValue: field.options.find((option) => option.value === rawValue)?.label ?? rawValue,
       };
     }), [filterValues]);
-  const filtered = useMemo(() => visibleQuestions.filter((question) => {
-    const matchesSearch = !search || question.title.toLowerCase().includes(search.toLowerCase());
-    const matchesLevel = !filterValues.difficulty
-      || question.difficulty.toLowerCase() === filterValues.difficulty.toLowerCase();
-    const matchesStatus = !filterValues.status || question.status === filterValues.status;
-    return matchesSearch && matchesLevel && matchesStatus;
-  }), [filterValues, search, visibleQuestions]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const request = useMemo(() => ({
+    limit: pageSize,
+    search: [
+      ...(filterValues.difficulty ? [{ name: "difficulty", condition: "EQUAL", value: filterValues.difficulty }] : []),
+      ...(filterValues.status ? [{ name: "status", condition: "EQUAL", value: filterValues.status }] : []),
+      ...(!editMode ? [{ name: "isPublished", condition: "EQUAL", value: true }] : []),
+    ],
+    ...(search.trim() ? { searchTerm: { name: "title,slug", value: search } } : {}),
+  }), [editMode, filterValues, search]);
+  const collection = useCollectionSearch<WorkspaceQuestionRow>({
+    endpoint: `/api/workspaces/${workspaceId}/questions/search`,
+    initialPage,
+    initialRequest: publishedQuestionRequest,
+    request,
+  });
+  const pageItems = collection.page.items;
 
   function setEditMode(checked: boolean) {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -126,7 +131,6 @@ export function QuestionTable({
   function resetFilters() {
     setFilterDraft(emptyFilters);
     setFilterValues(emptyFilters);
-    setPage(1);
     setIsFilterDialogOpen(false);
   }
 
@@ -136,6 +140,7 @@ export function QuestionTable({
       const response = await fetch(`/api/workspaces/${workspaceId}/questions/${questionId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Unable to delete question.");
       toast.success("Question deleted successfully.");
+      collection.reload();
       router.refresh();
     } catch {
       toast.error("Unable to delete question.");
@@ -148,7 +153,7 @@ export function QuestionTable({
       header: "No.",
       headerClassName: "w-12",
       cellClassName: "tabular-nums text-slate-400",
-      cell: (_question, index) => (currentPage - 1) * pageSize + index + 1,
+      cell: (_question, index) => index + 1,
     },
     {
       id: "name",
@@ -207,7 +212,7 @@ export function QuestionTable({
       cell: (question: WorkspaceQuestionRow) => (
         <div className="flex items-center justify-end gap-1.5">
           <Link
-            href={`/workspaces/${workspaceId}/questions/${question.questionId}/edit`}
+            href={`/workspaces/${workspaceId}/questions/${question.id}/edit`}
             className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             title="Edit question"
             onClick={(event) => event.stopPropagation()}
@@ -218,7 +223,7 @@ export function QuestionTable({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              void deleteQuestion(question.questionId);
+              void deleteQuestion(question.id);
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
             title="Delete question"
@@ -236,15 +241,14 @@ export function QuestionTable({
         title="Questions"
         rows={pageItems}
         columns={columns}
-        getRowKey={(question) => question.questionId}
+        getRowKey={(question) => question.id}
         onRowClick={(question) => router.push(`/workspaces/${workspaceId}/questions/${question.slug}`)}
-        emptyMessage={search ? "No questions match your search." : "No questions in this workspace yet."}
+        emptyMessage={collection.error ?? (search || activeFilters.length > 0 ? "No questions match your search." : "No questions in this workspace yet.")}
         search={
           <DataTableSearch
             value={search}
             onValueChange={(value) => {
               setSearch(value);
-              setPage(1);
             }}
             placeholder="Search by name"
             endAdornment={
@@ -292,7 +296,6 @@ export function QuestionTable({
                 className="h-7 gap-1.5 rounded-full border-slate-200 px-3 text-xs text-slate-700 hover:bg-background hover:text-slate-700"
                 onClick={() => {
                   setFilterValues((current) => ({ ...current, [field.key]: "" }));
-                  setPage(1);
                 }}
               >
                 <span>{field.label}: {displayValue}</span><X className="h-3 w-3 text-slate-400" />
@@ -301,11 +304,10 @@ export function QuestionTable({
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-500 hover:text-slate-950" onClick={resetFilters}>Clear all</Button>
           </div>
         ) : null}
-        pagination={totalPages > 1 ? (
+        pagination={collection.hasPrevious || collection.page.nextCursor ? (
           <DataTablePagination
-            label={`Page ${currentPage} of ${totalPages}`}
-            previous={{ label: "Prev", disabled: currentPage === 1, onClick: () => setPage(Math.max(1, currentPage - 1)) }}
-            next={{ label: "Next", disabled: currentPage === totalPages, onClick: () => setPage(Math.min(totalPages, currentPage + 1)) }}
+            previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
+            next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
           />
         ) : null}
       />
@@ -336,7 +338,6 @@ export function QuestionTable({
               <Button type="button" variant="outline" onClick={() => setIsFilterDialogOpen(false)} className="h-9 rounded-full border border-slate-200 bg-white px-4 font-semibold text-slate-900 dark:border-slate-800 dark:bg-[#1c1c1e]">Cancel</Button>
               <Button type="button" onClick={() => {
                 setFilterValues(filterDraft);
-                setPage(1);
                 setIsFilterDialogOpen(false);
               }} className="h-9 rounded-full bg-black px-4 font-semibold !text-white transition-colors hover:bg-zinc-900/90 dark:bg-black dark:hover:bg-zinc-900/90">Apply Filters</Button>
             </div>

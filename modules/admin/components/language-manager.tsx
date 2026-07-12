@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { DataTablePagination, DataTableSearch } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,6 +45,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Messages } from "@/lib/api.constants";
+import { useCollectionSearch } from "@/lib/use-collection-search";
 
 export type Language = {
   id: string;
@@ -569,26 +571,31 @@ function LanguageCard({
 // ─── Main manager component ───────────────────────────────────────────────────
 
 export function LanguageManager({
-  languages: initialLanguages,
+  initialPage,
 }: {
-  languages: Language[];
+  initialPage: { items: Language[]; nextCursor: string | null; hasMore: boolean };
 }) {
   const router = useRouter();
-  const [languages, setLanguages] = useState<Language[]>(initialLanguages);
+  const [search, setSearch] = useState("");
+  const request = useMemo(() => ({
+    limit: 10,
+    ...(search.trim() ? { searchTerm: { name: "name,slug", value: search } } : {}),
+  }), [search]);
+  const collection = useCollectionSearch<Language>({
+    endpoint: "/api/admin/languages/search",
+    initialPage,
+    request,
+  });
+  const languages = collection.page.items;
 
   function refresh() {
     router.refresh();
     // Optimistically keep UI stable; Next.js will push fresh data
   }
 
-  async function refreshLanguages() {
-    const res = await fetch("/api/admin/languages");
-    if (res.ok) {
-      const data = (await res.json()) as { items: Language[] };
-      setLanguages(data.items);
-    } else {
-      refresh();
-    }
+  function refreshLanguages() {
+    collection.reload();
+    refresh();
   }
 
   const enabled = languages.filter((l) => l.isEnabled);
@@ -597,8 +604,9 @@ export function LanguageManager({
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-3 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <DataTableSearch value={search} onValueChange={setSearch} placeholder="Search languages" />
           <span>
             <strong className="text-foreground">{enabled.length}</strong> enabled
           </span>
@@ -619,7 +627,7 @@ export function LanguageManager({
               Add language
             </Button>
           }
-          onSaved={() => void refreshLanguages()}
+          onSaved={refreshLanguages}
         />
       </div>
 
@@ -636,12 +644,18 @@ export function LanguageManager({
             <LanguageCard
               key={lang.id}
               language={lang}
-              onSaved={() => void refreshLanguages()}
-              onDeleted={() => setLanguages((prev) => prev.filter((l) => l.id !== lang.id))}
+              onSaved={refreshLanguages}
+              onDeleted={refreshLanguages}
             />
           ))}
         </div>
       )}
+      {collection.hasPrevious || collection.page.nextCursor ? (
+        <DataTablePagination
+          previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
+          next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
+        />
+      ) : null}
     </div>
   );
 }

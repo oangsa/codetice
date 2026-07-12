@@ -36,15 +36,14 @@ export default async function WorkspaceSubmissionsPage({
     }),
     access.staff
       ? collectCursorItems((cursor) => listWorkspaceQuestionsPage({
+          actor,
           workspaceId: id,
-          userId: actor.userId,
-          includeDrafts: true,
           limit: 100,
           cursor,
         }))
       : Promise.resolve(null),
     access.staff
-      ? collectCursorItems((cursor) => listWorkspaceMembersPage({ workspaceId: id, limit: 100, cursor }))
+      ? collectCursorItems((cursor) => listWorkspaceMembersPage({ actor, workspaceId: id, limit: 100, cursor }))
       : Promise.resolve(null),
   ]);
 

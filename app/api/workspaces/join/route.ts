@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     const actor = await requireApiUser();
     const body = joinWorkspaceSchema.parse(await request.json());
-    return ok({ workspace: await joinWorkspace(body.inviteCode, actor.userId) });
+    return ok({ workspace: await joinWorkspace(actor, body.inviteCode) });
   } catch (error) {
     return toFailResponse(error, error instanceof z.ZodError ? Messages.invalidInviteCode : Messages.unableToJoinWorkspace);
   }
