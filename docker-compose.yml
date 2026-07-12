@@ -5,6 +5,7 @@
 #   db       - PostgreSQL 17 database
 #   web      - Next.js web application
 #   worker   - Grading-job background worker
+#   migrate  - Explicit one-shot checked-in migration runner
 #
 # Usage:
 #   1. Copy .env.example to .env.local and fill in secrets.
@@ -31,6 +32,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
+
+  # Run explicitly during the release maintenance window:
+  # docker compose --env-file .env.local --profile release run --rm migrate
+  migrate:
+    profiles: ["release"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - internal
 
@@ -74,6 +91,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       GRADING_RUNTIME:           docker
       GRADING_WORKER_POLL_MS:    ${GRADING_WORKER_POLL_MS:-2000}
       GRADING_WORKER_BATCH_SIZE: ${GRADING_WORKER_BATCH_SIZE:-5}
