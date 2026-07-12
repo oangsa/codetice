@@ -22,23 +22,29 @@ describe("main behavior parity regressions", () => {
     expect(worker).not.toContain("Processed 0 grading job(s).");
   });
 
-  test("workspace detail, roster, and submission filters consume every cursor page", async () => {
-    const [detailPage, membersPage, submissionsPage] = await Promise.all([
-      source("modules/workspaces/pages/workspace-detail-page.tsx"),
-      source("modules/workspaces/pages/members-page.tsx"),
-      source("modules/submissions/pages/submissions-page.tsx"),
+  test("workspace collections search on the server before cursor pagination", async () => {
+    const [questions, members, tabs, submissions] = await Promise.all([
+      source("modules/workspaces/components/question-table.tsx"),
+      source("modules/workspaces/components/member-manager.tsx"),
+      source("modules/workspaces/components/workspace-tabs.tsx"),
+      source("server/submissions/queries.ts"),
     ]);
 
-    expect(detailPage.match(/collectCursorItems/g)?.length).toBeGreaterThanOrEqual(3);
-    expect(membersPage).toContain("collectCursorItems");
-    expect(submissionsPage.match(/collectCursorItems/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(questions).toContain("/questions/search");
+    expect(members).toContain("/members/search");
+    expect(tabs).toContain("/scoreboard/search");
+    expect(submissions).toContain("searchWorkspaceSubmissionsPage");
   });
 
-  test("only Docker compiler diagnostics require a prepared runtime", async () => {
-    const route = await source("app/api/workspaces/[id]/diagnostics/route.ts");
+  test("only Docker compiler diagnostics are delegated to the prepared worker runtime", async () => {
+    const [route, worker] = await Promise.all([
+      source("app/api/workspaces/[id]/diagnostics/route.ts"),
+      source("server/grading/sandbox-worker.ts"),
+    ]);
 
-    expect(route).toContain("requiresPreparedRuntimeForDiagnostics");
-    expect(route).not.toContain('if (language.runtimeStatus !== "ready")');
+    expect(route).toContain('diagnosticsFormat === "compiler"');
+    expect(route).toContain("enqueueCompilerDiagnosticsJob");
+    expect(worker).toContain("prepareEnabledLanguageRuntime");
   });
 
   test("submit and rejudge routes cache terminal failure responses", async () => {
@@ -63,7 +69,8 @@ describe("main behavior parity regressions", () => {
     ]);
 
     expect(queries).toContain("platformRole: users.role");
-    expect(tabs).toContain('member.platformRole === "student"');
+    expect(queries).toContain('ne(users.role, "admin")');
+    expect(tabs).toContain('{ name: "role", condition: "EQUAL", value: "student" }');
     expect(submissionsPage).toContain('item.platformRole === "student"');
   });
 

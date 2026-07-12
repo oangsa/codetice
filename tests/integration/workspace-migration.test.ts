@@ -232,4 +232,79 @@ suite("legacy ownership migration reaches the workspace schema", () => {
 
     expect(state).toEqual({ assignments: null, question_links: null, assignment_id: false, is_late: false });
   });
+
+  test("applies post-remediation sandbox job migrations instead of adopting past them", async () => {
+    const [table] = await client<Array<{ sandbox_jobs: string | null }>>`
+      select to_regclass('public.sandbox_jobs')::text as sandbox_jobs
+    `;
+    expect(table?.sandbox_jobs).toBe("sandbox_jobs");
+  });
+
+  test("serves the first scoreboard page from the migrated schema", async () => {
+    const child = Bun.spawn([
+      "bun",
+      "--conditions",
+      "react-server",
+      "tests/integration/helpers/scoreboard-smoke.ts",
+      "00000000-0000-0000-0000-000000000101",
+      "00000000-0000-0000-0000-000000000002",
+    ], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DATABASE_URL: testDatabaseUrl!,
+        SESSION_SECRET: process.env.SESSION_SECRET ?? "integration-session-secret-at-least-32-characters",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [exitCode, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(exitCode, stderr).toBe(0);
+    const page = JSON.parse(stdout) as { items: Array<{ username: string; totalScore: string; solvedCount: number }> };
+    expect(page.items).toEqual([
+      expect.objectContaining({ username: "student", totalScore: "200.00", solvedCount: 2 }),
+    ]);
+  });
+
+  test("executes scoped collection search and cursor binding in PostgreSQL", async () => {
+    const child = Bun.spawn([
+      "bun",
+      "--conditions",
+      "react-server",
+      "tests/integration/helpers/collection-search-smoke.ts",
+    ], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DATABASE_URL: testDatabaseUrl!,
+        SESSION_SECRET: process.env.SESSION_SECRET ?? "integration-session-secret-at-least-32-characters",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [exitCode, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(exitCode, stderr).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      workspacePages: [["Two"], ["One"]],
+      questionPages: [["Multi"], ["Single"]],
+      memberPages: [["teacher"], ["student"]],
+      submissionPages: [["Multi"], ["Single"]],
+      userPages: [["teacher"], ["student"]],
+      workspaceDetail: { memberCount: 2, questionCount: 2, solvedCount: 2 },
+      mismatchedCursorStatus: 400,
+      questions: ["Single"],
+      members: ["student"],
+      submissions: ["Single"],
+      scoreboard: ["student"],
+      literalWildcardCount: 0,
+    });
+  });
 });
