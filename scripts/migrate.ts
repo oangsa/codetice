@@ -90,6 +90,7 @@ async function adoptDatabaseBaseline() {
         to_regclass('public.workspaces') is not null
         and to_regclass('public.workspace_members') is not null
         and to_regclass('public.submission_runs') is not null
+        and to_regclass('public.sandbox_jobs') is null
         and to_regclass('public.assignments') is null
         and to_regclass('public.assignment_questions') is null
         and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'questions' and column_name = 'workspace_id')
@@ -105,6 +106,29 @@ async function adoptDatabaseBaseline() {
         and to_regclass('public.workspace_members') is not null
         and to_regclass('public.submission_runs') is not null
         and to_regclass('public.sandbox_jobs') is not null
+        and (
+          select count(*) = 17
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'sandbox_jobs'
+            and column_name in (
+              'id', 'workspace_id', 'question_id', 'requested_by', 'kind', 'language', 'source_code',
+              'status', 'result', 'attempts', 'locked_by', 'lease_expires_at', 'error_message',
+              'created_at', 'started_at', 'completed_at', 'expires_at'
+            )
+        )
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sandbox_jobs' and column_name = 'source_code' and data_type = 'text')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sandbox_jobs' and column_name = 'result' and data_type = 'jsonb')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sandbox_jobs' and column_name = 'expires_at' and is_nullable = 'NO')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.sandbox_jobs') and conname = 'sandbox_jobs_pkey' and contype = 'p')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.sandbox_jobs') and conname = 'sandbox_jobs_workspace_id_workspaces_id_fk' and contype = 'f')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.sandbox_jobs') and conname = 'sandbox_jobs_question_id_questions_id_fk' and contype = 'f')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.sandbox_jobs') and conname = 'sandbox_jobs_requested_by_users_id_fk' and contype = 'f')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.sandbox_jobs') and conname = 'sandbox_jobs_kind_check' and contype = 'c')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.sandbox_jobs') and conname = 'sandbox_jobs_status_check' and contype = 'c')
+        and to_regclass('public.sandbox_jobs_status_lease_created_idx') is not null
+        and to_regclass('public.sandbox_jobs_requester_created_idx') is not null
+        and to_regclass('public.sandbox_jobs_status_expires_idx') is not null
         and to_regclass('public.assignments') is null
         and to_regclass('public.assignment_questions') is null
         and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'questions' and column_name = 'workspace_id')

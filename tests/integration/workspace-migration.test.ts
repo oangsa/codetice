@@ -348,4 +348,45 @@ suite("legacy ownership migration reaches the workspace schema", () => {
       literalWildcardCount: 0,
     });
   });
+
+  test("refuses to adopt a partial sandbox job schema", async () => {
+    let partialExitCode: number | null = null;
+    let partialError = "";
+
+    try {
+      await client.unsafe(`
+        drop schema if exists drizzle cascade;
+        alter table sandbox_jobs drop column result;
+      `);
+      const child = Bun.spawn(["bun", "scripts/migrate.ts"], {
+        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL: testDatabaseUrl! },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      [partialExitCode, partialError] = await Promise.all([
+        child.exited,
+        new Response(child.stderr).text(),
+      ]);
+    } finally {
+      await client.unsafe(`
+        alter table sandbox_jobs add column if not exists result jsonb;
+        drop schema if exists drizzle cascade;
+      `);
+      const restore = Bun.spawn(["bun", "scripts/migrate.ts"], {
+        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL: testDatabaseUrl! },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const [restoreExitCode, restoreError] = await Promise.all([
+        restore.exited,
+        new Response(restore.stderr).text(),
+      ]);
+      expect(restoreExitCode, restoreError).toBe(0);
+    }
+
+    expect(partialExitCode, partialError).not.toBe(0);
+    expect(partialError).toContain("partial ownership schema");
+  }, 30_000);
 });
