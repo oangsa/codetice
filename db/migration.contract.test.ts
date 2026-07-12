@@ -8,6 +8,7 @@ describe("workspace ownership migration contract", () => {
     expect(sql).toContain("assignment submission does not reference a question in that assignment");
     expect(sql).toContain("testcase result could not be mapped");
     expect(sql).toContain("question count mismatch");
+    expect(sql).toContain("WHERE m.new_question_id = q.id");
     expect(sql).toContain("Codetice migration counts: submissions");
   });
 

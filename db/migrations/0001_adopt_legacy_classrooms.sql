@@ -293,7 +293,7 @@ BEGIN
     AND (SELECT count(*) FROM _question_map m2 WHERE m2.old_question_id = s.question_id) = 1;
 
   DELETE FROM questions q
-  WHERE NOT EXISTS (SELECT 1 FROM _question_map m WHERE m.old_question_id = q.id);
+  WHERE NOT EXISTS (SELECT 1 FROM _question_map m WHERE m.new_question_id = q.id);
 
   IF EXISTS (
     SELECT 1
