@@ -1,9 +1,9 @@
 import { createUserSession } from "@/lib/auth";
 import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { getRequestIdentifier } from "@/lib/request";
-import { registerSchema } from "@/lib/validations/auth";
-import { registerUser } from "@/server/services/auth-service";
-import { assertRateLimit } from "@/server/services/rate-limit-service";
+import { registerSchema } from "@/modules/auth/schema";
+import { registerUser } from "@/server/auth/service";
+import { assertRateLimit } from "@/server/security/rate-limit";
 
 export async function POST(request: Request) {
   const body = await request.json();

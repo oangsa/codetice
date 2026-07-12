@@ -1,5 +1,6 @@
 export { ErrorCode, Messages } from "@/lib/api.constants";
 import { ErrorCode, Messages } from "@/lib/api.constants";
+import { ZodError } from "zod";
 
 export class AppError extends Error {
   readonly status: number;
@@ -22,6 +23,9 @@ export class RateLimitError extends AppError {
 export function toErrorInfo(error: unknown, fallback: string = Messages.somethingWrong) {
   if (error instanceof AppError) {
     return { message: error.message, status: error.status, code: error.code };
+  }
+  if (error instanceof ZodError) {
+    return { message: fallback, status: 400, code: ErrorCode.VALIDATION };
   }
   return { message: fallback, status: 500, code: ErrorCode.INTERNAL };
 }

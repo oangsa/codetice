@@ -1,44 +1,72 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { buildSessionCookie, decryptSession, encryptSession, type SessionPayload } from "@/lib/session";
-import { SESSION_COOKIE } from "@/lib/auth.constants";
-import { getSessionUserById } from "@/server/services/auth-service";
+import { LEGACY_SESSION_COOKIES, SESSION_COOKIE } from "@/modules/auth/constants";
+import { getSessionUserById } from "@/server/auth/service";
 import type { AuthSession } from "@/lib/types";
+import { AppError, ErrorCode, Messages } from "@/lib/errors";
+import { validateSessionUser } from "@/server/auth/session-validation";
 
-export async function getSession() {
+async function getRawSession() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value
+    ?? LEGACY_SESSION_COOKIES.map((name) => cookieStore.get(name)?.value).find(Boolean);
   return decryptSession(token);
 }
 
-export async function requireUser() {
-  const session = await getSession();
+export const getValidatedSession = cache(async (): Promise<AuthSession | null> => {
+  const session = await getRawSession();
   if (!session) {
-    redirect("/login");
+    return null;
   }
 
   const user = await getSessionUserById(session.userId);
-  if (!user || user.tokenVersion !== (session.tokenVersion ?? 0)) {
-    await clearUserSession();
+  return validateSessionUser(session, user);
+});
+
+/** Validated optional session for pages. */
+export async function getSession() {
+  return getValidatedSession();
+}
+
+export async function requirePageUser() {
+  const session = await getValidatedSession();
+  if (!session) {
     redirect("/login");
   }
-
   return session;
 }
 
-export async function requireAdmin() {
-  const session = await requireUser();
+export async function requirePageAdmin() {
+  const session = await requirePageUser();
   if (session.role !== "admin") {
-    redirect("/classrooms");
+    redirect("/workspaces");
+  }
+  return session;
+}
+
+export async function requireApiUser() {
+  const session = await getValidatedSession();
+  if (!session) {
+    throw new AppError(Messages.unauthorized, 401, ErrorCode.UNAUTHORIZED);
+  }
+  return session;
+}
+
+export async function requireApiAdmin() {
+  const session = await requireApiUser();
+  if (session.role !== "admin") {
+    throw new AppError(Messages.forbidden, 403, ErrorCode.FORBIDDEN);
   }
   return session;
 }
 
 export async function getCurrentUser() {
-  const session = await getSession();
+  const session = await getValidatedSession();
   if (!session) {
     return null;
   }
@@ -71,4 +99,7 @@ export async function createUserSession(payload: AuthSession) {
 export async function clearUserSession() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
+  for (const name of LEGACY_SESSION_COOKIES) {
+    cookieStore.delete(name);
+  }
 }

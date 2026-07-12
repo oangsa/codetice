@@ -1,22 +1,19 @@
 import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
-import { createUserSession, requireUser } from "@/lib/auth";
+import { createUserSession, requireApiUser } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
-import { changePasswordSchema } from "@/lib/validations/auth";
-import { changePassword } from "@/server/services/auth-service";
-import { assertRateLimit } from "@/server/services/rate-limit-service";
+import { changePasswordSchema } from "@/modules/auth/schema";
+import { changePassword } from "@/server/auth/service";
+import { assertRateLimit } from "@/server/security/rate-limit";
 
 export async function POST(request: Request) {
-  const session = await requireUser();
-
-  const body = await request.json();
-  const parsed = changePasswordSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? "Invalid payload.";
-    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
-  }
-
   try {
+    const session = await requireApiUser();
+    const body = await request.json();
+    const parsed = changePasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message ?? "Invalid payload.";
+      return fail(firstError, 400, { code: ErrorCode.VALIDATION });
+    }
     await assertRateLimit({
       identifier: await getRequestIdentifier(),
       action: "change-password",

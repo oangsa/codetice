@@ -1,15 +1,16 @@
 import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
+import { createAppUrl } from "@/lib/app-url";
+import { requireApiAdmin } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
-import { assertRateLimit } from "@/server/services/rate-limit-service";
-import { createPasswordResetToken } from "@/server/services/auth-service";
+import { assertRateLimit } from "@/server/security/rate-limit";
+import { createPasswordResetToken } from "@/server/auth/service";
 
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
+    await requireApiAdmin();
   } catch {
     return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
   }
@@ -25,7 +26,7 @@ export async function POST(
     });
 
     const { token, expiresAt } = await createPasswordResetToken({ userId: id });
-    const url = new URL("/reset-password", request.url);
+    const url = createAppUrl("/reset-password");
     url.searchParams.set("token", token);
 
     return ok({

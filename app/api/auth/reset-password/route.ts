@@ -1,8 +1,8 @@
 import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
 import { getRequestIdentifier } from "@/lib/request";
-import { resetPasswordWithTokenSchema } from "@/lib/validations/auth";
-import { assertRateLimit } from "@/server/services/rate-limit-service";
-import { resetPasswordWithToken } from "@/server/services/auth-service";
+import { resetPasswordWithTokenSchema } from "@/modules/auth/schema";
+import { assertRateLimit } from "@/server/security/rate-limit";
+import { resetPasswordWithToken } from "@/server/auth/service";
 
 export async function POST(request: Request) {
   const body = await request.json();
