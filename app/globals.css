@@ -311,7 +311,7 @@ code {
 }
 
 /* ============================================================
-   Join Classroom Input Specific Override
+   Join Workspace Input Specific Override
    ============================================================ */
 input[type="text"].join-input-override,
 input.join-input-override {
