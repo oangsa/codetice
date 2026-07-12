@@ -1,11 +1,12 @@
 # Drizzle correlated subquery qualification
 
-Inside a raw Drizzle `sql` selection, interpolating an outer column as `${table.column}` can render only the column name. In a correlated subquery this may silently bind to an inner column or fail as ambiguous when more than one inner table has that name.
+Inside a raw Drizzle `sql` selection, interpolating an outer column object can render only the column name. Interpolating the table and column separately can then be qualified again in a joined outer query and produce an invalid repeated table name.
 
-Interpolate the table and column directly at every correlation site:
+For a fixed schema identifier, use a static fully-qualified SQL fragment:
 
 ```ts
-sql`where inner.workspace_id = ${workspaces}.${workspaces.id}`
+const outerWorkspaceId = sql.raw('"workspaces"."id"');
+sql`where inner.workspace_id = ${outerWorkspaceId}`
 ```
 
-Do not first store that expression in a nested `SQL` fragment; Drizzle may qualify the nested column again and render a duplicated table name. Protect the query with a `drizzle.mock().select(...).toSQL()` regression that asserts the complete qualified identifier and rejects the unqualified form.
+Only use `sql.raw` for hard-coded identifiers, never request data. Protect correlated queries with both a `toSQL()` assertion and a real PostgreSQL service test because mock rendering does not cover every join context.
