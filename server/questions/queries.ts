@@ -22,13 +22,13 @@ function parseQuestionJson<T>(value: string | null, fallback: T): T {
 
 function parseQuestionCursor(
   cursor: string | null,
-  workspaceId: string,
+  scope: string,
   filters: string,
 ) {
   if (!cursor) return undefined;
   const endpoint = "workspace-questions";
   try {
-    const decoded = decodeCursor(cursor, { endpoint, scope: workspaceId, filters });
+    const decoded = decodeCursor(cursor, { endpoint, scope, filters });
     const [createdAtValue, id] = decoded.keys;
     if (typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
     if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
@@ -111,7 +111,8 @@ async function queryWorkspaceQuestionsPage(input: {
 }) {
   const db = getDb();
   const filters = JSON.stringify({ drafts: input.includeDrafts, search: input.search.filters });
-  const cursorWhere = parseQuestionCursor(input.search.cursor, input.workspaceId, filters);
+  const scope = `${input.workspaceId}:${input.actor.userId}`;
+  const cursorWhere = parseQuestionCursor(input.search.cursor, scope, filters);
   const personalProgress = personalQuestionProgress(input.actor.userId);
   const searchWhere = questionSearchWhere(input.search, personalProgress);
   const rows = await db.select({
@@ -160,7 +161,7 @@ async function queryWorkspaceQuestionsPage(input: {
     hasMore,
     nextCursor: hasMore && last ? encodeCursor({
       endpoint: "workspace-questions",
-      scope: input.workspaceId,
+      scope,
       filters,
       keys: [last.cursorCreatedAt, last.id],
     }) : null,

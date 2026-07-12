@@ -57,4 +57,26 @@ describe("collection search contract", () => {
     expect(() => parseCollectionSearch({ limit: 101 }, config)).toThrow();
     expect(escapeLikePattern("100%_done\\ok")).toBe("100\\%\\_done\\\\ok");
   });
+
+  test("rejects unknown top-level and nested properties", () => {
+    expect(() => parseCollectionSearch({ limti: 10 }, config)).toThrow();
+    expect(() => parseCollectionSearch({
+      search: [{ name: "role", condition: "EQUAL", value: "student", extra: true }],
+    }, config)).toThrow();
+    expect(() => parseCollectionSearch({
+      searchTerm: { name: "username", value: "Ada", extra: true },
+    }, config)).toThrow();
+  });
+
+  test("rejects oversized filter collections and values", () => {
+    expect(() => parseCollectionSearch({
+      search: Array.from({ length: 17 }, () => ({ name: "role", condition: "EQUAL", value: "student" })),
+    }, config)).toThrow();
+    expect(() => parseCollectionSearch({
+      search: [{ name: "username", condition: "CONTAINS", value: "a".repeat(201) }],
+    }, config)).toThrow();
+    expect(() => parseCollectionSearch({
+      searchTerm: { name: "username", value: "a".repeat(101) },
+    }, config)).toThrow();
+  });
 });

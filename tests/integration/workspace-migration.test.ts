@@ -293,12 +293,14 @@ suite("legacy ownership migration reaches the workspace schema", () => {
     ]);
     expect(exitCode, stderr).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
+      crossAdminWorkspaceCursorStatus: 400,
       workspacePages: [["Two"], ["One"]],
       questionPages: [["Multi"], ["Single"]],
       memberPages: [["teacher"], ["student"]],
       submissionPages: [["Multi"], ["Single"]],
       userPages: [["teacher"], ["student"]],
       workspaceDetail: { memberCount: 2, questionCount: 2, solvedCount: 2 },
+      crossActorQuestionCursorStatus: 400,
       mismatchedCursorStatus: 400,
       questions: ["Single"],
       members: ["student"],

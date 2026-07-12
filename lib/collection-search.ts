@@ -24,12 +24,20 @@ export type ParsedCollectionSearch = {
   filters: string;
 };
 
+const MAX_SEARCH_FILTERS = 16;
+const MAX_SEARCH_VALUE_LENGTH = 200;
+const MAX_SEARCH_TERM_LENGTH = 100;
+
 function invalidSearch(): never {
   throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]) {
+  return Object.keys(value).every((key) => allowed.includes(key));
 }
 
 function parseLimit(value: unknown) {
@@ -40,6 +48,7 @@ function parseLimit(value: unknown) {
 
 export function parseCollectionSearch(body: unknown, config: SearchConfig): ParsedCollectionSearch {
   if (!isRecord(body)) invalidSearch();
+  if (!hasOnlyKeys(body, ["limit", "cursor", "search", "searchTerm"])) invalidSearch();
 
   const limit = parseLimit(body.limit);
   const cursor = body.cursor === undefined || body.cursor === null
@@ -49,9 +58,12 @@ export function parseCollectionSearch(body: unknown, config: SearchConfig): Pars
       : invalidSearch();
 
   if (body.search !== undefined && !Array.isArray(body.search)) invalidSearch();
+  if (Array.isArray(body.search) && body.search.length > MAX_SEARCH_FILTERS) invalidSearch();
   const search = (body.search ?? []).map((raw): ParsedCollectionSearch["search"][number] => {
     if (!isRecord(raw) || typeof raw.name !== "string" || typeof raw.condition !== "string") invalidSearch();
+    if (!hasOnlyKeys(raw, ["name", "condition", "value"])) invalidSearch();
     if (typeof raw.value !== "string" && typeof raw.value !== "boolean") invalidSearch();
+    if (typeof raw.value === "string" && raw.value.length > MAX_SEARCH_VALUE_LENGTH) invalidSearch();
     const conditions = config.fields[raw.name];
     if (!conditions?.includes(raw.condition as SearchCondition)) invalidSearch();
     const value = typeof raw.value === "string" ? raw.value.trim() : raw.value;
@@ -63,9 +75,13 @@ export function parseCollectionSearch(body: unknown, config: SearchConfig): Pars
     if (!isRecord(body.searchTerm) || typeof body.searchTerm.name !== "string" || typeof body.searchTerm.value !== "string") {
       invalidSearch();
     }
+    if (!hasOnlyKeys(body.searchTerm, ["name", "value"])) invalidSearch();
+    if (body.searchTerm.name.length > MAX_SEARCH_VALUE_LENGTH || body.searchTerm.value.length > MAX_SEARCH_TERM_LENGTH) {
+      invalidSearch();
+    }
     const names = [...new Set(body.searchTerm.name.split(",").map((name) => name.trim()).filter(Boolean))].sort();
     if (names.length === 0 || names.some((name) => !config.searchTermFields.includes(name))) invalidSearch();
-    const value = body.searchTerm.value.trim().slice(0, 100);
+    const value = body.searchTerm.value.trim();
     searchTerm = value ? { names, value } : null;
   }
 

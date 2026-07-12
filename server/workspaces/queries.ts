@@ -71,7 +71,7 @@ async function queryWorkspacesPage(input: {
 }>> {
   const db = getDb();
   const endpoint = "workspaces";
-  const scope = input.actor.role === "admin" ? "admin" : input.actor.userId;
+  const scope = `${input.actor.userId}:${input.actor.role}`;
   const cursorWhere = cursorCondition(input.search.cursor, endpoint, scope, input.search.filters);
   const searchWhere = workspaceSearchWhere(input.search);
   const { memberCount, creatorName, questionCount, solvedCount } = workspaceListStatistics(input.actor.userId);
