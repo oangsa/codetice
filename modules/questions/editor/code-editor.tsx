@@ -2,33 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as monacoEditor from "monaco-editor";
-import { Loader2, Play, Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { SubmissionStatusBadge } from "@/modules/submissions/components/submission-status-badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IDEMPOTENCY_KEY_HEADER, Messages } from "@/lib/api.constants";
 import { createEditorDraftStorageKey, readEditorDraft, writeEditorDraft } from "@/modules/questions/editor-drafts";
 import { formatSubmissionFeedback, formatSubmissionStatusLabel } from "@/modules/submissions/feedback";
 import { MonacoCodeEditor, resolveMonacoLanguage } from "@/modules/questions/editor/monaco-code-editor";
-import { TestcaseResults } from "@/modules/questions/editor/testcase-results";
 
 const EDITOR_MARKER_OWNER = "language-diagnostics";
-
-type ResultRow = {
-  testcaseId: string;
-  name: string | null;
-  passed: boolean;
-  status: string;
-  runtimeMs: number | null;
-  actualOutput: string | null;
-  expectedOutput: string | null;
-  errorMessage: string | null;
-  isHidden: boolean;
-};
 
 type EditorDiagnostic = {
   message: string;
@@ -46,7 +33,6 @@ type SandboxJobPayload = {
     errorMessage: string | null;
     result: null | {
       diagnostics?: EditorDiagnostic[];
-      results?: Array<Omit<ResultRow, "isHidden">>;
     };
   };
 };
@@ -107,8 +93,7 @@ export function CodeEditor({
       ...(draft ?? {}),
     };
   });
-  const [pendingAction, setPendingAction] = useState<"sample" | "submit" | null>(null);
-  const [sampleResults, setSampleResults] = useState<ResultRow[]>([]);
+  const [pendingAction, setPendingAction] = useState<"submit" | null>(null);
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
   const [submissionSummary, setSubmissionSummary] = useState<{
     status: string;
@@ -119,7 +104,6 @@ export function CodeEditor({
   } | null>(null);
   const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const diagnosticsAbortRef = useRef<AbortController | null>(null);
-  const sampleAbortRef = useRef<AbortController | null>(null);
   const submitIdempotencyKeyRef = useRef<string | null>(null);
   const editorLanguage = resolveMonacoLanguage(
     languages.find((language) => language.slug === selectedLanguage)?.editorLanguage ?? "plaintext",
@@ -201,48 +185,6 @@ export function CodeEditor({
     };
   }, [code, questionId, selectedLanguage, workspaceId]);
 
-  async function runSamples() {
-    if (pendingAction !== null) return;
-    if (!selectedLanguage) {
-      toast.error("No enabled language is available for this question.");
-      return;
-    }
-    if (!code.trim()) {
-      toast.error(Messages.codeRequired);
-      return;
-    }
-
-    sampleAbortRef.current?.abort();
-    const controller = new AbortController();
-    sampleAbortRef.current = controller;
-    setPendingAction("sample");
-    try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/run-sample`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          [IDEMPOTENCY_KEY_HEADER]: crypto.randomUUID(),
-        },
-        body: JSON.stringify({ questionId, sourceCode: code, language: selectedLanguage }),
-        signal: controller.signal,
-      });
-      const payload = await response.json() as SandboxJobPayload & { message?: string };
-      if (!response.ok || !payload.job) throw new Error(payload.message ?? "Unable to run sample tests.");
-      const job = await pollSandboxJob(workspaceId, payload.job.id, controller.signal);
-      if (job.status !== "completed") throw new Error(job.errorMessage ?? "Unable to run sample tests.");
-      const results = (job.result?.results ?? []).map((result) => ({ ...result, isHidden: false }));
-      setSampleResults(results);
-      toast.success("Sample run completed", { description: `${results.filter((result) => result.passed).length}/${results.length} samples passed.` });
-    } catch (error) {
-      if (!controller.signal.aborted) toast.error(error instanceof Error ? error.message : "Unable to run sample tests.");
-    } finally {
-      if (sampleAbortRef.current === controller) {
-        sampleAbortRef.current = null;
-        setPendingAction(null);
-      }
-    }
-  }
-
   async function submitSolution() {
     if (pendingAction !== null || submitIdempotencyKeyRef.current) {
       return;
@@ -276,7 +218,6 @@ export function CodeEditor({
 
       const payload = (await response.json()) as {
         message?: string;
-        results?: ResultRow[];
         submission?: { id: string };
         status?: string;
         errorMessage?: string | null;
@@ -360,8 +301,6 @@ export function CodeEditor({
     };
   }, [activeSubmissionId, workspaceId, router]);
 
-  useEffect(() => () => sampleAbortRef.current?.abort(), []);
-
   function handleMount(editor: monacoEditor.editor.IStandaloneCodeEditor) {
     editorRef.current = editor;
   }
@@ -388,16 +327,6 @@ export function CodeEditor({
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              disabled={pendingAction !== null || languages.length === 0}
-              onClick={() => void runSamples()}
-            >
-              {pendingAction === "sample" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Run
-            </Button>
             <Button
               type="button"
               className="rounded-full"
@@ -427,11 +356,6 @@ export function CodeEditor({
             <pre className="rounded-[16px] bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 px-4 py-3 text-xs font-mono mb-3 shrink-0 max-h-40 overflow-y-auto whitespace-pre-wrap">
               {submissionSummary.errorMessage}
             </pre>
-          ) : null}
-          {sampleResults.length > 0 ? (
-            <div className="mb-3 max-h-64 shrink-0 overflow-y-auto rounded-[22px] border border-slate-200 p-2 dark:border-white/10">
-              <TestcaseResults results={sampleResults} />
-            </div>
           ) : null}
           <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white flex-1 min-h-0 dark:border-white/10 dark:bg-[#0d0e12]">
             <MonacoCodeEditor
