@@ -1,5 +1,5 @@
-import { ok, toFailResponse } from "@/lib/api";
-import { parsePageLimit } from "@/lib/cursor";
+import { paged, toFailResponse } from "@/lib/api";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
 import { listPublicLanguagesPage } from "@/server/languages/service";
 
 export const runtime = "nodejs";
@@ -7,10 +7,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    return ok(await listPublicLanguagesPage({
-      limit: parsePageLimit(url.searchParams.get("limit")),
-      cursor: url.searchParams.get("cursor"),
-    }));
+    return paged(await listPublicLanguagesPage(parsePageRequestFromSearchParams(url.searchParams)));
   } catch (error) {
     return toFailResponse(error);
   }

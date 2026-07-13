@@ -18,7 +18,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { DataTablePagination, DataTableSearch } from "@/components/common/data-table";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Messages } from "@/lib/api.constants";
 import { useCollectionSearch } from "@/lib/use-collection-search";
+import type { PagedResult } from "@/lib/pagination";
 
 export type Language = {
   id: string;
@@ -446,7 +447,7 @@ function LanguageCard({
           <Button
             variant="ghost"
             size="icon"
-            title={language.isEnabled ? "Disable" : "Enable"}
+            tooltip={language.isEnabled ? "Disable" : "Enable"}
             disabled={togglingEnabled}
             onClick={() => void handleToggleEnabled()}
           >
@@ -461,7 +462,7 @@ function LanguageCard({
           <LanguageDialog
             language={language}
             trigger={
-              <Button variant="ghost" size="icon" title="Edit">
+              <Button variant="ghost" size="icon" tooltip="Edit">
                 <Pencil className="h-4 w-4" />
               </Button>
             }
@@ -471,7 +472,7 @@ function LanguageCard({
           {/* Delete */}
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive">
+              <Button variant="ghost" size="icon" tooltip="Delete" className="text-destructive hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </AlertDialogTrigger>
@@ -485,12 +486,17 @@ function LanguageCard({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => void handleDelete()}
-                >
-                  Delete
+                <AlertDialogCancel asChild>
+                  <Button type="button" variant="outline">Cancel</Button>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button
+                    type="button"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => void handleDelete()}
+                  >
+                    Delete
+                  </Button>
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -500,7 +506,7 @@ function LanguageCard({
           <Button
             variant="ghost"
             size="icon"
-            title={expanded ? "Collapse" : "Expand"}
+            tooltip={expanded ? "Collapse" : "Expand"}
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? (
@@ -573,12 +579,11 @@ function LanguageCard({
 export function LanguageManager({
   initialPage,
 }: {
-  initialPage: { items: Language[]; nextCursor: string | null; hasMore: boolean };
+  initialPage: PagedResult<Language>;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const request = useMemo(() => ({
-    limit: 10,
     ...(search.trim() ? { searchTerm: { name: "name,slug", value: search } } : {}),
   }), [search]);
   const collection = useCollectionSearch<Language>({
@@ -650,12 +655,14 @@ export function LanguageManager({
           ))}
         </div>
       )}
-      {collection.hasPrevious || collection.page.nextCursor ? (
-        <DataTablePagination
-          previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
-          next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
-        />
-      ) : null}
+      <DataTablePagination
+        meta={collection.page.meta}
+        itemCount={languages.length}
+        itemName="languages"
+        isLoading={collection.isLoading}
+        onPageChange={collection.goToPage}
+        onPageSizeChange={collection.setPageSize}
+      />
     </div>
   );
 }

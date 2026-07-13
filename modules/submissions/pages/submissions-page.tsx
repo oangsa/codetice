@@ -6,7 +6,7 @@ import { DataTablePagination } from "@/components/common/data-table";
 import { WorkspaceSubmissionFilters } from "@/modules/submissions/components/workspace-submission-filters";
 import { SubmissionTable } from "@/modules/submissions/components/submission-table";
 import { requirePageUser } from "@/lib/auth";
-import { collectCursorItems } from "@/lib/pagination";
+import { collectPagedItems, parsePageRequest } from "@/lib/pagination";
 import { listWorkspaceQuestionsPage } from "@/server/questions/queries";
 import { listWorkspaceSubmissionsPage } from "@/server/submissions/queries";
 import { getWorkspaceAccess } from "@/server/workspaces/authorization";
@@ -17,11 +17,12 @@ export default async function WorkspaceSubmissionsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ questionId?: string; studentId?: string; cursor?: string }>;
+  searchParams: Promise<{ questionId?: string; studentId?: string; pageNumber?: string }>;
 }) {
   const actor = await requirePageUser();
   const { id } = await params;
   const query = await searchParams;
+  const pageRequest = parsePageRequest({ pageNumber: query.pageNumber, pageSize: 25 });
   const access = await getWorkspaceAccess(actor, id);
   if (!access?.member) notFound();
 
@@ -31,29 +32,25 @@ export default async function WorkspaceSubmissionsPage({
       workspaceId: id,
       questionId: query.questionId ?? null,
       studentId: query.studentId ?? null,
-      limit: 25,
-      cursor: query.cursor ?? null,
+      ...pageRequest,
     }),
     access.staff
-      ? collectCursorItems((cursor) => listWorkspaceQuestionsPage({
+      ? collectPagedItems((pagination) => listWorkspaceQuestionsPage({
           actor,
           workspaceId: id,
-          limit: 100,
-          cursor,
+          ...pagination,
         }))
       : Promise.resolve(null),
     access.staff
-      ? collectCursorItems((cursor) => listWorkspaceMembersPage({ actor, workspaceId: id, limit: 100, cursor }))
+      ? collectPagedItems((pagination) => listWorkspaceMembersPage({ actor, workspaceId: id, ...pagination }))
       : Promise.resolve(null),
   ]);
 
-  const nextHref = page.nextCursor
-    ? `?${new URLSearchParams({
+  const getPageHref = (pageNumber: number) => `?${new URLSearchParams({
         ...(query.questionId ? { questionId: query.questionId } : {}),
         ...(query.studentId ? { studentId: query.studentId } : {}),
-        cursor: page.nextCursor,
-      }).toString()}`
-    : null;
+        pageNumber: String(pageNumber),
+      }).toString()}`;
 
   return (
     <div className="space-y-6">
@@ -76,7 +73,14 @@ export default async function WorkspaceSubmissionsPage({
               .map((item) => ({ id: item.userId, username: item.username }))}
           />
         ) : null}
-        pagination={nextHref ? <DataTablePagination next={{ label: "Next", href: nextHref }} /> : null}
+        pagination={
+          <DataTablePagination
+            meta={page.meta}
+            itemCount={page.items.length}
+            itemName="submissions"
+            getPageHref={getPageHref}
+          />
+        }
       />
     </div>
   );

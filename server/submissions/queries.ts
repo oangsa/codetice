@@ -1,32 +1,16 @@
 import "server-only";
 
-import { and, desc, eq, gt, gte, ilike, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { workspaceMembers, questions, submissionRuns, submissions, testcaseResults, users } from "@/db/schema";
-import { decodeCursor, encodeCursor } from "@/lib/cursor";
 import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getDb } from "@/lib/db";
+import { createPagedResult, pageOffset } from "@/lib/pagination";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import type { AuthorizedWorkspace, WorkspaceActor } from "@/server/workspaces/authorization";
 import { requireWorkspaceMember } from "@/server/workspaces/authorization";
-
-function parseSubmissionCursor(cursor: string | null, scope: string, filters: string) {
-  if (!cursor) return undefined;
-  try {
-    const decoded = decodeCursor(cursor, { endpoint: "workspace-submissions", scope, filters });
-    const [createdAtValue, id] = decoded.keys;
-    if (typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
-    if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
-    return or(
-      sql`${submissions.createdAt} < ${createdAtValue}::timestamp`,
-      and(sql`${submissions.createdAt} = ${createdAtValue}::timestamp`, lt(submissions.id, id)),
-    );
-  } catch {
-    throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
-  }
-}
 
 async function validateSubmissionFilters(input: {
   workspaceId: string;
@@ -64,15 +48,15 @@ export async function listWorkspaceSubmissionsPage(input: {
   workspaceId: string;
   questionId: string | null;
   studentId: string | null;
-  limit: number;
-  cursor: string | null;
+  pageNumber: number;
+  pageSize: number;
 }) {
   const access = await requireWorkspaceMember(input.actor, input.workspaceId);
   await validateSubmissionFilters({ ...input, access });
   const effectiveStudentId = access.staff ? input.studentId : input.actor.userId;
   const search = parseCollectionSearch({
-    limit: input.limit,
-    cursor: input.cursor,
+    pageNumber: input.pageNumber,
+    pageSize: input.pageSize,
     search: [
       ...(input.questionId ? [{ name: "questionId", condition: "EQUAL", value: input.questionId }] : []),
       ...(effectiveStudentId ? [{ name: "studentId", condition: "EQUAL", value: effectiveStudentId }] : []),
@@ -108,8 +92,6 @@ async function queryWorkspaceSubmissionsPage(input: {
   const effectiveStudentId = input.access.staff
     ? (requestedStudentId ? String(requestedStudentId) : null)
     : input.actor.userId;
-  const filters = JSON.stringify({ search: input.search.filters, student: effectiveStudentId });
-  const after = parseSubmissionCursor(input.search.cursor, input.workspaceId, filters);
   const latestRun = alias(submissionRuns, "submission_latest_run_dto");
   const latestScored = alias(submissionRuns, "submission_latest_scored_dto");
   const db = getDb();
@@ -142,30 +124,35 @@ async function queryWorkspaceSubmissionsPage(input: {
     )))!);
   }
 
-  const rows = await db.select({
-    id: submissions.id,
-    student: { id: users.id, username: users.username },
-    question: { id: questions.id, title: questions.title, slug: questions.slug },
-    latestStatus: latestRun.status,
-    score: latestScored.score,
-    isRanked: submissions.isRanked,
-    createdAt: submissions.createdAt,
-    cursorCreatedAt: sql<string>`${submissions.createdAt}::text`,
-  }).from(submissions)
-    .innerJoin(questions, and(eq(questions.id, submissions.questionId), eq(questions.workspaceId, input.workspaceId)))
-    .innerJoin(users, eq(users.id, submissions.userId))
-    .innerJoin(latestRun, eq(latestRun.id, submissions.latestRunId))
-    .leftJoin(latestScored, eq(latestScored.id, submissions.latestScoredRunId))
-    .where(and(
+  const where = and(
       effectiveStudentId ? eq(submissions.userId, effectiveStudentId) : undefined,
       ...searchConditions,
-      after,
-    ))
-    .orderBy(desc(submissions.createdAt), desc(submissions.id))
-    .limit(input.search.limit + 1);
-  const hasMore = rows.length > input.search.limit;
-  const pageRows = rows.slice(0, input.search.limit);
-  const items = pageRows.map((row) => ({
+    );
+  const [rows, countRows] = await Promise.all([
+    db.select({
+      id: submissions.id,
+      student: { id: users.id, username: users.username },
+      question: { id: questions.id, title: questions.title, slug: questions.slug },
+      latestStatus: latestRun.status,
+      score: latestScored.score,
+      isRanked: submissions.isRanked,
+      createdAt: submissions.createdAt,
+    }).from(submissions)
+      .innerJoin(questions, and(eq(questions.id, submissions.questionId), eq(questions.workspaceId, input.workspaceId)))
+      .innerJoin(users, eq(users.id, submissions.userId))
+      .innerJoin(latestRun, eq(latestRun.id, submissions.latestRunId))
+      .leftJoin(latestScored, eq(latestScored.id, submissions.latestScoredRunId))
+      .where(where)
+      .orderBy(desc(submissions.createdAt), desc(submissions.id))
+      .limit(input.search.pageSize)
+      .offset(pageOffset(input.search)),
+    db.select({ count: sql<number>`count(*)::int` }).from(submissions)
+      .innerJoin(questions, and(eq(questions.id, submissions.questionId), eq(questions.workspaceId, input.workspaceId)))
+      .innerJoin(users, eq(users.id, submissions.userId))
+      .innerJoin(latestRun, eq(latestRun.id, submissions.latestRunId))
+      .where(where),
+  ]);
+  const items = rows.map((row) => ({
     id: row.id,
     student: row.student,
     question: row.question,
@@ -174,18 +161,11 @@ async function queryWorkspaceSubmissionsPage(input: {
     isRanked: row.isRanked,
     createdAt: row.createdAt,
   }));
-  const last = pageRows.at(-1);
-
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({
-      endpoint: "workspace-submissions",
-      scope: input.workspaceId,
-      filters,
-      keys: [last.cursorCreatedAt, last.id],
-    }) : null,
-  };
+  return createPagedResult(items, {
+    currentPage: input.search.pageNumber,
+    pageSize: input.search.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }
 
 export async function searchWorkspaceSubmissionsPage(input: {
@@ -277,60 +257,45 @@ export async function listSubmissionRunsPage(input: {
   actor: WorkspaceActor;
   workspaceId: string;
   submissionId: string;
-  limit: number;
-  cursor: string | null;
+  pageNumber: number;
+  pageSize: number;
 }) {
   const { access } = await requireVisibleSubmission(input.actor, input.workspaceId, input.submissionId);
-  const endpoint = "submission-runs";
-  const scope = `${input.workspaceId}:${input.submissionId}`;
-  const filters = "";
-  let after: ReturnType<typeof or> | undefined;
-  if (input.cursor) {
-    try {
-      const decoded = decodeCursor(input.cursor, { endpoint, scope, filters });
-      const [sequence, id] = decoded.keys;
-      if (typeof sequence !== "number" || typeof id !== "string") throw new Error();
-      after = or(
-        lt(submissionRuns.sequence, sequence),
-        and(eq(submissionRuns.sequence, sequence), lt(submissionRuns.id, id)),
-      );
-    } catch {
-      throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
-    }
-  }
   const db = getDb();
-  const rows = await db.query.submissionRuns.findMany({
-    where: and(eq(submissionRuns.submissionId, input.submissionId), after),
-    columns: {
-      id: true,
-      sequence: true,
-      trigger: true,
-      status: true,
-      passedCount: true,
-      totalCount: true,
-      score: true,
-      runtimeMs: true,
-      memoryKb: true,
-      errorMessage: true,
-      createdAt: true,
-      startedAt: true,
-      completedAt: true,
-    },
-    orderBy: (fields, ops) => [ops.desc(fields.sequence), ops.desc(fields.id)],
-    limit: input.limit + 1,
-  });
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit).map((item) => ({
+  const where = eq(submissionRuns.submissionId, input.submissionId);
+  const [rows, countRows] = await Promise.all([
+    db.query.submissionRuns.findMany({
+      where,
+      columns: {
+        id: true,
+        sequence: true,
+        trigger: true,
+        status: true,
+        passedCount: true,
+        totalCount: true,
+        score: true,
+        runtimeMs: true,
+        memoryKb: true,
+        errorMessage: true,
+        createdAt: true,
+        startedAt: true,
+        completedAt: true,
+      },
+      orderBy: (fields, ops) => [ops.desc(fields.sequence), ops.desc(fields.id)],
+      limit: input.pageSize,
+      offset: pageOffset(input),
+    }),
+    db.select({ count: sql<number>`count(*)::int` }).from(submissionRuns).where(where),
+  ]);
+  const items = rows.map((item) => ({
     ...item,
     errorMessage: access.staff ? item.errorMessage : null,
   }));
-  const last = items.at(-1);
-
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({ endpoint, scope, filters, keys: [last.sequence, last.id] }) : null,
-  };
+  return createPagedResult(items, {
+    currentPage: input.pageNumber,
+    pageSize: input.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }
 
 export async function listRunResultsPage(input: {
@@ -338,8 +303,8 @@ export async function listRunResultsPage(input: {
   workspaceId: string;
   submissionId: string;
   runId: string;
-  limit: number;
-  cursor: string | null;
+  pageNumber: number;
+  pageSize: number;
 }) {
   const { access } = await requireVisibleSubmission(input.actor, input.workspaceId, input.submissionId);
   const db = getDb();
@@ -349,30 +314,17 @@ export async function listRunResultsPage(input: {
   });
   if (!run) throw new AppError(Messages.submissionNotFound, 404, ErrorCode.NOT_FOUND);
 
-  const endpoint = "run-results";
-  const scope = `${input.workspaceId}:${input.submissionId}:${input.runId}`;
-  const filters = "";
-  let after: ReturnType<typeof or> | undefined;
-  if (input.cursor) {
-    try {
-      const decoded = decodeCursor(input.cursor, { endpoint, scope, filters });
-      const [sortOrder, id] = decoded.keys;
-      if (typeof sortOrder !== "number" || typeof id !== "string") throw new Error();
-      after = or(
-        gt(testcaseResults.testcaseSortOrder, sortOrder),
-        and(eq(testcaseResults.testcaseSortOrder, sortOrder), gt(testcaseResults.id, id)),
-      );
-    } catch {
-      throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
-    }
-  }
-  const rows = await db.query.testcaseResults.findMany({
-    where: and(eq(testcaseResults.submissionRunId, input.runId), after),
-    orderBy: (fields, ops) => [ops.asc(fields.testcaseSortOrder), ops.asc(fields.id)],
-    limit: input.limit + 1,
-  });
-  const hasMore = rows.length > input.limit;
-  const items = rows.slice(0, input.limit).map((item) => ({
+  const where = eq(testcaseResults.submissionRunId, input.runId);
+  const [rows, countRows] = await Promise.all([
+    db.query.testcaseResults.findMany({
+      where,
+      orderBy: (fields, ops) => [ops.asc(fields.testcaseSortOrder), ops.asc(fields.id)],
+      limit: input.pageSize,
+      offset: pageOffset(input),
+    }),
+    db.select({ count: sql<number>`count(*)::int` }).from(testcaseResults).where(where),
+  ]);
+  const items = rows.map((item) => ({
     id: item.id,
     testcaseName: item.testcaseName,
     testcaseSortOrder: item.testcaseSortOrder,
@@ -386,11 +338,9 @@ export async function listRunResultsPage(input: {
     passed: item.passed,
     createdAt: item.createdAt,
   }));
-  const last = items.at(-1);
-
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({ endpoint, scope, filters, keys: [last.testcaseSortOrder, last.id] }) : null,
-  };
+  return createPagedResult(items, {
+    currentPage: input.pageNumber,
+    pageSize: input.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }

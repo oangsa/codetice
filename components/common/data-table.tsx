@@ -1,10 +1,12 @@
 import Link from "next/link";
 import type { Key, ReactNode } from "react";
-import { Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PAGE_SIZE_OPTIONS, type PaginationMeta } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
 export type DataTableColumn<T> = {
@@ -47,25 +49,24 @@ export function DataTable<T>({
   return (
     <div className="space-y-3">
       <div className={cn(
-        "overflow-hidden rounded-[30px] border border-slate-200 bg-[var(--tint-sm)] shadow-sm dark:border-slate-800/60",
+        "overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950",
         containerClassName,
       )}>
         {hasToolbar ? (
-          <div className="flex flex-col gap-4 p-2 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {title !== undefined ? <div className="min-w-20 pl-2 text-sm font-semibold text-slate-700">{title}</div> : null}
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-3 py-3 sm:flex-row sm:items-center dark:border-slate-800">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {title !== undefined ? <div className="text-sm font-semibold text-slate-900 dark:text-white">{title}</div> : null}
               {search}
             </div>
-            <div className="hidden flex-1 sm:block" />
-            {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+            {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:ml-auto">{actions}</div> : null}
           </div>
         ) : null}
 
-        {filters}
+        {filters ? <div className="border-b border-slate-200 dark:border-slate-800">{filters}</div> : null}
 
-        <Table>
-          <TableHeader>
-            <TableRow className="border-slate-200 bg-[var(--tint-sm)] dark:border-slate-800/60">
+        <Table className="[&_th]:h-10 [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2">
+          <TableHeader className="bg-slate-50/80 dark:bg-slate-900/50">
+            <TableRow className="border-slate-200 bg-transparent dark:border-slate-800">
               {columns.map((column) => (
                 <TableHead key={column.id} className={column.headerClassName}>{column.header}</TableHead>
               ))}
@@ -101,8 +102,12 @@ export function DataTable<T>({
             ))}
           </TableBody>
         </Table>
+        {pagination ? (
+          <div className="border-t border-slate-200 px-3 py-3 dark:border-slate-800">
+            {pagination}
+          </div>
+        ) : null}
       </div>
-      {pagination}
     </div>
   );
 }
@@ -143,14 +148,112 @@ type DataTablePageAction = {
 };
 
 export function DataTablePagination({
+  meta,
+  itemCount,
+  itemName = "items",
+  isLoading = false,
+  onPageChange,
+  onPageSizeChange,
+  getPageHref,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
   label,
   previous,
   next,
 }: {
+  meta?: PaginationMeta;
+  itemCount?: number;
+  itemName?: string;
+  isLoading?: boolean;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  getPageHref?: (page: number) => string;
+  pageSizeOptions?: readonly number[];
   label?: ReactNode;
   previous?: DataTablePageAction;
   next?: DataTablePageAction;
 }) {
+  if (meta) {
+    const resolvedItemCount = itemCount ?? meta.pageSize;
+    const start = meta.totalCount === 0 ? 0 : (meta.currentPage - 1) * meta.pageSize + 1;
+    const end = Math.min(start + resolvedItemCount - 1, meta.totalCount);
+    const rangeLabel = isLoading
+      ? "Loading..."
+      : meta.totalCount === 0 || resolvedItemCount === 0
+        ? `0 ${itemName}`
+        : `${start}-${end} of ${meta.totalCount} ${itemName}`;
+    const pageNumbers = getPageNumbers(meta.currentPage, meta.totalPages);
+    const createPageChangeHandler = onPageChange
+      ? (page: number) => () => onPageChange(page)
+      : undefined;
+
+    return (
+      <div className="flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <span>{rangeLabel}</span>
+          {onPageSizeChange ? (
+            <Select
+              value={String(meta.pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              <SelectTrigger className="h-8 w-[110px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((pageSize) => (
+                  <SelectItem key={pageSize} value={String(pageSize)}>{pageSize} / page</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-end gap-1">
+          <PaginationIconButton
+            tooltip="First page"
+            disabled={isLoading || !meta.hasPrevious}
+            href={getPageHref?.(1)}
+            onClick={createPageChangeHandler?.(1)}
+          >
+            <ChevronsLeft />
+          </PaginationIconButton>
+          <PaginationIconButton
+            tooltip="Previous page"
+            disabled={isLoading || !meta.hasPrevious}
+            href={getPageHref?.(meta.currentPage - 1)}
+            onClick={createPageChangeHandler?.(meta.currentPage - 1)}
+          >
+            <ChevronLeft />
+          </PaginationIconButton>
+          {pageNumbers.map((page) => (
+            <PaginationPageButton
+              key={page}
+              page={page}
+              active={page === meta.currentPage}
+              disabled={isLoading || page === meta.currentPage}
+              href={page === meta.currentPage ? undefined : getPageHref?.(page)}
+              onClick={createPageChangeHandler?.(page)}
+            />
+          ))}
+          <PaginationIconButton
+            tooltip="Next page"
+            disabled={isLoading || !meta.hasNext}
+            href={getPageHref?.(meta.currentPage + 1)}
+            onClick={createPageChangeHandler?.(meta.currentPage + 1)}
+          >
+            <ChevronRight />
+          </PaginationIconButton>
+          <PaginationIconButton
+            tooltip="Last page"
+            disabled={isLoading || !meta.hasNext}
+            href={getPageHref?.(meta.totalPages)}
+            onClick={createPageChangeHandler?.(meta.totalPages)}
+          >
+            <ChevronsRight />
+          </PaginationIconButton>
+        </div>
+      </div>
+    );
+  }
+
   if (!label && !previous && !next) return null;
 
   return (
@@ -161,6 +264,87 @@ export function DataTablePagination({
         {next ? <PaginationAction action={next} /> : null}
       </div>
     </div>
+  );
+}
+
+function getPageNumbers(currentPage: number, totalPages: number) {
+  const windowSize = 5;
+  const start = Math.max(1, Math.min(currentPage - Math.floor(windowSize / 2), totalPages - windowSize + 1));
+  const end = Math.min(totalPages, start + windowSize - 1);
+  return Array.from({ length: Math.max(end - start + 1, 0) }, (_, index) => start + index);
+}
+
+function PaginationIconButton({
+  tooltip,
+  disabled,
+  href,
+  onClick,
+  children,
+}: {
+  tooltip: string;
+  disabled: boolean;
+  href?: string;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  const className = "h-8 w-8";
+  if (href && !disabled) {
+    return (
+      <Button asChild tooltip={tooltip} aria-label={tooltip} variant="outline" size="icon" className={className}>
+        <Link href={href}>{children}</Link>
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      tooltip={tooltip}
+      aria-label={tooltip}
+      variant="outline"
+      size="icon"
+      className={className}
+      disabled={disabled}
+      {...(onClick ? { onClick } : {})}
+    >
+      {children}
+    </Button>
+  );
+}
+
+function PaginationPageButton({
+  page,
+  active,
+  disabled,
+  href,
+  onClick,
+}: {
+  page: number;
+  active: boolean;
+  disabled: boolean;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const className = "h-8 min-w-8 px-2 text-xs";
+  const variant = active ? "default" : "outline";
+  if (href && !disabled) {
+    return (
+      <Button asChild variant={variant} size="sm" className={className}>
+        <Link href={href}>{page}</Link>
+      </Button>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      variant={variant}
+      size="sm"
+      className={className}
+      disabled={disabled}
+      {...(onClick ? { onClick } : {})}
+    >
+      {page}
+    </Button>
   );
 }
 
@@ -180,7 +364,7 @@ function PaginationAction({ action }: { action: DataTablePageAction }) {
       size="sm"
       className={className}
       disabled={action.disabled}
-      onClick={action.onClick}
+      {...(action.onClick ? { onClick: action.onClick } : {})}
     >
       {action.label}
     </Button>

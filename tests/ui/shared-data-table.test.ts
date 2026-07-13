@@ -16,13 +16,25 @@ const tableSurfaces = [
 ];
 
 describe("shared data table", () => {
-  test("provides the questions-table visual shell", async () => {
+  test("provides the compact reference-style table shell", async () => {
     expect(existsSync(resolve(root, sharedTable))).toBe(true);
     const source = await readFile(resolve(root, sharedTable), "utf8");
-    expect(source).toContain("rounded-[30px]");
+    expect(source).toContain("rounded-lg");
+    expect(source).toContain("[&_td]:px-3 [&_td]:py-2");
     expect(source).toContain("DataTable");
     expect(source).toContain("DataTablePagination");
     expect(source).toContain("DataTableSearch");
+    expect(source).toContain("PAGE_SIZE_OPTIONS");
+    expect(source).toContain("getPageHref");
+  });
+
+  test("keeps server-rendered page links free of client event handlers", async () => {
+    const source = await readFile(resolve(root, sharedTable), "utf8");
+
+    expect(source).toContain("const createPageChangeHandler = onPageChange");
+    expect(source).toContain("onClick={createPageChangeHandler?.(1)}");
+    expect(source).toContain("...(onClick ? { onClick } : {})");
+    expect(source).not.toContain("onClick={() => onPageChange?.");
   });
 
   test("is the only table renderer used by application surfaces", async () => {

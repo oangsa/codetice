@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, asc, eq, gt, ilike, ne, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
-import { decodeCursor, encodeCursor } from "@/lib/cursor";
 import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getDb } from "@/lib/db";
+import { createPagedResult, pageOffset } from "@/lib/pagination";
 import { validateDockerImage } from "@/server/languages/docker-image";
 import {
   enabledLanguageOptionColumns,
@@ -64,21 +64,6 @@ export async function createUniqueSupportedLanguageSlug(name: string) {
   return slug;
 }
 
-function parseLanguageCursor(cursor: string | null, endpoint: string, filters: string) {
-  if (!cursor) return undefined;
-  try {
-    const decoded = decodeCursor(cursor, { endpoint, scope: "global", filters });
-    const [name, id] = decoded.keys;
-    if (typeof name !== "string" || typeof id !== "string") throw new Error();
-    return or(
-      gt(supportedLanguages.name, name),
-      and(eq(supportedLanguages.name, name), gt(supportedLanguages.id, id)),
-    );
-  } catch {
-    throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
-  }
-}
-
 export const publicLanguageSearchConfig = {
   fields: {
     name: ["CONTAINS", "STARTWITH", "EQUAL"] as const,
@@ -131,33 +116,32 @@ function languageSearchWhere(search: ParsedCollectionSearch) {
 }
 
 async function queryPublicLanguagesPage(search: ParsedCollectionSearch) {
-  const endpoint = "enabled-languages";
-  const filters = JSON.stringify({ enabled: true, search: search.filters });
   const db = getDb();
-  const rows = await db.select({
-    id: supportedLanguages.id,
-    name: supportedLanguages.name,
-    slug: supportedLanguages.slug,
-    fileExtension: supportedLanguages.fileExtension,
-    editorLanguage: supportedLanguages.editorLanguage,
-    diagnosticsFormat: supportedLanguages.diagnosticsFormat,
-    defaultStarterCode: supportedLanguages.defaultStarterCode,
-  }).from(supportedLanguages).where(and(
-    enabledLanguageOptionsWhere(),
-    languageSearchWhere(search),
-    parseLanguageCursor(search.cursor, endpoint, filters),
-  )).orderBy(asc(supportedLanguages.name), asc(supportedLanguages.id)).limit(search.limit + 1);
-  const hasMore = rows.length > search.limit;
-  const items = rows.slice(0, search.limit);
-  const last = items.at(-1);
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({ endpoint, scope: "global", filters, keys: [last.name, last.id] }) : null,
-  };
+  const where = and(enabledLanguageOptionsWhere(), languageSearchWhere(search));
+  const [items, countRows] = await Promise.all([
+    db.select({
+      id: supportedLanguages.id,
+      name: supportedLanguages.name,
+      slug: supportedLanguages.slug,
+      fileExtension: supportedLanguages.fileExtension,
+      editorLanguage: supportedLanguages.editorLanguage,
+      diagnosticsFormat: supportedLanguages.diagnosticsFormat,
+      defaultStarterCode: supportedLanguages.defaultStarterCode,
+    }).from(supportedLanguages)
+      .where(where)
+      .orderBy(asc(supportedLanguages.name), asc(supportedLanguages.id))
+      .limit(search.pageSize)
+      .offset(pageOffset(search)),
+    db.select({ count: sql<number>`count(*)::int` }).from(supportedLanguages).where(where),
+  ]);
+  return createPagedResult(items, {
+    currentPage: search.pageNumber,
+    pageSize: search.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }
 
-export async function listPublicLanguagesPage(input: { limit: number; cursor: string | null }) {
+export async function listPublicLanguagesPage(input: { pageNumber: number; pageSize: number }) {
   return queryPublicLanguagesPage(parseCollectionSearch(input, publicLanguageSearchConfig));
 }
 
@@ -166,25 +150,25 @@ export function searchPublicLanguagesPage(body: unknown) {
 }
 
 async function queryAdminLanguagesPage(search: ParsedCollectionSearch) {
-  const endpoint = "admin-languages";
-  const filters = search.filters;
   const db = getDb();
-  const rows = await db.query.supportedLanguages.findMany({
-    where: and(languageSearchWhere(search), parseLanguageCursor(search.cursor, endpoint, filters)),
-    orderBy: (fields, ops) => [ops.asc(fields.name), ops.asc(fields.id)],
-    limit: search.limit + 1,
+  const where = languageSearchWhere(search);
+  const [items, countRows] = await Promise.all([
+    db.query.supportedLanguages.findMany({
+      where,
+      orderBy: (fields, ops) => [ops.asc(fields.name), ops.asc(fields.id)],
+      limit: search.pageSize,
+      offset: pageOffset(search),
+    }),
+    db.select({ count: sql<number>`count(*)::int` }).from(supportedLanguages).where(where),
+  ]);
+  return createPagedResult(items, {
+    currentPage: search.pageNumber,
+    pageSize: search.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
   });
-  const hasMore = rows.length > search.limit;
-  const items = rows.slice(0, search.limit);
-  const last = items.at(-1);
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({ endpoint, scope: "global", filters, keys: [last.name, last.id] }) : null,
-  };
 }
 
-export async function listAdminLanguagesPage(input: { limit: number; cursor: string | null }) {
+export async function listAdminLanguagesPage(input: { pageNumber: number; pageSize: number }) {
   return queryAdminLanguagesPage(parseCollectionSearch(input, adminLanguageSearchConfig));
 }
 

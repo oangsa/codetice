@@ -9,6 +9,7 @@ import { SubmissionStatusBadge } from "@/modules/submissions/components/submissi
 import { WorkspaceRejudgeButton } from "@/modules/submissions/components/workspace-rejudge-button";
 import { Badge } from "@/components/ui/badge";
 import { requirePageUser } from "@/lib/auth";
+import { parsePageRequest } from "@/lib/pagination";
 import { formatDate, formatScore } from "@/lib/utils";
 import { getWorkspaceSubmissionDetail, listRunResultsPage, listSubmissionRunsPage } from "@/server/submissions/queries";
 import { getWorkspaceAccess } from "@/server/workspaces/authorization";
@@ -19,7 +20,7 @@ export default async function WorkspaceSubmissionDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string; submissionId: string }>;
-  searchParams: Promise<{ runId?: string; runCursor?: string; resultCursor?: string }>;
+  searchParams: Promise<{ runId?: string; runPage?: string; resultPage?: string }>;
 }) {
   const actor = await requirePageUser();
   const { id, submissionId } = await params;
@@ -34,9 +35,11 @@ export default async function WorkspaceSubmissionDetailPage({
   if (!submission) notFound();
 
   const selectedRunId = query.runId ?? submission.latestRun.id;
+  const runPageRequest = parsePageRequest({ pageNumber: query.runPage, pageSize: 25 });
+  const resultPageRequest = parsePageRequest({ pageNumber: query.resultPage, pageSize: 25 });
   const [runs, results] = await Promise.all([
-    listSubmissionRunsPage({ actor, workspaceId: id, submissionId, limit: 25, cursor: query.runCursor ?? null }),
-    listRunResultsPage({ actor, workspaceId: id, submissionId, runId: selectedRunId, limit: 25, cursor: query.resultCursor ?? null }),
+    listSubmissionRunsPage({ actor, workspaceId: id, submissionId, ...runPageRequest }),
+    listRunResultsPage({ actor, workspaceId: id, submissionId, runId: selectedRunId, ...resultPageRequest }),
   ]);
   const questionHref = `/workspaces/${id}/questions/${submission.question.slug}`;
   const selectedRun = selectedRunId === submission.latestRun.id
@@ -164,18 +167,18 @@ export default async function WorkspaceSubmissionDetailPage({
             </div>
           ))}
         </div>
-        {results.nextCursor ? (
-          <Link
-            className="mt-4 inline-block text-sm font-medium underline-offset-4 hover:underline"
-            href={`?${new URLSearchParams({
+        <div className="mt-4">
+          <DataTablePagination
+            meta={results.meta}
+            itemCount={results.items.length}
+            itemName="testcases"
+            getPageHref={(pageNumber) => `?${new URLSearchParams({
               runId: selectedRunId,
-              ...(query.runCursor ? { runCursor: query.runCursor } : {}),
-              resultCursor: results.nextCursor,
+              ...(query.runPage ? { runPage: query.runPage } : {}),
+              resultPage: String(pageNumber),
             }).toString()}`}
-          >
-            Next testcase page
-          </Link>
-        ) : null}
+          />
+        </div>
       </section>
 
       <DataTable
@@ -184,14 +187,17 @@ export default async function WorkspaceSubmissionDetailPage({
         columns={runColumns}
         getRowKey={(run) => run.id}
         emptyMessage="No grading runs yet."
-        pagination={runs.nextCursor ? (
+        pagination={
           <DataTablePagination
-            next={{
-              label: "Next",
-              href: `?${new URLSearchParams({ runId: selectedRunId, runCursor: runs.nextCursor }).toString()}`,
-            }}
+            meta={runs.meta}
+            itemCount={runs.items.length}
+            itemName="runs"
+            getPageHref={(pageNumber) => `?${new URLSearchParams({
+              runId: selectedRunId,
+              runPage: String(pageNumber),
+            }).toString()}`}
           />
-        ) : null}
+        }
       />
     </div>
   );

@@ -28,7 +28,7 @@ Use `https://github.com/oangsa/maintenance-tracking-system` as a product and arc
 - The reference project's client `api/` plus pass-through `services/` layers. Codetice is full-stack and its server operations are local domain modules.
 - Base UI components. This repo should stay on shadcn-style local UI components.
 - Any synchronous assumptions around route params or request APIs.
-- The reference project's monolithic data table; Codetice keeps collection authorization and cursor pagination server-side.
+- The reference project's monolithic data table; Codetice keeps collection authorization and page-number pagination server-side.
 
 ## Next.js 16 constraints for this repo
 

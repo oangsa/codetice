@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { toFailResponse } from "./api";
+import { paged, toFailResponse } from "./api";
 import { AppError, ErrorCode, Messages } from "./errors";
 import { z } from "zod";
 
@@ -35,6 +35,32 @@ describe("API authentication failures", () => {
     expect(await response.json()).toEqual({
       message: Messages.invalidRequest,
       code: ErrorCode.VALIDATION,
+    });
+  });
+});
+
+describe("paged API responses", () => {
+  test("returns current-page items with reference-compatible X-Pagination metadata", async () => {
+    const response = paged({
+      items: [{ id: "item-1" }],
+      meta: {
+        currentPage: 2,
+        totalPages: 3,
+        pageSize: 10,
+        totalCount: 21,
+        hasPrevious: true,
+        hasNext: true,
+      },
+    });
+
+    expect(await response.json()).toEqual([{ id: "item-1" }]);
+    expect(JSON.parse(response.headers.get("X-Pagination") ?? "null")).toEqual({
+      currentPage: 2,
+      totalPages: 3,
+      pageSize: 10,
+      totalCount: 21,
+      hasPrevious: true,
+      hasNext: true,
     });
   });
 });

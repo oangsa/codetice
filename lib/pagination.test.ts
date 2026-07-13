@@ -1,23 +1,34 @@
 import { describe, expect, test } from "bun:test";
 
-import { collectCursorItems, type CursorPageLike } from "./pagination";
+import {
+  collectPagedItems,
+  createPagedResult,
+  parsePageRequest,
+} from "./pagination";
 
-describe("collectCursorItems", () => {
-  test("consumes every stable cursor page in order", async () => {
-    const pages = new Map<string | null, CursorPageLike<number>>([
-      [null, { items: [1, 2], hasMore: true, nextCursor: "page-2" }],
-      ["page-2", { items: [3], hasMore: true, nextCursor: "page-3" }],
-      ["page-3", { items: [4, 5], hasMore: false, nextCursor: null }],
+describe("page-number pagination", () => {
+  test("consumes every stable page in order", async () => {
+    const pages = new Map<number, number[]>([
+      [1, [1, 2]],
+      [2, [3]],
+      [3, [4, 5]],
     ]);
 
-    await expect(collectCursorItems(async (cursor) => pages.get(cursor)!)).resolves.toEqual([1, 2, 3, 4, 5]);
+    await expect(collectPagedItems(async ({ pageNumber, pageSize }) => (
+      createPagedResult(pages.get(pageNumber) ?? [], { currentPage: pageNumber, pageSize, totalCount: 5 })
+    ), 2)).resolves.toEqual([1, 2, 3, 4, 5]);
   });
 
-  test("fails closed when a page claims more data without advancing", async () => {
-    await expect(collectCursorItems(async () => ({
-      items: [1],
-      hasMore: true,
-      nextCursor: null,
-    }))).rejects.toThrow("Cursor pagination did not advance.");
+  test("fails closed when metadata does not advance", async () => {
+    await expect(collectPagedItems(async ({ pageSize }) => (
+      createPagedResult([1], { currentPage: 1, pageSize, totalCount: 2 })
+    ), 1)).rejects.toThrow("Page-number pagination did not advance.");
+  });
+
+  test("parses reference-compatible pageNumber and pageSize values", () => {
+    expect(parsePageRequest({ pageNumber: "2", pageSize: "25" })).toEqual({ pageNumber: 2, pageSize: 25 });
+    expect(parsePageRequest({})).toEqual({ pageNumber: 1, pageSize: 10 });
+    expect(() => parsePageRequest({ pageNumber: "0" })).toThrow();
+    expect(() => parsePageRequest({ pageSize: "101" })).toThrow();
   });
 });

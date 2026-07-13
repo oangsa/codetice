@@ -10,7 +10,7 @@ export const metadata = {
 
 export default async function AdminLanguagesPage() {
   await requirePageAdmin();
-  const page = await listAdminLanguagesPage({ limit: 10, cursor: null });
+  const page = await listAdminLanguagesPage({ pageNumber: 1, pageSize: 10 });
   const languages = page.items as Language[];
 
   return (
@@ -25,7 +25,7 @@ export default async function AdminLanguagesPage() {
         title="Configured languages"
         description="Each language maps to a Docker image, optional build command, and testcase run command used in the grading sandbox."
       >
-        <LanguageManager initialPage={{ ...page, items: languages }} />
+        <LanguageManager initialPage={{ items: languages, meta: page.meta }} />
       </SurfaceCard>
     </div>
   );

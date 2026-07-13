@@ -25,7 +25,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Messages } from "@/lib/api.constants";
 import { useCollectionSearch } from "@/lib/use-collection-search";
+import type { PagedResult } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
 export type AdminUserRow = {
@@ -47,8 +48,6 @@ type FilterValues = {
   registeredFrom: string;
   registeredTo: string;
 };
-
-const PAGE_SIZE = 10;
 
 const ROLE_OPTIONS = [
   { label: "Student", value: "student" },
@@ -304,13 +303,12 @@ function DeleteUserButton({
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="h-9 gap-1.5 text-red-600 hover:text-red-700"
+          size="icon"
+          className="h-8 w-8 text-red-600 hover:text-red-700"
           disabled={isSelf}
-          title={isSelf ? "You cannot delete your own account." : "Delete user"}
+          tooltip={isSelf ? "You cannot delete your own account." : "Delete user"}
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Delete
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -318,21 +316,26 @@ function DeleteUserButton({
           <AlertDialogTitle>Delete user?</AlertDialogTitle>
           <AlertDialogDescription>
             This will permanently delete{" "}
-            <span className="font-semibold text-foreground">{user.username}</span> and cascade their related records.
+            <span className="font-semibold text-foreground">{user.username}</span>. Any workspaces they own will transfer to your admin account; their remaining related records will be deleted.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={pending}
-            onClick={(event) => {
-              event.preventDefault();
-              void handleDelete();
-            }}
-            className="bg-red-600 text-white hover:bg-red-700"
-          >
-            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Delete User
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline" disabled={pending}>Cancel</Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              type="button"
+              disabled={pending}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete User
+            </Button>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -344,7 +347,7 @@ export function UserManager({
   initialPage,
   currentUserId,
 }: {
-  initialPage: { items: AdminUserRow[]; nextCursor: string | null; hasMore: boolean };
+  initialPage: PagedResult<AdminUserRow>;
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -381,7 +384,6 @@ export function UserManager({
 
   const activeFilterCount = activeFilters.length;
   const request = useMemo(() => ({
-    limit: PAGE_SIZE,
     search: [
       ...(filterValues.role ? [{ name: "role", condition: "EQUAL", value: filterValues.role }] : []),
       ...(getDateBoundary(filterValues.registeredFrom) !== null ? [{
@@ -474,15 +476,19 @@ export function UserManager({
     {
       id: "actions",
       header: "Actions",
-      headerClassName: "w-[500px] text-right",
-      cellClassName: "text-right",
+      headerClassName: "w-44 text-right",
+      cellClassName: "whitespace-nowrap text-right",
       cell: (user) => (
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-nowrap justify-end gap-1.5">
           <UserDialog
             user={user}
             currentUserId={currentUserId}
             onSaved={handleSaved}
-            trigger={<Button type="button" variant="outline" size="sm" className="h-9 gap-1.5"><Pencil className="h-3.5 w-3.5" />Edit</Button>}
+            trigger={
+              <Button type="button" variant="outline" size="icon" tooltip="Edit user" className="h-8 w-8">
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            }
           />
           <GenerateResetLinkDialog userId={user.id} username={user.username} />
           <ResetPasswordDialog userId={user.id} username={user.username} />
@@ -556,12 +562,16 @@ export function UserManager({
             </Button>
           </div>
         ) : null}
-        pagination={collection.hasPrevious || collection.page.nextCursor ? (
+        pagination={
           <DataTablePagination
-            previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
-            next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
+            meta={collection.page.meta}
+            itemCount={pageItems.length}
+            itemName="users"
+            isLoading={collection.isLoading}
+            onPageChange={collection.goToPage}
+            onPageSizeChange={collection.setPageSize}
           />
-        ) : null}
+        }
       />
 
       <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>

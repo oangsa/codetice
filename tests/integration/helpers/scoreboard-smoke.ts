@@ -11,8 +11,8 @@ try {
   const page = await getWorkspaceScoreboardPage({
     actor: { userId, role: "student" },
     workspaceId,
-    limit: 25,
-    cursor: null,
+    pageNumber: 1,
+    pageSize: 25,
   });
   process.stdout.write(JSON.stringify(page));
 } finally {

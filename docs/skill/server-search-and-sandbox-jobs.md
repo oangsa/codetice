@@ -2,14 +2,14 @@
 
 ## Collection search
 
-- Search and structured filters must run in SQL before cursor pagination.
-- Filtered endpoints use `POST .../search` with the shared collection-search body and return `CursorPage<T>`.
+- Search and structured filters must run in SQL before page-number pagination.
+- Filtered endpoints use `POST .../search` with the shared collection-search body. The body accepts `pageNumber` and `pageSize`; list responses return the current items array and send the `PagedResult<T>.meta` object in `X-Pagination`.
 - Every endpoint maps an allowlisted public field name to a concrete Drizzle column. Never accept raw database identifiers or arbitrary ordering expressions.
 - Reject unknown request properties instead of silently broadening a mistyped search, and cap both the number of structured filters and every user-controlled search value before building SQL.
 - Authenticate and establish workspace access before parsing resource-specific fields.
-- Bind opaque cursors to the normalized endpoint, actor scope, and canonical search body. If projected rows or filters depend on the current user, the scope must include that user's ID even when every row belongs to the same workspace. A cursor from another actor or different filters must return 400.
-- Preserve PostgreSQL timestamp precision in cursor keys (for example, select `created_at::text`). Converting the key through JavaScript `Date` truncates microseconds and can skip rows created within the same millisecond.
-- Client tables use `useCollectionSearch`, reset cursor history on every request-body transition (including when a user clears a search back to an earlier body), abort stale requests, and ignore out-of-order responses.
+- Calculate a filtered `totalCount` alongside every `LIMIT/OFFSET` query and build `currentPage`, `totalPages`, `pageSize`, `totalCount`, `hasPrevious`, and `hasNext` with `createPagedResult`.
+- Keep ordering stable for every paged collection. Use an explicit unique tiebreaker after the primary order field so adjacent page boundaries remain deterministic.
+- Client tables use `useCollectionSearch`, reset to page 1 on every request-body transition (including when a user clears a search back to an earlier body), preserve the selected page size, abort stale requests, and ignore out-of-order responses.
 - Execute raw SQL collection branches in a real PostgreSQL integration test. TypeScript and production compilation cannot detect malformed CTE syntax.
 
 ## Docker ownership

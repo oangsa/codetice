@@ -1,4 +1,5 @@
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
+import { parsePageRequest } from "@/lib/pagination";
 
 export const SEARCH_CONDITIONS = [
   "CONTAINS",
@@ -17,8 +18,8 @@ type SearchConfig = {
 };
 
 export type ParsedCollectionSearch = {
-  limit: number;
-  cursor: string | null;
+  pageNumber: number;
+  pageSize: number;
   search: Array<{ name: string; condition: SearchCondition; value: string | boolean }>;
   searchTerm: { names: string[]; value: string } | null;
   filters: string;
@@ -40,22 +41,17 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[])
   return Object.keys(value).every((key) => allowed.includes(key));
 }
 
-function parseLimit(value: unknown) {
-  if (value === undefined) return 25;
-  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 100) invalidSearch();
-  return value as number;
-}
-
 export function parseCollectionSearch(body: unknown, config: SearchConfig): ParsedCollectionSearch {
   if (!isRecord(body)) invalidSearch();
-  if (!hasOnlyKeys(body, ["limit", "cursor", "search", "searchTerm"])) invalidSearch();
+  if (!hasOnlyKeys(body, ["pageNumber", "pageSize", "search", "searchTerm"])) invalidSearch();
 
-  const limit = parseLimit(body.limit);
-  const cursor = body.cursor === undefined || body.cursor === null
-    ? null
-    : typeof body.cursor === "string" && body.cursor.length <= 4096
-      ? body.cursor
-      : invalidSearch();
+  let pageNumber: number;
+  let pageSize: number;
+  try {
+    ({ pageNumber, pageSize } = parsePageRequest(body));
+  } catch {
+    invalidSearch();
+  }
 
   if (body.search !== undefined && !Array.isArray(body.search)) invalidSearch();
   if (Array.isArray(body.search) && body.search.length > MAX_SEARCH_FILTERS) invalidSearch();
@@ -92,7 +88,7 @@ export function parseCollectionSearch(body: unknown, config: SearchConfig): Pars
   ));
   const filters = JSON.stringify({ search: canonicalSearch, searchTerm });
 
-  return { limit, cursor, search, searchTerm, filters };
+  return { pageNumber, pageSize, search, searchTerm, filters };
 }
 
 export function escapeLikePattern(value: string) {

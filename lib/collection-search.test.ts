@@ -15,10 +15,10 @@ const config = {
 };
 
 describe("collection search contract", () => {
-  test("normalizes and canonically binds filters before cursor pagination", () => {
+  test("normalizes filters independently from page-number navigation", () => {
     const first = parseCollectionSearch({
-      limit: 50,
-      cursor: "next",
+      pageNumber: 2,
+      pageSize: 50,
       search: [
         { name: "role", condition: "EQUAL", value: "student" },
         { name: "createdAt", condition: "GREATEROREQUAL", value: "2026-01-01" },
@@ -31,11 +31,12 @@ describe("collection search contract", () => {
         { name: "createdAt", condition: "GREATEROREQUAL", value: "2026-01-01" },
         { name: "role", condition: "EQUAL", value: "student" },
       ],
-      limit: 50,
+      pageNumber: 1,
+      pageSize: 50,
     }, config);
 
-    expect(first.limit).toBe(50);
-    expect(first.cursor).toBe("next");
+    expect(first.pageNumber).toBe(2);
+    expect(first.pageSize).toBe(50);
     expect(first.filters).toBe(reordered.filters);
   });
 
@@ -51,10 +52,10 @@ describe("collection search contract", () => {
     }, config)).toThrow();
   });
 
-  test("enforces collection limits and treats SQL wildcards literally", () => {
-    expect(parseCollectionSearch({}, config).limit).toBe(25);
-    expect(() => parseCollectionSearch({ limit: 0 }, config)).toThrow();
-    expect(() => parseCollectionSearch({ limit: 101 }, config)).toThrow();
+  test("enforces page bounds and treats SQL wildcards literally", () => {
+    expect(parseCollectionSearch({}, config)).toMatchObject({ pageNumber: 1, pageSize: 10 });
+    expect(() => parseCollectionSearch({ pageNumber: 0 }, config)).toThrow();
+    expect(() => parseCollectionSearch({ pageSize: 101 }, config)).toThrow();
     expect(escapeLikePattern("100%_done\\ok")).toBe("100\\%\\_done\\\\ok");
   });
 
