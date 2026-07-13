@@ -9,7 +9,7 @@ describe("migration adoption safety", () => {
     expect(migrationRunner).toContain("to_regclass('public.sandbox_jobs') is null");
   });
 
-  test("verifies required sandbox columns before adopting the current schema", () => {
+  test("verifies required sandbox columns before adopting any post-sandbox schema", () => {
     for (const column of ["source_code", "result", "expires_at"]) {
       expect(migrationRunner).toContain(`table_name = 'sandbox_jobs' and column_name = '${column}'`);
     }
@@ -31,5 +31,9 @@ describe("migration adoption safety", () => {
     ]) {
       expect(migrationRunner).toContain(`to_regclass('public.${index}') is not null`);
     }
+    expect(migrationRunner).toContain("sandbox_jobs_schema_complete");
+    expect(migrationRunner).toContain(
+      "state.workspace_schema_complete && state.sandbox_jobs_schema_complete",
+    );
   });
 });
