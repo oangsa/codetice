@@ -3,7 +3,7 @@
 import { RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { createEditorDraftStorageKey, readEditorDraft, writeEditorDraft } from "@/modules/questions/editor-drafts";
 
 export function ReviseSubmissionButton({
@@ -35,7 +35,7 @@ export function ReviseSubmissionButton({
       variant="ghost"
       size="sm"
       aria-label="Revise submission"
-      title="Revise submission"
+      tooltip="Revise submission"
       onClick={handleRevise}
     >
       <RotateCcw className="h-4 w-4" />

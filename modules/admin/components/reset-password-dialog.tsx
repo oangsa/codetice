@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Loader2, Lock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Messages } from "@/lib/api.constants";
 import {
   Dialog,
@@ -85,9 +85,13 @@ export function ResetPasswordDialog({ userId, username }: ResetPasswordDialogPro
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          tooltip="Set a new password"
+          className="h-8 w-8"
+        >
           <RefreshCw className="h-3.5 w-3.5" />
-          Reset Password
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

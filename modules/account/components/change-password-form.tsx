@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -96,13 +96,17 @@ export function ChangePasswordForm({ onCancel }: { onCancel?: () => void }) {
             required
             autoComplete="current-password"
           />
-          <button
+          <Button
             type="button"
+            tooltip={showCurrentPassword ? "Hide current password" : "Show current password"}
+            aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+            variant="ghost"
+            size="icon"
             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none cursor-pointer"
+            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           >
             {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -124,13 +128,17 @@ export function ChangePasswordForm({ onCancel }: { onCancel?: () => void }) {
             required
             autoComplete="new-password"
           />
-          <button
+          <Button
             type="button"
+            tooltip={showNewPassword ? "Hide new password" : "Show new password"}
+            aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+            variant="ghost"
+            size="icon"
             onClick={() => setShowNewPassword(!showNewPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none cursor-pointer"
+            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           >
             {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -150,13 +158,17 @@ export function ChangePasswordForm({ onCancel }: { onCancel?: () => void }) {
             required
             autoComplete="new-password"
           />
-          <button
+          <Button
             type="button"
+            tooltip={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+            aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+            variant="ghost"
+            size="icon"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none cursor-pointer"
+            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           >
             {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+          </Button>
         </div>
       </div>
 

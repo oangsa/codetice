@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Input } from "@/components/ui/input";
 import { Messages } from "@/lib/api.constants";
 

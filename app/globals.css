@@ -196,6 +196,17 @@ body {
   min-height: 100%;
 }
 
+/*
+ * Desktop screens should be comfortable at the browser's normal 100% zoom.
+ * This preserves the familiar 125%-zoom density for rem-based shadcn controls
+ * without using CSS zoom, which would distort viewport and responsive behavior.
+ */
+@media (min-width: 1024px) {
+  html {
+    font-size: 125%;
+  }
+}
+
 body {
   background-color: var(--bg-body);
   color: var(--text-main);

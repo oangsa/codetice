@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Copy, ExternalLink, Loader2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import {
   Dialog,
   DialogContent,
@@ -103,9 +103,13 @@ export function GenerateResetLinkDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          tooltip="Generate password reset link"
+          className="h-8 w-8"
+        >
           <Link2 className="h-3.5 w-3.5" />
-          Reset Link
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">

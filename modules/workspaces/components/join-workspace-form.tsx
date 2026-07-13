@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Messages } from "@/lib/api.constants";
@@ -51,10 +51,14 @@ export function JoinWorkspaceForm() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="h-[40px] px-5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-black text-xs font-bold hover:bg-black dark:hover:bg-white/90 transition-all duration-300 ease-in-out flex items-center gap-2 cursor-pointer shrink-0">
+        <Button
+          type="button"
+          tooltip="Join workspace"
+          className="h-[40px] shrink-0 rounded-full bg-slate-900 px-5 text-xs font-bold text-white transition-all duration-300 ease-in-out hover:bg-black dark:bg-white dark:text-black dark:hover:bg-white/90"
+        >
           <LogIn className="w-3.5 h-3.5" />
           Join Workspace
-        </button>
+        </Button>
       </DialogTrigger>
 
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md rounded-[28px] bg-[var(--tint-sm)] border border-slate-200 dark:border-slate-800/60 p-2">

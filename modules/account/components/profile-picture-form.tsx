@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/common/button";
 import { Messages } from "@/lib/api.constants";
 
 // Resize and compress an image File to a JPEG data URI (max 128x128px)
@@ -113,14 +114,18 @@ export function ProfilePictureForm({ initialAvatar }: { initialAvatar: string })
         )}
         
         {/* Pen Button (Circle at bottom right) */}
-        <button
+        <Button
           type="button"
+          tooltip="Change profile picture"
+          aria-label="Change profile picture"
+          variant="outline"
+          size="icon"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer transition-colors disabled:opacity-50"
+          className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900"
         >
           <Pencil className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
     </div>
   );

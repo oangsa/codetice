@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { Sun, Moon } from "lucide-react";
+import { Button } from "@/components/common/button";
 import { cn } from "@/lib/utils";
 import {
   THEME_COOKIE_MAX_AGE,
@@ -77,8 +78,10 @@ export function ThemeToggle({ initialTheme }: { initialTheme: ThemePreference })
         style={indicatorStyle}
       />
 
-      <button
+      <Button
         type="button"
+        tooltip="Use light theme"
+        variant="ghost"
         onClick={() => handleThemeChange("light")}
         className={cn(
           "relative z-10 flex h-[36px] flex-1 items-center justify-center gap-2 text-sm font-semibold rounded-full cursor-pointer transition-colors duration-200",
@@ -89,10 +92,12 @@ export function ThemeToggle({ initialTheme }: { initialTheme: ThemePreference })
       >
         <Sun className="h-4 w-4" />
         Light
-      </button>
+      </Button>
 
-      <button
+      <Button
         type="button"
+        tooltip="Use dark theme"
+        variant="ghost"
         onClick={() => handleThemeChange("dark")}
         className={cn(
           "relative z-10 flex h-[36px] flex-1 items-center justify-center gap-2 text-sm font-semibold rounded-full cursor-pointer transition-colors duration-200",
@@ -103,7 +108,7 @@ export function ThemeToggle({ initialTheme }: { initialTheme: ThemePreference })
       >
         <Moon className="h-4 w-4" />
         Dark
-      </button>
+      </Button>
     </div>
   );
 }

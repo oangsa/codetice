@@ -4,7 +4,7 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { IDEMPOTENCY_KEY_HEADER } from "@/lib/api.constants";
 
 type RejudgeTarget =

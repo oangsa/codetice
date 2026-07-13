@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Pencil, User } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Input } from "@/components/ui/input";
 import type { SessionUser } from "@/lib/types";
 import { Messages } from "@/lib/api.constants";
@@ -172,14 +172,18 @@ export function ProfileDetailsForm({ user }: { user: SessionUser }) {
                 <Loader2 className="h-5 w-5 text-white animate-spin" />
               </div>
             )}
-            <button
+            <Button
               type="button"
+              tooltip="Change profile picture"
+              aria-label="Change profile picture"
+              variant="outline"
+              size="icon"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || pending}
-              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white cursor-pointer transition-colors disabled:opacity-50"
+              className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-slate-200 bg-white p-0 text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               <Pencil className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
 

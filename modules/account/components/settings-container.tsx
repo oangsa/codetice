@@ -7,6 +7,7 @@ import { ChevronRight, X } from "lucide-react";
 import { ProfileDetailsForm } from "@/modules/account/components/profile-details-form";
 import { ChangePasswordForm } from "@/modules/account/components/change-password-form";
 import { ThemeToggle } from "@/modules/account/components/theme-toggle";
+import { Button } from "@/components/common/button";
 import type { ThemePreference } from "@/lib/theme";
 import type { SessionUser } from "@/lib/types";
 
@@ -37,12 +38,17 @@ export function SettingsContainer({
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Settings</h1>
-        <button
+        <Button
+          type="button"
+          tooltip="Go back"
+          aria-label="Go back"
+          variant="ghost"
+          size="icon"
           onClick={() => router.back()}
-          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer"
+          className="h-8 w-8 rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
         >
           <X className="h-5 w-5" />
-        </button>
+        </Button>
       </div>
 
       {/* Section: Account */}
@@ -61,10 +67,12 @@ export function SettingsContainer({
           Security
         </span>
         <div className="rounded-[30px] border bg-[var(--tint-sm)] overflow-hidden shadow-sm">
-          <button
+          <Button
             type="button"
+            tooltip={showPasswordForm ? "Hide password form" : "Show password form"}
+            variant="ghost"
             onClick={() => setShowPasswordForm(!showPasswordForm)}
-            className="flex w-full h-[58px] items-center justify-between pl-4 pr-4 hover:bg-slate-100/30 dark:hover:bg-slate-800/20 transition-colors cursor-pointer text-left"
+            className="h-[58px] w-full justify-between px-4 text-left hover:bg-slate-100/30 dark:hover:bg-slate-800/20"
           >
             <div className="flex items-center">
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Update Password</span>
@@ -73,7 +81,7 @@ export function SettingsContainer({
               className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${showPasswordForm ? "rotate-90" : ""
                 }`}
             />
-          </button>
+          </Button>
 
           {showPasswordForm && (
             <div className="border-t border-slate-100 dark:border-slate-800/80 p-4 bg-slate-50 dark:bg-slate-900/30">
@@ -98,13 +106,16 @@ export function SettingsContainer({
 
       {/* Logout Button */}
       <div className="pt-6 text-left border-t border-slate-100 dark:border-slate-800/80">
-        <button
+        <Button
+          type="button"
+          tooltip="Log out"
+          variant="ghost"
           onClick={handleLogout}
           disabled={loggingOut}
-          className="text-red-500 dark:text-red-400 font-bold hover:text-red-600 dark:hover:text-red-300 cursor-pointer disabled:opacity-50 text-sm transition-colors py-2 px-1 inline-block"
+          className="h-auto px-1 py-2 text-sm font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
         >
           {loggingOut ? "Logging out..." : "Logout"}
-        </button>
+        </Button>
       </div>
     </div>
   );

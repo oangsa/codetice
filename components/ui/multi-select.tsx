@@ -5,6 +5,7 @@ import { Check, ChevronDown, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/common/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface MultiSelectOption {
@@ -104,28 +105,32 @@ export function MultiSelect({
               className="gap-1 pr-1 text-xs font-medium"
             >
               {opt.label}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 aria-label={`Remove ${opt.label}`}
                 onClick={(e) => removeItem(opt.value, e)}
-                className="ml-0.5 rounded-full p-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                className="ml-0.5 h-4 w-4 rounded-full p-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             </Badge>
           ))
         )}
 
         <div className="ml-auto flex shrink-0 items-center gap-1 self-center pl-1">
           {selectedOptions.length > 0 && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               aria-label="Clear all"
               onClick={clearAll}
-              className="rounded-full p-0.5 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-5 w-5 rounded-full p-0.5 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           )}
           <ChevronDown
             className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
@@ -147,7 +152,7 @@ export function MultiSelect({
           {options.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">No options available.</div>
           ) : (
-            <ScrollArea className="max-h-60">
+            <ScrollArea className="max-h-60" viewportClassName="max-h-60 overscroll-contain">
               <ul className="p-1">
                 {options.map((opt) => {
                   const isSelected = value.includes(opt.value);
