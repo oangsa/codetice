@@ -7,9 +7,10 @@ import { toast } from "sonner";
 import { Edit, Plus, Trash2, Upload } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/common/data-table";
+import { TagManagerDialog } from "@/modules/questions/components/tag-manager-dialog";
 import { TestcaseDialog } from "@/modules/questions/components/testcase-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { QUESTION_DIFFICULTIES } from "@/modules/questions/constants";
 import { Messages } from "@/lib/api.constants";
+import type { WorkspaceTag } from "@/lib/tags";
 
 type CreateTestcase = {
   id: string;
@@ -98,11 +100,13 @@ export function QuestionForm({
   mode,
   question,
   languages = [],
+  tags = [],
   workspaceId,
   backUrl,
 }: {
   mode: "create" | "edit";
   languages?: Array<{ id: string; slug: string; name: string }>;
+  tags?: WorkspaceTag[];
   workspaceId: string;
   backUrl?: string;
   question?: {
@@ -116,6 +120,7 @@ export function QuestionForm({
     starterCode: string | null;
     starterCodeByLanguage: Record<string, string>;
     allowedLanguages?: string[] | null;
+    tags: WorkspaceTag[];
     isPublished: boolean;
     testcases: PersistedTestcase[];
   };
@@ -132,6 +137,8 @@ export function QuestionForm({
   const [allowedLangs, setAllowedLangs] = useState<string[]>(
     question?.allowedLanguages ?? [],
   );
+  const [tagCatalog, setTagCatalog] = useState<WorkspaceTag[]>(tags);
+  const [tagIds, setTagIds] = useState<string[]>(question?.tags.map((tag) => tag.id) ?? []);
   const isWorkspaceCreate = mode === "create";
 
   function addCreateTestcase() {
@@ -276,6 +283,7 @@ export function QuestionForm({
       memoryLimitMb: Number(formData.get("memoryLimitMb") ?? 128),
       starterCode: String(formData.get("starterCode") ?? ""),
       allowedLanguages: allowedLangs,
+      tagIds,
       isPublished: formData.get("isPublished") === "on",
     };
 
@@ -370,19 +378,21 @@ export function QuestionForm({
             testcase={testcase}
             triggerLabel="Edit"
             trigger={
-              <button type="button" title="Edit testcase" className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <Button type="button" variant="ghost" size="icon" tooltip="Edit testcase" className="h-8 w-8 rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900">
                 <Edit className="h-4 w-4" />
-              </button>
+              </Button>
             }
           />
-          <button
+          <Button
             type="button"
-            title="Delete testcase"
+            variant="ghost"
+            size="icon"
+            tooltip="Delete testcase"
             onClick={() => void handleDeleteTestcase(testcase.id)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
+            className="h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       ) : null,
     },
@@ -470,6 +480,27 @@ export function QuestionForm({
                 Select which languages are allowed for this question. Leave empty to allow all languages.
               </p>
             </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-sm font-medium text-slate-700" htmlFor="questionTags">Tags</label>
+                <TagManagerDialog
+                  workspaceId={workspaceId}
+                  tags={tagCatalog}
+                  onTagsChange={(nextTags) => {
+                    setTagCatalog(nextTags);
+                    setTagIds((currentTagIds) => currentTagIds.filter((tagId) => nextTags.some((tag) => tag.id === tagId)));
+                  }}
+                />
+              </div>
+              <MultiSelect
+                id="questionTags"
+                options={tagCatalog.map((tag) => ({ value: tag.id, label: tag.name }))}
+                value={tagIds}
+                onChange={setTagIds}
+                placeholder="Select tags"
+              />
+              <p className="text-xs text-slate-500">Use shared presets or local workspace tags to organize this question.</p>
+            </div>
             <div className="flex items-center justify-between rounded-md border border-slate-200 px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-slate-900">Published</p>
@@ -546,14 +577,16 @@ export function QuestionForm({
                     ) : null}
                   </div>
                   {createTestcases.length > 1 ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => removeCreateTestcase(testcase.id)}
-                      title="Delete testcase"
-                      className="inline-flex items-center justify-center h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800 transition-colors"
+                      tooltip="Delete testcase"
+                      className="h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
 

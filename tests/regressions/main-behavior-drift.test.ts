@@ -22,7 +22,7 @@ describe("main behavior parity regressions", () => {
     expect(worker).not.toContain("Processed 0 grading job(s).");
   });
 
-  test("workspace collections search on the server before cursor pagination", async () => {
+  test("workspace collections search on the server before page-number pagination", async () => {
     const [questions, members, tabs, submissions] = await Promise.all([
       source("modules/workspaces/components/question-table.tsx"),
       source("modules/workspaces/components/member-manager.tsx"),
@@ -34,6 +34,7 @@ describe("main behavior parity regressions", () => {
     expect(members).toContain("/members/search");
     expect(tabs).toContain("/scoreboard/search");
     expect(submissions).toContain("searchWorkspaceSubmissionsPage");
+    expect(submissions).toContain("pageNumber");
   });
 
   test("only Docker compiler diagnostics are delegated to the prepared worker runtime", async () => {

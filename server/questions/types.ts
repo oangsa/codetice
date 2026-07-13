@@ -19,5 +19,6 @@ export type QuestionInput = {
   starterCode?: string | null;
   starterCodeByLanguage?: Record<string, string | null> | null;
   allowedLanguages?: string[] | null;
+  tagIds: string[];
   isPublished: boolean;
 };

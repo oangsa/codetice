@@ -1,11 +1,12 @@
 import "server-only";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { questions, testcases } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { slugify } from "@/lib/utils";
+import { syncQuestionTags } from "@/server/tags/service";
 import type { QuestionInput, TestcaseInput } from "@/server/questions/types";
 import type { WorkspaceActor } from "@/server/workspaces/authorization";
 import { requireWorkspaceStaff } from "@/server/workspaces/authorization";
@@ -88,6 +89,8 @@ export async function createWorkspaceQuestion(input: {
       })));
     }
 
+    await syncQuestionTags(tx, input.workspaceId, question.id, input.question.tagIds);
+
     return question;
   });
 }
@@ -126,6 +129,7 @@ export async function updateWorkspaceQuestion(
       updatedAt: new Date(),
     }).where(and(eq(questions.workspaceId, workspaceId), eq(questions.id, questionId))).returning();
     if (!updated) throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
+    await syncQuestionTags(tx, workspaceId, questionId, input.tagIds);
     return updated;
   });
 }
@@ -138,6 +142,53 @@ export async function deleteWorkspaceQuestion(actor: WorkspaceActor, workspaceId
     eq(questions.id, questionId),
   )).returning({ id: questions.id });
   if (!deleted) throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
+}
+
+export async function setWorkspaceQuestionPublication(input: {
+  actor: WorkspaceActor;
+  workspaceId: string;
+  questionIds: string[];
+  isPublished: boolean;
+}) {
+  await requireWorkspaceStaff(input.actor, input.workspaceId);
+  if (input.questionIds.length === 0 || new Set(input.questionIds).size !== input.questionIds.length) {
+    throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+  }
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const selectedQuestions = await tx.execute<{ id: string }>(sql`
+      select id from questions
+      where workspace_id = ${input.workspaceId}
+        and ${inArray(questions.id, input.questionIds)}
+      for update
+    `);
+    if (selectedQuestions.length !== input.questionIds.length) {
+      throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
+    }
+
+    if (!input.isPublished) {
+      await tx.update(questions).set({ isPublished: false, updatedAt: new Date() }).where(and(
+        eq(questions.workspaceId, input.workspaceId),
+        inArray(questions.id, input.questionIds),
+      ));
+      return { updatedQuestionIds: input.questionIds, skippedQuestionIds: [] as string[] };
+    }
+
+    const counts = await tx.select({
+      questionId: testcases.questionId,
+      count: sql<number>`count(*)::int`,
+    }).from(testcases).where(inArray(testcases.questionId, input.questionIds)).groupBy(testcases.questionId);
+    const questionsWithTestcases = new Set(counts.filter(({ count }) => count > 0).map(({ questionId }) => questionId));
+    const updatedQuestionIds = input.questionIds.filter((questionId) => questionsWithTestcases.has(questionId));
+    const skippedQuestionIds = input.questionIds.filter((questionId) => !questionsWithTestcases.has(questionId));
+    if (updatedQuestionIds.length > 0) {
+      await tx.update(questions).set({ isPublished: true, updatedAt: new Date() }).where(and(
+        eq(questions.workspaceId, input.workspaceId),
+        inArray(questions.id, updatedQuestionIds),
+      ));
+    }
+    return { updatedQuestionIds, skippedQuestionIds };
+  });
 }
 
 export async function createWorkspaceTestcase(actor: WorkspaceActor, workspaceId: string, questionId: string, input: TestcaseInput) {

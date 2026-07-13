@@ -1,15 +1,16 @@
 import "server-only";
 
-import { and, desc, eq, gt, ilike, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 
-import { questions, testcases } from "@/db/schema";
-import { decodeCursor, encodeCursor } from "@/lib/cursor";
+import { questionTags, questions, tags, testcases } from "@/db/schema";
 import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getDb } from "@/lib/db";
+import { createPagedResult, pageOffset } from "@/lib/pagination";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
+import { parseQuestionTagIds } from "@/lib/question-tag-filters";
 import { personalQuestionProgress } from "@/server/questions/personal-progress";
 import type { WorkspaceActor } from "@/server/workspaces/authorization";
-import { requireWorkspaceMember } from "@/server/workspaces/authorization";
+import { requireWorkspaceAdmin, requireWorkspaceMember } from "@/server/workspaces/authorization";
 
 function parseQuestionJson<T>(value: string | null, fallback: T): T {
   if (!value) return fallback;
@@ -17,27 +18,6 @@ function parseQuestionJson<T>(value: string | null, fallback: T): T {
     return JSON.parse(value) as T;
   } catch {
     return fallback;
-  }
-}
-
-function parseQuestionCursor(
-  cursor: string | null,
-  scope: string,
-  filters: string,
-) {
-  if (!cursor) return undefined;
-  const endpoint = "workspace-questions";
-  try {
-    const decoded = decodeCursor(cursor, { endpoint, scope, filters });
-    const [createdAtValue, id] = decoded.keys;
-    if (typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
-    if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
-    return or(
-      sql`${questions.createdAt} < ${createdAtValue}::timestamp`,
-      and(sql`${questions.createdAt} = ${createdAtValue}::timestamp`, lt(questions.id, id)),
-    );
-  } catch {
-    throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
   }
 }
 
@@ -51,6 +31,21 @@ export const workspaceQuestionSearchConfig = {
   },
   searchTermFields: ["title", "slug"] as const,
 };
+
+export function parseWorkspaceQuestionTagIds(tagIds: string[]) {
+  return parseQuestionTagIds(tagIds);
+}
+
+function parseWorkspaceQuestionSearch(body: unknown) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
+  }
+  const { tagIds, ...collectionBody } = body as Record<string, unknown>;
+  return {
+    search: parseCollectionSearch(collectionBody, workspaceQuestionSearchConfig),
+    tagIds: parseQuestionTagIds(tagIds),
+  };
+}
 
 function textCondition(column: typeof questions.title | typeof questions.slug, condition: string, value: string) {
   if (condition === "CONTAINS") return ilike(column, `%${escapeLikePattern(value)}%`);
@@ -108,36 +103,61 @@ async function queryWorkspaceQuestionsPage(input: {
   workspaceId: string;
   includeDrafts: boolean;
   search: ParsedCollectionSearch;
+  tagIds: string[];
 }) {
   const db = getDb();
-  const filters = JSON.stringify({ drafts: input.includeDrafts, search: input.search.filters });
-  const scope = `${input.workspaceId}:${input.actor.userId}`;
-  const cursorWhere = parseQuestionCursor(input.search.cursor, scope, filters);
   const personalProgress = personalQuestionProgress(input.actor.userId);
   const searchWhere = questionSearchWhere(input.search, personalProgress);
-  const rows = await db.select({
-    id: questions.id,
-    title: questions.title,
-    slug: questions.slug,
-    difficulty: questions.difficulty,
-    totalScore: questions.totalScore,
-    isPublished: questions.isPublished,
-    createdAt: questions.createdAt,
-    cursorCreatedAt: sql<string>`${questions.createdAt}::text`,
-    ...personalProgress,
-  }).from(questions)
-    .where(and(
+  const tagWhere = input.tagIds.length > 0
+    ? exists(
+        db.select({ questionId: questionTags.questionId })
+          .from(questionTags)
+          .where(and(
+            eq(questionTags.questionId, questions.id),
+            inArray(questionTags.tagId, input.tagIds),
+          )),
+      )
+    : undefined;
+  const where = and(
       eq(questions.workspaceId, input.workspaceId),
       input.includeDrafts ? undefined : eq(questions.isPublished, true),
       searchWhere,
-      cursorWhere,
-    ))
-    .orderBy(desc(questions.createdAt), desc(questions.id))
-    .limit(input.search.limit + 1);
-
-  const hasMore = rows.length > input.search.limit;
-  const pageRows = rows.slice(0, input.search.limit);
-  const items = pageRows.map((row) => {
+      tagWhere,
+    );
+  const [rows, countRows] = await Promise.all([
+    db.select({
+      id: questions.id,
+      title: questions.title,
+      slug: questions.slug,
+      difficulty: questions.difficulty,
+      totalScore: questions.totalScore,
+      isPublished: questions.isPublished,
+      createdAt: questions.createdAt,
+      ...personalProgress,
+    }).from(questions)
+      .where(where)
+      .orderBy(desc(questions.createdAt), desc(questions.id))
+      .limit(input.search.pageSize)
+      .offset(pageOffset(input.search)),
+    db.select({ count: sql<number>`count(*)::int` }).from(questions).where(where),
+  ]);
+  const tagRows = rows.length === 0 ? [] : await db.select({
+    questionId: questionTags.questionId,
+    id: tags.id,
+    name: tags.name,
+    slug: tags.slug,
+    isPreset: tags.isPreset,
+  }).from(questionTags)
+    .innerJoin(tags, eq(tags.id, questionTags.tagId))
+    .where(inArray(questionTags.questionId, rows.map((row) => row.id)))
+    .orderBy(asc(tags.name), asc(tags.id));
+  const tagsByQuestionId = new Map<string, typeof tagRows>();
+  for (const tag of tagRows) {
+    const questionTagsForQuestion = tagsByQuestionId.get(tag.questionId) ?? [];
+    questionTagsForQuestion.push(tag);
+    tagsByQuestionId.set(tag.questionId, questionTagsForQuestion);
+  }
+  const items = rows.map((row) => {
     const best = Number(row.bestScore ?? 0);
     const total = Number(row.totalScore);
     const attempts = row.attempts ?? 0;
@@ -152,31 +172,31 @@ async function queryWorkspaceQuestionsPage(input: {
       bestScore: row.bestScore,
       attempts,
       status: attempts === 0 ? "todo" as const : best >= total ? "accepted" as const : "attempted" as const,
+      tags: tagsByQuestionId.get(row.id)?.map(({ id, name, slug, isPreset }) => ({ id, name, slug, isPreset })) ?? [],
     };
   });
-  const last = pageRows.at(-1);
-
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({
-      endpoint: "workspace-questions",
-      scope,
-      filters,
-      keys: [last.cursorCreatedAt, last.id],
-    }) : null,
-  };
+  return createPagedResult(items, {
+    currentPage: input.search.pageNumber,
+    pageSize: input.search.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }
 
 export async function listWorkspaceQuestionsPage(input: {
   actor: WorkspaceActor;
   workspaceId: string;
-  limit: number;
-  cursor: string | null;
+  pageNumber: number;
+  pageSize: number;
+  tagIds?: string[];
 }) {
   const access = await requireWorkspaceMember(input.actor, input.workspaceId);
-  const search = parseCollectionSearch({ limit: input.limit, cursor: input.cursor }, workspaceQuestionSearchConfig);
-  return queryWorkspaceQuestionsPage({ ...input, includeDrafts: access.staff, search });
+  const search = parseCollectionSearch({ pageNumber: input.pageNumber, pageSize: input.pageSize }, workspaceQuestionSearchConfig);
+  return queryWorkspaceQuestionsPage({
+    ...input,
+    includeDrafts: access.staff,
+    search,
+    tagIds: parseQuestionTagIds(input.tagIds ?? []),
+  });
 }
 
 export async function searchWorkspaceQuestionsPage(input: {
@@ -185,8 +205,8 @@ export async function searchWorkspaceQuestionsPage(input: {
   body: unknown;
 }) {
   const access = await requireWorkspaceMember(input.actor, input.workspaceId);
-  const search = parseCollectionSearch(input.body, workspaceQuestionSearchConfig);
-  return queryWorkspaceQuestionsPage({ ...input, includeDrafts: access.staff, search });
+  const { search, tagIds } = parseWorkspaceQuestionSearch(input.body);
+  return queryWorkspaceQuestionsPage({ ...input, includeDrafts: access.staff, search, tagIds });
 }
 
 export async function getWorkspaceQuestionBySlug(input: {
@@ -207,6 +227,7 @@ export async function getWorkspaceQuestionBySlug(input: {
         where: access.staff ? undefined : eq(testcases.isSample, true),
         orderBy: (fields, ops) => [ops.asc(fields.sortOrder), ops.asc(fields.createdAt)],
       },
+      questionTags: { with: { tag: true } },
     },
   });
   if (!question) return null;
@@ -214,6 +235,12 @@ export async function getWorkspaceQuestionBySlug(input: {
     ...question,
     starterCodeByLanguage: parseQuestionJson<Record<string, string>>(question.starterCodeByLanguage, {}),
     allowedLanguages: parseQuestionJson<string[]>(question.allowedLanguages, []),
+    tags: question.questionTags.flatMap(({ tag }) => tag ? [{
+      id: tag.id,
+      name: tag.name,
+      slug: tag.slug,
+      isPreset: tag.isPreset,
+    }] : []),
   };
 }
 
@@ -228,6 +255,7 @@ export async function getWorkspaceQuestionById(actor: WorkspaceActor, workspaceI
     ),
     with: {
       testcases: { orderBy: (fields, ops) => [ops.asc(fields.sortOrder), ops.asc(fields.createdAt)] },
+      questionTags: { with: { tag: true } },
     },
   });
   if (!question) return null;
@@ -235,64 +263,67 @@ export async function getWorkspaceQuestionById(actor: WorkspaceActor, workspaceI
     ...question,
     starterCodeByLanguage: parseQuestionJson<Record<string, string>>(question.starterCodeByLanguage, {}),
     allowedLanguages: parseQuestionJson<string[]>(question.allowedLanguages, []),
+    tags: question.questionTags.flatMap(({ tag }) => tag ? [{
+      id: tag.id,
+      name: tag.name,
+      slug: tag.slug,
+      isPreset: tag.isPreset,
+    }] : []),
   };
+}
+
+export async function listWorkspaceCloneQuestionOptions(actor: WorkspaceActor, workspaceId: string) {
+  await requireWorkspaceAdmin(actor, workspaceId);
+  const rows = await getDb().query.questions.findMany({
+    where: eq(questions.workspaceId, workspaceId),
+    columns: { id: true, title: true, isPublished: true },
+    with: { testcases: { columns: { id: true } } },
+    orderBy: (fields, ops) => [ops.asc(fields.title), ops.asc(fields.id)],
+  });
+  return rows.map((question) => ({
+    id: question.id,
+    title: question.title,
+    isPublished: question.isPublished,
+    testcaseCount: question.testcases.length,
+  }));
 }
 
 export async function listWorkspaceTestcases(input: {
   actor: WorkspaceActor;
   workspaceId: string;
   questionId: string;
-  limit: number;
-  cursor: string | null;
+  pageNumber: number;
+  pageSize: number;
 }) {
   const access = await requireWorkspaceMember(input.actor, input.workspaceId);
   const question = await getWorkspaceQuestionById(input.actor, input.workspaceId, input.questionId);
   if (!question) throw new AppError(Messages.questionNotFound, 404, ErrorCode.NOT_FOUND);
   const includeHidden = access.staff;
   const db = getDb();
-  const endpoint = "workspace-testcases";
-  const scope = `${input.workspaceId}:${input.questionId}`;
-  const filters = `hidden=${includeHidden}`;
-  let after: ReturnType<typeof or> | undefined;
-  if (input.cursor) {
-    try {
-      const decoded = decodeCursor(input.cursor, { endpoint, scope, filters });
-      const [sortOrder, createdAtValue, id] = decoded.keys;
-      if (typeof sortOrder !== "number" || typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
-      if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
-      after = or(
-        gt(testcases.sortOrder, sortOrder),
-        and(eq(testcases.sortOrder, sortOrder), sql`${testcases.createdAt} > ${createdAtValue}::timestamp`),
-        and(
-          eq(testcases.sortOrder, sortOrder),
-          sql`${testcases.createdAt} = ${createdAtValue}::timestamp`,
-          gt(testcases.id, id),
-        ),
-      );
-    } catch {
-      throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
-    }
-  }
-  const rows = await db.select({
-    id: testcases.id,
-    name: testcases.name,
-    input: testcases.input,
-    expectedOutput: testcases.expectedOutput,
-    isSample: testcases.isSample,
-    isHidden: testcases.isHidden,
-    checkerType: testcases.checkerType,
-    floatTolerance: testcases.floatTolerance,
-    sortOrder: testcases.sortOrder,
-    createdAt: testcases.createdAt,
-    cursorCreatedAt: sql<string>`${testcases.createdAt}::text`,
-  }).from(testcases).where(and(
+  const where = and(
       eq(testcases.questionId, input.questionId),
       includeHidden ? undefined : eq(testcases.isSample, true),
-      after,
-    )).orderBy(testcases.sortOrder, testcases.createdAt, testcases.id).limit(input.limit + 1);
-  const hasMore = rows.length > input.limit;
-  const pageRows = rows.slice(0, input.limit);
-  const items = pageRows.map((row) => ({
+    );
+  const [rows, countRows] = await Promise.all([
+    db.select({
+      id: testcases.id,
+      name: testcases.name,
+      input: testcases.input,
+      expectedOutput: testcases.expectedOutput,
+      isSample: testcases.isSample,
+      isHidden: testcases.isHidden,
+      checkerType: testcases.checkerType,
+      floatTolerance: testcases.floatTolerance,
+      sortOrder: testcases.sortOrder,
+      createdAt: testcases.createdAt,
+    }).from(testcases)
+      .where(where)
+      .orderBy(testcases.sortOrder, testcases.createdAt, testcases.id)
+      .limit(input.pageSize)
+      .offset(pageOffset(input)),
+    db.select({ count: sql<number>`count(*)::int` }).from(testcases).where(where),
+  ]);
+  const items = rows.map((row) => ({
     id: row.id,
     name: row.name,
     input: row.input,
@@ -304,16 +335,9 @@ export async function listWorkspaceTestcases(input: {
     sortOrder: row.sortOrder,
     createdAt: row.createdAt,
   }));
-  const last = pageRows.at(-1);
-
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor({
-      endpoint,
-      scope,
-      filters,
-      keys: [last.sortOrder, last.cursorCreatedAt, last.id],
-    }) : null,
-  };
+  return createPagedResult(items, {
+    currentPage: input.pageNumber,
+    pageSize: input.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }

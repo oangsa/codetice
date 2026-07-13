@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { ok, toFailResponse, Messages } from "@/lib/api";
+import { ok, paged, toFailResponse, Messages } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth";
-import { parsePageLimit } from "@/lib/cursor";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
 import { questionWithTestcasesSchema } from "@/modules/questions/schema";
 import { createWorkspaceQuestion } from "@/server/questions/mutations";
-import { listWorkspaceQuestionsPage } from "@/server/questions/queries";
+import { listWorkspaceQuestionsPage, parseWorkspaceQuestionTagIds } from "@/server/questions/queries";
 import { requireWorkspaceMember, requireWorkspaceStaff } from "@/server/workspaces/authorization";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -14,11 +14,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const { id: workspaceId } = await context.params;
     await requireWorkspaceMember(actor, workspaceId);
     const url = new URL(request.url);
-    return ok(await listWorkspaceQuestionsPage({
+    return paged(await listWorkspaceQuestionsPage({
       actor,
       workspaceId,
-      limit: parsePageLimit(url.searchParams.get("limit")),
-      cursor: url.searchParams.get("cursor"),
+      ...parsePageRequestFromSearchParams(url.searchParams),
+      tagIds: parseWorkspaceQuestionTagIds(url.searchParams.getAll("tagId")),
     }));
   } catch (error) {
     return toFailResponse(error);

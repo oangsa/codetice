@@ -33,6 +33,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         starterCode: question.starterCode,
         starterCodeByLanguage: question.starterCodeByLanguage,
         allowedLanguages: question.allowedLanguages,
+        tags: question.tags,
         isPublished: question.isPublished,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,

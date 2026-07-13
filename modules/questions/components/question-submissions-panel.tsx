@@ -6,76 +6,68 @@ import { LoaderCircle } from "lucide-react";
 import { SubmissionTable, type WorkspaceSubmissionListItem } from "@/modules/submissions/components/submission-table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Messages } from "@/lib/api.constants";
+import { parsePaginationMeta, type PagedResult } from "@/lib/pagination";
 
-const pageSize = 24;
 const loadMoreThreshold = 240;
-
-type SubmissionPage = {
-  items: WorkspaceSubmissionListItem[];
-  hasMore: boolean;
-  nextCursor: string | null;
-  message?: string;
-};
 
 export function QuestionSubmissionsPanel({
   workspaceId,
   questionId,
-  initialSubmissions,
-  initialHasMore,
-  initialNextCursor,
+  initialPage,
 }: {
   workspaceId: string;
   questionId: string;
-  initialSubmissions: WorkspaceSubmissionListItem[];
-  initialHasMore: boolean;
-  initialNextCursor: string | null;
+  initialPage: PagedResult<WorkspaceSubmissionListItem>;
 }) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const [submissions, setSubmissions] = useState(initialSubmissions);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [nextCursor, setNextCursor] = useState(initialNextCursor);
+  const [submissions, setSubmissions] = useState(initialPage.items);
+  const [meta, setMeta] = useState(initialPage.meta);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore || !nextCursor) return;
+    if (isLoadingMore || !meta.hasNext) return;
     setIsLoadingMore(true);
     setLoadError(null);
 
     try {
       const searchParams = new URLSearchParams({
         questionId,
-        limit: String(pageSize),
-        cursor: nextCursor,
+        pageNumber: String(meta.currentPage + 1),
+        pageSize: String(meta.pageSize),
       });
       const response = await fetch(`/api/workspaces/${workspaceId}/submissions?${searchParams.toString()}`, {
         cache: "no-store",
       });
-      const payload = await response.json() as SubmissionPage;
-      if (!response.ok) throw new Error(payload.message ?? Messages.somethingWrong);
+      const payload = await response.json() as WorkspaceSubmissionListItem[] | { message?: string };
+      if (!response.ok) {
+        const message = typeof payload === "object" && !Array.isArray(payload) ? payload.message : undefined;
+        throw new Error(message ?? Messages.somethingWrong);
+      }
+      const nextMeta = parsePaginationMeta(response.headers.get("X-Pagination"));
+      if (!Array.isArray(payload) || !nextMeta) throw new Error(Messages.somethingWrong);
 
       startTransition(() => {
         setSubmissions((current) => {
           const existingIds = new Set(current.map((submission) => submission.id));
-          const additions = payload.items.filter((submission) => !existingIds.has(submission.id));
+          const additions = payload.filter((submission) => !existingIds.has(submission.id));
           return additions.length > 0 ? [...current, ...additions] : current;
         });
       });
-      setHasMore(payload.hasMore);
-      setNextCursor(payload.nextCursor);
+      setMeta(nextMeta);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : Messages.somethingWrong);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, nextCursor, questionId, workspaceId]);
+  }, [isLoadingMore, meta, questionId, workspaceId]);
 
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
     if (!(viewport instanceof HTMLDivElement)) return;
 
     const maybeLoadMore = () => {
-      if (!hasMore || isLoadingMore) return;
+      if (!meta.hasNext || isLoadingMore) return;
       const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
       if (remaining <= loadMoreThreshold) void loadMore();
     };
@@ -83,7 +75,7 @@ export function QuestionSubmissionsPanel({
     maybeLoadMore();
     viewport.addEventListener("scroll", maybeLoadMore);
     return () => viewport.removeEventListener("scroll", maybeLoadMore);
-  }, [hasMore, isLoadingMore, loadMore, submissions.length]);
+  }, [isLoadingMore, loadMore, meta.hasNext, submissions.length]);
 
   return (
     <div className="min-h-0">

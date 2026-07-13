@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { ok, toFailResponse, Messages } from "@/lib/api";
+import { ok, paged, toFailResponse, Messages } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth";
-import { parsePageLimit } from "@/lib/cursor";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
 import { testcaseSchema } from "@/modules/questions/schema";
 import { createWorkspaceTestcase } from "@/server/questions/mutations";
 import { listWorkspaceTestcases } from "@/server/questions/queries";
@@ -14,12 +14,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const { id: workspaceId, questionId } = await context.params;
     await requireWorkspaceMember(actor, workspaceId);
     const url = new URL(request.url);
-    return ok(await listWorkspaceTestcases({
+    return paged(await listWorkspaceTestcases({
       actor,
       workspaceId,
       questionId,
-      limit: parsePageLimit(url.searchParams.get("limit")),
-      cursor: url.searchParams.get("cursor"),
+      ...parsePageRequestFromSearchParams(url.searchParams),
     }));
   } catch (error) {
     return toFailResponse(error);

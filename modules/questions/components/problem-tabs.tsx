@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { QuestionSubmissionsPanel } from "@/modules/questions/components/question-submissions-panel";
 import type { WorkspaceSubmissionListItem } from "@/modules/submissions/components/submission-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/common/button";
 import { Markdown } from "@/components/ui/markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { PagedResult } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
 type SampleTestcase = {
@@ -23,37 +25,48 @@ export function ProblemTabs({
   questionId,
   description,
   sampleCases,
-  initialSubmissions,
-  initialHasMore,
-  initialNextCursor,
+  initialSubmissionPage,
 }: {
   workspaceId: string;
   questionId: string;
   description: string;
   sampleCases: SampleTestcase[];
-  initialSubmissions: WorkspaceSubmissionListItem[];
-  initialHasMore: boolean;
-  initialNextCursor: string | null;
+  initialSubmissionPage: PagedResult<WorkspaceSubmissionListItem>;
 }) {
   const [activeTab, setActiveTab] = useState<ProblemSection>("description");
-  const [hasClicked, setHasClicked] = useState(false);
-  const [animationClass, setAnimationClass] = useState("");
   const tabs: ProblemSection[] = ["description", "samples", "submissions"];
-  const activeIndex = tabs.indexOf(activeTab);
-  const gap = 2;
-  const totalGapWidth = (tabs.length - 1) * gap;
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Partial<Record<ProblemSection, HTMLButtonElement | null>>>({});
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
-  const indicatorStyle = {
-    left: `calc(2px + ((100% - 4px - ${totalGapWidth}px) / ${tabs.length} + ${gap}px) * ${activeIndex})`,
-    width: `calc((100% - 4px - ${totalGapWidth}px) / ${tabs.length})`,
-    "--active-width": `calc((100% - 4px - ${totalGapWidth}px) / ${tabs.length})`,
-    transition: "left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1)",
-  } as CSSProperties;
+  const updateIndicator = useCallback(() => {
+    const activeButton = tabRefs.current[activeTab];
+    if (!activeButton) return;
+
+    const nextIndicator = {
+      left: activeButton.offsetLeft,
+      width: activeButton.offsetWidth,
+    };
+    setIndicator((current) => (
+      current.left === nextIndicator.left && current.width === nextIndicator.width
+        ? current
+        : nextIndicator
+    ));
+  }, [activeTab]);
+
+  useLayoutEffect(() => {
+    updateIndicator();
+
+    const tabList = tabListRef.current;
+    if (!tabList) return;
+
+    const resizeObserver = new ResizeObserver(updateIndicator);
+    resizeObserver.observe(tabList);
+    return () => resizeObserver.disconnect();
+  }, [updateIndicator]);
 
   function selectTab(tab: ProblemSection) {
     if (tab === activeTab) return;
-    setHasClicked(true);
-    setAnimationClass((current) => current === "animate-rubber-light" ? "animate-rubber-dark" : "animate-rubber-light");
     setActiveTab(tab);
   }
 
@@ -64,28 +77,40 @@ export function ProblemTabs({
           <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Problem</CardTitle>
         </div>
         <div className="scrollbar-none flex w-full justify-start overflow-x-auto sm:w-auto sm:justify-end">
-          <div className="relative flex h-[42px] w-full shrink-0 cursor-pointer select-none items-center gap-[2px] rounded-full border border-black/5 bg-white p-[2px] dark:border-white/5 dark:bg-[#0d0e12] sm:w-[320px]">
+          <div
+            ref={tabListRef}
+            className="relative flex h-[42px] w-max min-w-full shrink-0 cursor-pointer select-none items-center justify-center gap-[2px] rounded-full border border-black/5 bg-white p-[2px] dark:border-white/5 dark:bg-[#0d0e12] sm:min-w-0"
+          >
             <div
-              className={cn(
-                "pointer-events-none absolute top-[2px] h-[36px] rounded-full bg-[var(--tint-sm)]",
-                hasClicked && animationClass,
-              )}
-              style={indicatorStyle}
+              aria-hidden="true"
+              className="pointer-events-none absolute top-[2px] h-[36px] rounded-full bg-[var(--tint-sm)]"
+              style={{
+                left: indicator.left,
+                width: indicator.width,
+                opacity: indicator.width === 0 ? 0 : 1,
+                transition: "left 0.25s cubic-bezier(0.25, 1, 0.5, 1), width 0.25s cubic-bezier(0.25, 1, 0.5, 1)",
+              }}
             />
             {tabs.map((tab) => (
-              <button
+              <Button
                 key={tab}
+                ref={(element) => {
+                  tabRefs.current[tab] = element;
+                }}
                 type="button"
+                disableTooltip
+                variant="ghost"
+                size="sm"
                 onClick={() => selectTab(tab)}
                 className={cn(
-                  "relative z-10 flex h-[36px] flex-1 cursor-pointer items-center justify-center rounded-full text-sm font-semibold capitalize transition-colors duration-200",
+                  "relative z-10 flex h-[36px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent px-3 text-sm font-semibold capitalize hover:bg-transparent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0",
                   activeTab === tab
-                    ? "text-slate-950 dark:text-white"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300",
+                    ? "text-slate-950 hover:text-slate-950 dark:text-white dark:hover:text-white"
+                    : "text-slate-500 hover:text-slate-500 dark:text-slate-400 dark:hover:text-slate-400",
                 )}
               >
                 {tab}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -128,9 +153,7 @@ export function ProblemTabs({
           <QuestionSubmissionsPanel
             workspaceId={workspaceId}
             questionId={questionId}
-            initialSubmissions={initialSubmissions}
-            initialHasMore={initialHasMore}
-            initialNextCursor={initialNextCursor}
+            initialPage={initialSubmissionPage}
           />
         ) : null}
       </CardContent>

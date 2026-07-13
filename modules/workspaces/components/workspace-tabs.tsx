@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn } from "@/components/common/data-table";
 import { QuestionTable, type WorkspaceQuestionRow } from "@/modules/workspaces/components/question-table";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn, formatDate, formatScore } from "@/lib/utils";
 import { useCollectionSearch } from "@/lib/use-collection-search";
+import type { PagedResult } from "@/lib/pagination";
+import type { WorkspaceTag } from "@/lib/tags";
 
 type ScoreboardEntry = {
   userId: string;
@@ -35,24 +37,27 @@ export function WorkspaceTabs({
   memberPage,
   workspaceId,
   canManage,
+  tags,
+  cloneTargets,
 }: {
-  questionPage: { items: WorkspaceQuestionRow[]; nextCursor: string | null; hasMore: boolean };
-  scoreboardPage: { items: ScoreboardEntry[]; nextCursor: string | null; hasMore: boolean };
-  memberPage: { items: WorkspaceMember[]; nextCursor: string | null; hasMore: boolean };
+  questionPage: PagedResult<WorkspaceQuestionRow>;
+  scoreboardPage: PagedResult<ScoreboardEntry>;
+  memberPage: PagedResult<WorkspaceMember>;
   workspaceId: string;
   canManage: boolean;
+  tags: WorkspaceTag[];
+  cloneTargets: Array<{ id: string; name: string }>;
 }) {
   const [activeTab, setActiveTab] = useState<Section>("questions");
-  const [hasClicked, setHasClicked] = useState(false);
-  const [animationClass, setAnimationClass] = useState("");
   const [scoreSearch, setScoreSearch] = useState("");
   const [participantSearch, setParticipantSearch] = useState("");
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Partial<Record<Section, HTMLButtonElement | null>>>({});
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const scoreRequest = useMemo(() => ({
-    limit: 10,
     ...(scoreSearch.trim() ? { searchTerm: { name: "username", value: scoreSearch } } : {}),
   }), [scoreSearch]);
   const memberRequest = useMemo(() => ({
-    limit: 10,
     search: [{ name: "role", condition: "EQUAL", value: "student" }],
     ...(participantSearch.trim() ? { searchTerm: { name: "username", value: participantSearch } } : {}),
   }), [participantSearch]);
@@ -70,25 +75,41 @@ export function WorkspaceTabs({
   const tabs: Section[] = canManage
     ? ["questions", "scoreboard", "participants"]
     : ["questions", "scoreboard"];
-  const activeIndex = tabs.indexOf(activeTab);
-  const tabCount = tabs.length;
-  const gap = 2;
-  const totalGapWidth = (tabCount - 1) * gap;
+
+  const updateIndicator = useCallback(() => {
+    const activeButton = tabRefs.current[activeTab];
+    if (!activeButton) return;
+
+    const nextIndicator = {
+      left: activeButton.offsetLeft,
+      width: activeButton.offsetWidth,
+    };
+    setIndicator((current) => (
+      current.left === nextIndicator.left && current.width === nextIndicator.width
+        ? current
+        : nextIndicator
+    ));
+  }, [activeTab]);
+
+  useLayoutEffect(() => {
+    updateIndicator();
+
+    const tabList = tabListRef.current;
+    if (!tabList) return;
+
+    const resizeObserver = new ResizeObserver(updateIndicator);
+    resizeObserver.observe(tabList);
+    for (const tabButton of Object.values(tabRefs.current)) {
+      if (tabButton) resizeObserver.observe(tabButton);
+    }
+    return () => resizeObserver.disconnect();
+  }, [updateIndicator]);
 
   const sortedScoreboard = scoreboard.page.items;
   const sortedParticipants = members.page.items;
 
-  const indicatorStyle = {
-    left: `calc(2px + ((100% - 4px - ${totalGapWidth}px) / ${tabCount} + ${gap}px) * ${activeIndex})`,
-    width: `calc((100% - 4px - ${totalGapWidth}px) / ${tabCount})`,
-    "--active-width": `calc((100% - 4px - ${totalGapWidth}px) / ${tabCount})`,
-    transition: "left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1)",
-  } as CSSProperties;
-
   function selectTab(tab: Section) {
     if (tab === activeTab) return;
-    setHasClicked(true);
-    setAnimationClass((current) => current === "animate-rubber-light" ? "animate-rubber-dark" : "animate-rubber-light");
     setActiveTab(tab);
   }
 
@@ -140,41 +161,56 @@ export function WorkspaceTabs({
 
   return (
     <Tabs value={activeTab} className="space-y-3">
-      <div className="flex flex-col justify-between gap-4 rounded-[30px] border border-slate-200 bg-[var(--tint-sm)] p-2 shadow-sm dark:border-slate-800/60 sm:flex-row sm:items-center">
-        <h3 className="p-2 text-sm font-semibold text-slate-700">Workspace Sections</h3>
-        <div className="scrollbar-none flex w-full justify-start overflow-x-auto sm:w-auto sm:justify-end">
-          <div className={cn(
-            "relative flex h-[42px] w-full shrink-0 cursor-pointer select-none items-center gap-[2px] rounded-full border border-black/5 bg-white p-[2px] dark:border-white/5 dark:bg-[#0d0e12] sm:w-auto",
-            canManage ? "sm:w-[384px]" : "sm:w-[260px]",
-          )}>
-            <div
+      <div className="scrollbar-none flex w-full overflow-x-auto">
+        <div
+          ref={tabListRef}
+          className="relative flex h-10 w-max shrink-0 cursor-pointer select-none items-center gap-1 rounded-full bg-[var(--tint-sm)] p-1"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1 h-8 rounded-full bg-background"
+            style={{
+              left: indicator.left,
+              width: indicator.width,
+              opacity: indicator.width === 0 ? 0 : 1,
+              transition: "left 0.25s cubic-bezier(0.25, 1, 0.5, 1), width 0.25s cubic-bezier(0.25, 1, 0.5, 1)",
+            }}
+          />
+          {tabs.map((tab) => (
+            <Button
+              key={tab}
+              ref={(element) => {
+                tabRefs.current[tab] = element;
+              }}
+              type="button"
+              disableTooltip
+              variant="ghost"
+              size="sm"
+              onClick={(event) => {
+                selectTab(tab);
+                if (event.detail !== 0) event.currentTarget.blur();
+              }}
               className={cn(
-                "pointer-events-none absolute top-[2px] h-[36px] rounded-full bg-[var(--tint-sm)]",
-                hasClicked && animationClass,
+                "relative z-10 flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent px-3 text-sm font-semibold capitalize hover:bg-transparent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-offset-0",
+                activeTab === tab
+                  ? "text-slate-950 hover:text-slate-950 dark:text-white dark:hover:text-white"
+                  : "text-slate-500 hover:text-slate-500 dark:text-slate-400 dark:hover:text-slate-400",
               )}
-              style={indicatorStyle}
-            />
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => selectTab(tab)}
-                className={cn(
-                  "relative z-10 flex h-[36px] flex-1 cursor-pointer items-center justify-center rounded-full text-sm font-semibold capitalize transition-colors duration-200",
-                  activeTab === tab
-                    ? "text-slate-900 dark:text-white"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300",
-                )}
-              >
-                {tab === "questions" ? "Questions" : tab === "scoreboard" ? "Scoreboard" : "Participants"}
-              </button>
-            ))}
-          </div>
+            >
+              {tab === "questions" ? "Questions" : tab === "scoreboard" ? "Scoreboard" : "Participants"}
+            </Button>
+          ))}
         </div>
       </div>
 
       <TabsContent value="questions" className="mt-3 focus-visible:outline-none">
-        <QuestionTable initialPage={questionPage} workspaceId={workspaceId} canManage={canManage} />
+        <QuestionTable
+          initialPage={questionPage}
+          workspaceId={workspaceId}
+          canManage={canManage}
+          tags={tags}
+          cloneTargets={cloneTargets}
+        />
       </TabsContent>
 
       <TabsContent value="scoreboard" className="mt-3 focus-visible:outline-none">
@@ -186,12 +222,16 @@ export function WorkspaceTabs({
           emptyMessage={scoreboard.error ?? (scoreSearch.trim() ? "No users match your search." : "No submissions yet.")}
           search={<DataTableSearch value={scoreSearch} onValueChange={setScoreSearch} placeholder="Search username" />}
           rowClassName={(_entry, index) => cn("transition-colors", index % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]")}
-          pagination={scoreboard.hasPrevious || scoreboard.page.nextCursor ? (
+          pagination={
             <DataTablePagination
-              previous={{ label: "Prev", disabled: !scoreboard.hasPrevious || scoreboard.isLoading, onClick: scoreboard.previous }}
-              next={{ label: "Next", disabled: !scoreboard.page.nextCursor || scoreboard.isLoading, onClick: scoreboard.next }}
+              meta={scoreboard.page.meta}
+              itemCount={sortedScoreboard.length}
+              itemName="participants"
+              isLoading={scoreboard.isLoading}
+              onPageChange={scoreboard.goToPage}
+              onPageSizeChange={scoreboard.setPageSize}
             />
-          ) : null}
+          }
         />
       </TabsContent>
 
@@ -206,12 +246,16 @@ export function WorkspaceTabs({
             search={<DataTableSearch value={participantSearch} onValueChange={setParticipantSearch} placeholder="Search username" />}
             rowClassName={(_member, index) => cn("transition-colors", index % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]")}
             actions={<Button asChild variant="outline" size="sm" className="h-9 rounded-full"><Link href={`/workspaces/${workspaceId}/members`}>Open roster</Link></Button>}
-            pagination={members.hasPrevious || members.page.nextCursor ? (
+            pagination={
               <DataTablePagination
-                previous={{ label: "Prev", disabled: !members.hasPrevious || members.isLoading, onClick: members.previous }}
-                next={{ label: "Next", disabled: !members.page.nextCursor || members.isLoading, onClick: members.next }}
+                meta={members.page.meta}
+                itemCount={sortedParticipants.length}
+                itemName="participants"
+                isLoading={members.isLoading}
+                onPageChange={members.goToPage}
+                onPageSizeChange={members.setPageSize}
               />
-            ) : null}
+            }
           />
         </TabsContent>
       ) : null}

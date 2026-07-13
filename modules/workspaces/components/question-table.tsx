@@ -13,12 +13,27 @@ import {
   type DataTableColumn,
 } from "@/components/common/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { QuestionCloneDialog } from "@/modules/questions/components/question-clone-dialog";
+import type { WorkspaceTag } from "@/lib/tags";
 import { useCollectionSearch } from "@/lib/use-collection-search";
+import type { PagedResult } from "@/lib/pagination";
 import { cn, formatScore } from "@/lib/utils";
 
 export type WorkspaceQuestionRow = {
@@ -31,6 +46,7 @@ export type WorkspaceQuestionRow = {
   attempts: number;
   status: "todo" | "attempted" | "accepted";
   isPublished: boolean;
+  tags: WorkspaceTag[];
 };
 
 const difficultyVariants: Record<string, string> = {
@@ -70,10 +86,10 @@ const filterFields = [
   },
 ] as const;
 
-const emptyFilters = { difficulty: "", status: "" };
-const pageSize = 10;
+type QuestionFilters = { difficulty: string; status: string; tagIds: string[] };
+
+const emptyFilters: QuestionFilters = { difficulty: "", status: "", tagIds: [] };
 const publishedQuestionRequest = {
-  limit: pageSize,
   search: [{ name: "isPublished", condition: "EQUAL", value: true }],
 };
 
@@ -81,35 +97,47 @@ export function QuestionTable({
   initialPage,
   workspaceId,
   canManage = false,
+  tags,
+  cloneTargets,
 }: {
-  initialPage: { items: WorkspaceQuestionRow[]; nextCursor: string | null; hasMore: boolean };
+  initialPage: PagedResult<WorkspaceQuestionRow>;
   workspaceId: string;
   canManage?: boolean;
+  tags: WorkspaceTag[];
+  cloneTargets: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [filterValues, setFilterValues] = useState<Record<string, string>>(emptyFilters);
-  const [filterDraft, setFilterDraft] = useState<Record<string, string>>(emptyFilters);
+  const [filterValues, setFilterValues] = useState<QuestionFilters>(emptyFilters);
+  const [filterDraft, setFilterDraft] = useState<QuestionFilters>(emptyFilters);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
+  const [publicationAction, setPublicationAction] = useState<"publish" | "unpublish" | null>(null);
+  const [isUpdatingPublication, setIsUpdatingPublication] = useState(false);
   const editMode = canManage && searchParams.get("editMode") === "1";
-  const activeFilters = useMemo(() => filterFields
-    .filter((field) => Boolean(filterValues[field.key]))
-    .map((field) => {
-      const rawValue = filterValues[field.key];
-      return {
-        field,
-        displayValue: field.options.find((option) => option.value === rawValue)?.label ?? rawValue,
-      };
-    }), [filterValues]);
+  const activeFilters = useMemo(() => [
+    ...filterFields
+      .filter((field) => Boolean(filterValues[field.key]))
+      .map((field) => ({
+        key: field.key,
+        label: field.label,
+        displayValue: field.options.find((option) => option.value === filterValues[field.key])?.label ?? filterValues[field.key],
+      })),
+    ...(filterValues.tagIds.length > 0 ? [{
+      key: "tagIds",
+      label: "Tags",
+      displayValue: tags.filter((tag) => filterValues.tagIds.includes(tag.id)).map((tag) => tag.name).join(", "),
+    }] : []),
+  ], [filterValues, tags]);
   const request = useMemo(() => ({
-    limit: pageSize,
     search: [
       ...(filterValues.difficulty ? [{ name: "difficulty", condition: "EQUAL", value: filterValues.difficulty }] : []),
       ...(filterValues.status ? [{ name: "status", condition: "EQUAL", value: filterValues.status }] : []),
       ...(!editMode ? [{ name: "isPublished", condition: "EQUAL", value: true }] : []),
     ],
+    ...(filterValues.tagIds.length > 0 ? { tagIds: filterValues.tagIds } : {}),
     ...(search.trim() ? { searchTerm: { name: "title,slug", value: search } } : {}),
   }), [editMode, filterValues, search]);
   const collection = useCollectionSearch<WorkspaceQuestionRow>({
@@ -119,19 +147,75 @@ export function QuestionTable({
     request,
   });
   const pageItems = collection.page.items;
+  const selectedPageQuestionIds = pageItems.filter((question) => selectedQuestionIds.has(question.id)).map((question) => question.id);
+  const allPageQuestionsSelected = pageItems.length > 0 && selectedPageQuestionIds.length === pageItems.length;
 
   function setEditMode(checked: boolean) {
     const nextParams = new URLSearchParams(searchParams.toString());
     if (checked) nextParams.set("editMode", "1");
     else nextParams.delete("editMode");
     const query = nextParams.toString();
+    setSelectedQuestionIds(new Set());
     router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
   }
 
   function resetFilters() {
-    setFilterDraft(emptyFilters);
-    setFilterValues(emptyFilters);
+    setFilterDraft({ ...emptyFilters, tagIds: [] });
+    setFilterValues({ ...emptyFilters, tagIds: [] });
+    setSelectedQuestionIds(new Set());
     setIsFilterDialogOpen(false);
+  }
+
+  function toggleQuestionSelection(questionId: string, checked: boolean) {
+    setSelectedQuestionIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(questionId);
+      else next.delete(questionId);
+      return next;
+    });
+  }
+
+  function togglePageSelection(checked: boolean) {
+    setSelectedQuestionIds((current) => {
+      const next = new Set(current);
+      for (const question of pageItems) {
+        if (checked) next.add(question.id);
+        else next.delete(question.id);
+      }
+      return next;
+    });
+  }
+
+  async function updatePublication() {
+    if (!publicationAction || selectedQuestionIds.size === 0) return;
+    setIsUpdatingPublication(true);
+    const isPublished = publicationAction === "publish";
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/questions/publication`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionIds: [...selectedQuestionIds], isPublished }),
+      });
+      const data = await response.json() as {
+        message?: string;
+        updatedQuestionIds?: string[];
+        skippedQuestionIds?: string[];
+      };
+      if (!response.ok) throw new Error(data.message ?? "Unable to update publication.");
+      const updatedCount = data.updatedQuestionIds?.length ?? 0;
+      const skippedCount = data.skippedQuestionIds?.length ?? 0;
+      toast.success(isPublished
+        ? `Published ${updatedCount} question${updatedCount === 1 ? "" : "s"}.${skippedCount ? ` Skipped ${skippedCount} without test cases.` : ""}`
+        : `Unpublished ${updatedCount} question${updatedCount === 1 ? "" : "s"}.`);
+      setSelectedQuestionIds(new Set());
+      setPublicationAction(null);
+      collection.reload();
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update publication.");
+    } finally {
+      setIsUpdatingPublication(false);
+    }
   }
 
   async function deleteQuestion(questionId: string) {
@@ -140,6 +224,11 @@ export function QuestionTable({
       const response = await fetch(`/api/workspaces/${workspaceId}/questions/${questionId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Unable to delete question.");
       toast.success("Question deleted successfully.");
+      setSelectedQuestionIds((current) => {
+        const next = new Set(current);
+        next.delete(questionId);
+        return next;
+      });
       collection.reload();
       router.refresh();
     } catch {
@@ -148,20 +237,47 @@ export function QuestionTable({
   }
 
   const columns: DataTableColumn<WorkspaceQuestionRow>[] = [
+    ...(editMode ? [{
+      id: "select",
+      header: (
+        <Checkbox
+          aria-label="Select loaded questions"
+          checked={allPageQuestionsSelected ? true : selectedPageQuestionIds.length > 0 ? "indeterminate" : false}
+          onCheckedChange={(checked) => togglePageSelection(checked === true)}
+        />
+      ),
+      headerClassName: "w-10 px-3",
+      cellClassName: "w-10 px-3",
+      cell: (question: WorkspaceQuestionRow) => (
+        <Checkbox
+          aria-label={`Select ${question.title}`}
+          checked={selectedQuestionIds.has(question.id)}
+          onClick={(event) => event.stopPropagation()}
+          onCheckedChange={(checked) => toggleQuestionSelection(question.id, checked === true)}
+        />
+      ),
+    } satisfies DataTableColumn<WorkspaceQuestionRow>] : []),
     {
       id: "number",
       header: "No.",
       headerClassName: "w-12",
       cellClassName: "tabular-nums text-slate-400",
-      cell: (_question, index) => index + 1,
+      cell: (_question, index) => ((collection.page.meta.currentPage - 1) * collection.page.meta.pageSize) + index + 1,
     },
     {
       id: "name",
       header: "Name",
       cell: (question) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-900">{question.title}</span>
-          {!question.isPublished ? <Badge variant="default" className="bg-slate-100 py-0 text-[10px] text-slate-500">Hidden</Badge> : null}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium text-slate-900 dark:text-white">{question.title}</span>
+            {!question.isPublished ? <Badge variant="default" className="bg-slate-100 py-0 text-[10px] text-slate-500">Hidden</Badge> : null}
+          </div>
+          {question.tags.length > 0 ? (
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+              tag: {question.tags.map((tag) => tag.name).join(", ")}
+            </p>
+          ) : null}
         </div>
       ),
     },
@@ -211,25 +327,28 @@ export function QuestionTable({
       cellClassName: "text-right",
       cell: (question: WorkspaceQuestionRow) => (
         <div className="flex items-center justify-end gap-1.5">
-          <Link
-            href={`/workspaces/${workspaceId}/questions/${question.id}/edit`}
-            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            title="Edit question"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Edit className="h-4 w-4" />
-          </Link>
-          <button
+          {cloneTargets.length > 0 ? <QuestionCloneDialog workspaceId={workspaceId} question={question} targets={cloneTargets} /> : null}
+          <Button asChild variant="ghost" size="icon" tooltip="Edit question" className="h-8 w-8 rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+            <Link
+              href={`/workspaces/${workspaceId}/questions/${question.id}/edit`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Edit className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={(event) => {
               event.stopPropagation();
               void deleteQuestion(question.id);
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
-            title="Delete question"
+            className="h-8 w-8 rounded text-red-600 hover:bg-red-50 hover:text-red-800"
+            tooltip="Delete question"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       ),
     } satisfies DataTableColumn<WorkspaceQuestionRow>] : []),
@@ -249,6 +368,7 @@ export function QuestionTable({
             value={search}
             onValueChange={(value) => {
               setSearch(value);
+              setSelectedQuestionIds(new Set());
             }}
             placeholder="Search by name"
             endAdornment={
@@ -274,11 +394,21 @@ export function QuestionTable({
             </Button>
             {canManage ? (
               <>
+                {editMode && selectedQuestionIds.size > 0 ? (
+                  <>
+                    <Button type="button" variant="outline" size="sm" className="h-9 rounded-full" onClick={() => setPublicationAction("publish")}>
+                      Publish ({selectedQuestionIds.size})
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-9 rounded-full" onClick={() => setPublicationAction("unpublish")}>
+                      Unpublish ({selectedQuestionIds.size})
+                    </Button>
+                  </>
+                ) : null}
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-slate-700">Edit Mode</span>
                   <Switch checked={editMode} onCheckedChange={setEditMode} />
                 </div>
-                <Button asChild size="sm" className="h-9 w-[150px] rounded-full !text-primary-foreground hover:!text-primary-foreground">
+                <Button asChild size="sm" className="h-9 rounded-full px-4 !text-primary-foreground hover:!text-primary-foreground">
                   <Link href={`/workspaces/${workspaceId}/questions/new`}><Plus className="h-4 w-4" />Add question</Link>
                 </Button>
               </>
@@ -288,28 +418,37 @@ export function QuestionTable({
         filters={activeFilters.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
             <span className="pl-1 text-xs font-medium uppercase tracking-[0.05em] text-slate-400">Filters:</span>
-            {activeFilters.map(({ displayValue, field }) => (
+            {activeFilters.map(({ displayValue, key, label }) => (
               <Button
-                key={field.key}
+                key={key}
                 variant="outline"
                 size="sm"
                 className="h-7 gap-1.5 rounded-full border-slate-200 px-3 text-xs text-slate-700 hover:bg-background hover:text-slate-700"
                 onClick={() => {
-                  setFilterValues((current) => ({ ...current, [field.key]: "" }));
+                  if (key === "tagIds") {
+                    setFilterValues((current) => ({ ...current, tagIds: [] }));
+                  } else {
+                    setFilterValues((current) => ({ ...current, [key]: "" }));
+                  }
+                  setSelectedQuestionIds(new Set());
                 }}
               >
-                <span>{field.label}: {displayValue}</span><X className="h-3 w-3 text-slate-400" />
+                <span>{label}: {displayValue}</span><X className="h-3 w-3 text-slate-400" />
               </Button>
             ))}
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-500 hover:text-slate-950" onClick={resetFilters}>Clear all</Button>
           </div>
         ) : null}
-        pagination={collection.hasPrevious || collection.page.nextCursor ? (
+        pagination={
           <DataTablePagination
-            previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
-            next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
+            meta={collection.page.meta}
+            itemCount={pageItems.length}
+            itemName="questions"
+            isLoading={collection.isLoading}
+            onPageChange={collection.goToPage}
+            onPageSizeChange={collection.setPageSize}
           />
-        ) : null}
+        }
       />
 
       <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
@@ -331,6 +470,16 @@ export function QuestionTable({
                 </Select>
               </div>
             ))}
+            <div className="grid gap-2">
+              <Label htmlFor="filter-tags" className="pl-2 text-slate-700">Tags</Label>
+              <MultiSelect
+                id="filter-tags"
+                options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
+                value={filterDraft.tagIds}
+                onChange={(tagIds) => setFilterDraft((current) => ({ ...current, tagIds }))}
+                placeholder="Any selected tag"
+              />
+            </div>
           </div>
           <div className="flex flex-row items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-800/60">
             <Button variant="ghost" onClick={resetFilters} className="h-9 rounded-full font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20">Reset</Button>
@@ -338,12 +487,36 @@ export function QuestionTable({
               <Button type="button" variant="outline" onClick={() => setIsFilterDialogOpen(false)} className="h-9 rounded-full border border-slate-200 bg-white px-4 font-semibold text-slate-900 dark:border-slate-800 dark:bg-[#1c1c1e]">Cancel</Button>
               <Button type="button" onClick={() => {
                 setFilterValues(filterDraft);
+                setSelectedQuestionIds(new Set());
                 setIsFilterDialogOpen(false);
               }} className="h-9 rounded-full bg-black px-4 font-semibold !text-white transition-colors hover:bg-zinc-900/90 dark:bg-black dark:hover:bg-zinc-900/90">Apply Filters</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={publicationAction !== null} onOpenChange={(open) => !open && setPublicationAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{publicationAction === "publish" ? "Publish selected questions?" : "Unpublish selected questions?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {publicationAction === "publish"
+                ? "Questions without test cases will be skipped and remain drafts."
+                : "Selected questions will no longer be visible to students."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={isUpdatingPublication}>Cancel</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button type="button" disabled={isUpdatingPublication} onClick={() => void updatePublication()}>
+                {isUpdatingPublication ? "Updating…" : publicationAction === "publish" ? "Publish questions" : "Unpublish questions"}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

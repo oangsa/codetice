@@ -29,8 +29,25 @@ export const questionSchema = z.object({
   starterCode: z.string().optional().nullable(),
   isPublished: z.boolean().default(false),
   allowedLanguages: z.array(z.string()).optional().nullable(),
+  tagIds: z.array(z.string().uuid()).max(50).default([]).refine(
+    (tagIds) => new Set(tagIds).size === tagIds.length,
+    "Tags must be unique.",
+  ),
 });
 
 export const questionWithTestcasesSchema = questionSchema.extend({
   testcases: z.array(testcaseSchema).default([]),
+});
+
+export const cloneQuestionSchema = z.object({
+  targetWorkspaceId: z.string().uuid(),
+  isPublished: z.boolean().default(false),
+});
+
+export const questionPublicationSchema = z.object({
+  questionIds: z.array(z.string().uuid()).min(1).max(1000).refine(
+    (questionIds) => new Set(questionIds).size === questionIds.length,
+    "Questions must be unique.",
+  ),
+  isPublished: z.boolean(),
 });

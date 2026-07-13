@@ -2,15 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
-import { PageHeader } from "@/components/common/page-header";
 import { CodeEditor } from "@/modules/questions/editor/code-editor";
 import { ProblemTabs } from "@/modules/questions/components/problem-tabs";
 import { WorkspaceRejudgeButton } from "@/modules/submissions/components/workspace-rejudge-button";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { requirePageUser } from "@/lib/auth";
-import { formatScore } from "@/lib/utils";
 import { listSupportedLanguages } from "@/server/languages/service";
 import { getWorkspaceQuestionBySlug } from "@/server/questions/queries";
 import { listWorkspaceSubmissionsPage } from "@/server/submissions/queries";
@@ -39,8 +37,8 @@ export default async function WorkspaceQuestionPage({
     workspaceId,
     questionId: question.id,
     studentId: null,
-    limit: 24,
-    cursor: null,
+    pageNumber: 1,
+    pageSize: 24,
   });
   const sampleCases = question.testcases.filter((testcase) => testcase.isSample);
   const languages = question.allowedLanguages.length > 0
@@ -58,24 +56,31 @@ export default async function WorkspaceQuestionPage({
           <span className="truncate text-slate-900 dark:text-white">{question.title}</span>
         </nav>
 
-        <PageHeader
-          eyebrow="Problem workspace"
-          title={question.title}
-          actions={
-            <>
-              <Badge variant="secondary">{question.difficulty}</Badge>
-              <Badge variant="outline">{formatScore(question.totalScore)} points</Badge>
-              {access.staff ? (
-                <>
-                  <Button asChild variant="secondary" size="sm">
-                    <Link href={`/workspaces/${workspaceId}/questions/${question.id}/edit`}>Edit question</Link>
-                  </Button>
-                  <WorkspaceRejudgeButton workspaceId={workspaceId} target={{ kind: "question", id: question.id }} />
-                </>
+        <div className="px-1 py-2">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{question.title}</h1>
+                <Badge variant="secondary" className="h-5 self-center rounded-full px-2.5 py-0 text-[10px] font-semibold uppercase leading-none tracking-wide">
+                  {question.difficulty}
+                </Badge>
+              </div>
+              {question.tags.length > 0 ? (
+                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                  tag: {question.tags.map((tag) => tag.name).join(", ")}
+                </p>
               ) : null}
-            </>
-          }
-        />
+            </div>
+            {access.staff ? (
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <Button asChild variant="secondary" size="sm">
+                  <Link href={`/workspaces/${workspaceId}/questions/${question.id}/edit`}>Edit question</Link>
+                </Button>
+                <WorkspaceRejudgeButton workspaceId={workspaceId} target={{ kind: "question", id: question.id }} />
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 gap-1">
@@ -85,9 +90,7 @@ export default async function WorkspaceQuestionPage({
             questionId={question.id}
             description={question.description}
             sampleCases={sampleCases}
-            initialSubmissions={submissionPage.items}
-            initialHasMore={submissionPage.hasMore}
-            initialNextCursor={submissionPage.nextCursor}
+            initialSubmissionPage={submissionPage}
           />
         </ResizablePanel>
         <ResizableHandle className="relative bg-transparent after:absolute after:left-1/2 after:top-1/2 after:h-12 after:w-1 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-slate-500/20 after:transition-colors hover:after:bg-slate-500/60" />
