@@ -74,4 +74,39 @@ describe("workspace ownership migration contract", () => {
     expect(sql).toContain('DROP COLUMN "is_late"');
     expect(sql).not.toContain("CASCADE");
   });
+
+  test("adds scoped tags, question mappings, and every shared teaching preset", async () => {
+    const sql = await readFile(new URL("./migrations/0006_workspace-tags.sql", import.meta.url), "utf8");
+    expect(sql).toContain('CREATE TABLE "tags"');
+    expect(sql).toContain('CREATE TABLE "question_tags"');
+    expect(sql).toContain('tags_global_slug_unique');
+    expect(sql).toContain('tags_workspace_slug_unique');
+    expect(sql).toContain('question_tags_tag_question_idx');
+    expect(sql).toContain("'Arrays', 'arrays'");
+    expect(sql).toContain("'Stack/Queue', 'stack-queue'");
+    expect(sql).toContain("'Dynamic Programming', 'dynamic-programming'");
+    expect(sql).not.toContain('CREATE TABLE "sandbox_jobs"');
+  });
+
+  test("adopts sandbox-era schemas through the migration immediately before tags", async () => {
+    const migrationRunner = await readFile(new URL("../scripts/migrate.ts", import.meta.url), "utf8");
+    expect(migrationRunner).toContain("workspace_pre_tags_schema_complete");
+    expect(migrationRunner).toContain("recordThrough(tagsIndex");
+    expect(migrationRunner).toContain("before workspace tags");
+    expect(migrationRunner).toContain("to_regclass('public.tags') is null");
+  });
+
+  test("migrates legacy workspace creators into required owners before dropping the old column", async () => {
+    const sql = await readFile(new URL("./migrations/0007_young_eternals.sql", import.meta.url), "utf8");
+    const migrationRunner = await readFile(new URL("../scripts/migrate.ts", import.meta.url), "utf8");
+
+    expect(sql).toContain('ADD COLUMN "owner_id" uuid');
+    expect(sql).toContain('SET "owner_id" = "created_by"');
+    expect(sql).toContain("fallback_owner_id");
+    expect(sql).toContain("Cannot migrate workspace ownership");
+    expect(sql.indexOf('ALTER COLUMN "owner_id" SET NOT NULL')).toBeLessThan(sql.indexOf('DROP COLUMN "created_by"'));
+    expect(migrationRunner).toContain("workspace_owner_schema_complete");
+    expect(migrationRunner).toContain("before workspace ownership");
+    expect(migrationRunner).toContain("partial workspace ownership schema");
+  });
 });

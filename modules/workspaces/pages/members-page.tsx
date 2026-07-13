@@ -12,14 +12,14 @@ export default async function WorkspaceMembersPage({ params }: { params: Promise
   const { id } = await params;
   const access = await getWorkspaceAccess(actor, id);
   if (!access?.staff) notFound();
-  const memberPage = await listWorkspaceMembersPage({ actor, workspaceId: id, limit: 25, cursor: null });
+  const memberPage = await listWorkspaceMembersPage({ actor, workspaceId: id, pageNumber: 1, pageSize: 25 });
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace"
         title="Members"
-        description={access.admin ? "Global administrators can change roles and remove members." : "Workspace staff can view this roster. Membership changes require a global administrator."}
+        description={access.admin ? "Workspace administrators can change roles and remove members." : "Workspace staff can view this roster. Membership changes require a workspace administrator."}
         actions={<Link className="text-sm underline" href={`/workspaces/${id}`}>Back to workspace</Link>}
       />
       <MemberManager workspaceId={id} initialPage={memberPage} canManage={access.admin} />

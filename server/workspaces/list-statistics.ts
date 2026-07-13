@@ -10,15 +10,15 @@ import {
 
 export function workspaceListStatistics(userId: string) {
   const outerWorkspaceId = sql.raw('"workspaces"."id"');
-  const outerWorkspaceCreatorId = sql.raw('"workspaces"."created_by"');
+  const outerWorkspaceOwnerId = sql.raw('"workspaces"."owner_id"');
 
   return {
     memberCount: sql<number>`(
       select count(*)::int from ${workspaceMembers} cm_count
       where cm_count.workspace_id = ${outerWorkspaceId}
     )`,
-    creatorName: sql<string>`coalesce((
-      select creator.username from ${users} creator where creator.id = ${outerWorkspaceCreatorId}
+    ownerName: sql<string>`coalesce((
+      select owner.username from ${users} owner where owner.id = ${outerWorkspaceOwnerId}
     ), 'Unknown')`,
     questionCount: sql<number>`(
       select count(*)::int from ${questions} question_count

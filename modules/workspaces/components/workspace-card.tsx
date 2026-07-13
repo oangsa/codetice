@@ -9,7 +9,7 @@ export function WorkspaceCard({
   workspace: {
     id: string;
     name: string;
-    creatorName: string;
+    ownerName: string;
     memberCount: number;
     questionCount: number;
     solvedCount: number;
@@ -23,7 +23,7 @@ export function WorkspaceCard({
     >
       <div className="min-w-0">
         <p className="truncate font-semibold text-slate-900 dark:text-white">{workspace.name}</p>
-        <p className="mt-0.5 text-xs text-slate-500">TA {workspace.creatorName}</p>
+        <p className="mt-0.5 text-xs text-slate-500">Owner {workspace.ownerName}</p>
       </div>
 
       <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">

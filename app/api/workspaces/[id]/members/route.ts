@@ -1,6 +1,6 @@
-import { ok, toFailResponse } from "@/lib/api";
+import { paged, toFailResponse } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth";
-import { parsePageLimit } from "@/lib/cursor";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
 import { listWorkspaceMembersPage } from "@/server/workspaces/queries";
 import { requireWorkspaceStaff } from "@/server/workspaces/authorization";
 
@@ -10,11 +10,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const { id: workspaceId } = await context.params;
     await requireWorkspaceStaff(actor, workspaceId);
     const url = new URL(request.url);
-    return ok(await listWorkspaceMembersPage({
+    return paged(await listWorkspaceMembersPage({
       actor,
       workspaceId,
-      limit: parsePageLimit(url.searchParams.get("limit")),
-      cursor: url.searchParams.get("cursor"),
+      ...parsePageRequestFromSearchParams(url.searchParams),
     }));
   } catch (error) {
     return toFailResponse(error);

@@ -9,8 +9,8 @@ export default async function WorkspacesDashboardPage() {
   const actor = await requirePageUser();
   const page = await listWorkspacesPage({
     actor,
-    limit: 25,
-    cursor: null,
+    pageNumber: 1,
+    pageSize: 25,
     search: "",
   });
   return (
@@ -21,9 +21,7 @@ export default async function WorkspacesDashboardPage() {
       >
         <div>
           <PageHeader
-            eyebrow="Overview"
             title="Workspaces"
-            description="Review active workspaces, open a teaching workspace, or join a workspace with an invite code."
             className="py-0"
           />
         </div>

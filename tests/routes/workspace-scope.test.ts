@@ -21,6 +21,7 @@ describe("workspace-scoped route contract", () => {
       "app/api/workspaces/[id]/submissions/search/route.ts",
       "app/api/workspaces/[id]/scoreboard/search/route.ts",
       "app/api/workspaces/[id]/submit/route.ts",
+      "app/api/workspaces/[id]/owner/route.ts",
       "app/api/workspaces/search/route.ts",
       "app/workspaces/[id]/questions/[questionId]/page.tsx",
       "app/workspaces/[id]/submissions/page.tsx",

@@ -2,29 +2,30 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 
-import { workspaceMembers, workspaces } from "@/db/schema";
+import { users, workspaceMembers, workspaces } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import type { WorkspaceActor } from "@/server/workspaces/authorization";
 import { requireWorkspaceAdmin } from "@/server/workspaces/authorization";
+import { generateWorkspaceInviteCode } from "@/server/workspaces/invite-code";
 
-function generateInviteCode() {
-  return crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-}
+const MAX_INVITE_CODE_ATTEMPTS = 10;
 
 export async function createWorkspace(input: { actor: WorkspaceActor; name: string }) {
   if (input.actor.role !== "admin") throw new AppError(Messages.forbidden, 403, ErrorCode.FORBIDDEN);
   const db = getDb();
-  const [workspace] = await db.insert(workspaces).values({
-    name: input.name,
-    inviteCode: generateInviteCode(),
-    createdBy: input.actor.userId,
-  }).returning();
 
-  if (!workspace) {
-    throw new AppError(Messages.unableToCreateWorkspace, 500, ErrorCode.INTERNAL);
+  for (let attempt = 0; attempt < MAX_INVITE_CODE_ATTEMPTS; attempt += 1) {
+    const [workspace] = await db.insert(workspaces).values({
+      name: input.name,
+      inviteCode: generateWorkspaceInviteCode(),
+      ownerId: input.actor.userId,
+    }).onConflictDoNothing().returning();
+
+    if (workspace) return workspace;
   }
-  return workspace;
+
+  throw new AppError(Messages.unableToCreateWorkspace, 500, ErrorCode.INTERNAL);
 }
 
 export async function joinWorkspace(actor: WorkspaceActor, inviteCode: string) {
@@ -66,6 +67,34 @@ export async function deleteWorkspace(actor: WorkspaceActor, workspaceId: string
   if (!deleted) {
     throw new AppError(Messages.workspaceNotFound, 404, ErrorCode.NOT_FOUND);
   }
+}
+
+export async function transferWorkspaceOwnership(
+  actor: WorkspaceActor,
+  workspaceId: string,
+  ownerId: string,
+) {
+  await requireWorkspaceAdmin(actor, workspaceId);
+  const db = getDb();
+  const owner = await db.query.users.findFirst({
+    where: eq(users.id, ownerId),
+    columns: { id: true, role: true },
+  });
+  if (!owner) {
+    throw new AppError(Messages.userNotFound, 404, ErrorCode.NOT_FOUND);
+  }
+  if (owner.role !== "admin") {
+    throw new AppError("Workspace ownership can only be transferred to a global administrator.", 400, ErrorCode.VALIDATION);
+  }
+
+  const [workspace] = await db.update(workspaces)
+    .set({ ownerId: owner.id })
+    .where(eq(workspaces.id, workspaceId))
+    .returning();
+  if (!workspace) {
+    throw new AppError(Messages.workspaceNotFound, 404, ErrorCode.NOT_FOUND);
+  }
+  return workspace;
 }
 
 export async function updateWorkspaceMemberRole(

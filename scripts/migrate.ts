@@ -46,22 +46,40 @@ async function adoptDatabaseBaseline() {
   if (sandboxJobsIndex === -1) {
     throw new Error("The checked-in sandbox jobs migration is missing.");
   }
+  const tagsIndex = migrations.findIndex((migration) =>
+    migration.sql.some((statement) => statement.includes('CREATE TABLE "tags"')),
+  );
+  if (tagsIndex === -1) {
+    throw new Error("The checked-in workspace tags migration is missing.");
+  }
+  const workspaceOwnerIndex = migrations.findIndex((migration) =>
+    migration.sql.some((statement) => statement.includes('ADD COLUMN "owner_id"')),
+  );
+  if (workspaceOwnerIndex === -1) {
+    throw new Error("The checked-in workspace ownership migration is missing.");
+  }
 
   const [state] = await client<
     Array<{
       questions_table: string | null;
       has_classroom_ownership: boolean;
       has_workspace_ownership: boolean;
+      has_workspace_owner: boolean;
+      has_workspace_creator: boolean;
       classroom_schema_complete: boolean;
       workspace_assignment_schema_complete: boolean;
       workspace_pre_sandbox_schema_complete: boolean;
+      workspace_pre_tags_schema_complete: boolean;
       workspace_schema_complete: boolean;
+      workspace_owner_schema_complete: boolean;
     }>
   >`
     select
       to_regclass('public.questions')::text as questions_table,
       exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'questions' and column_name = 'classroom_id') as has_classroom_ownership,
       exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'questions' and column_name = 'workspace_id') as has_workspace_ownership,
+      exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'workspaces' and column_name = 'owner_id') as has_workspace_owner,
+      exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'workspaces' and column_name = 'created_by') as has_workspace_creator,
       (
         to_regclass('public.classrooms') is not null
         and to_regclass('public.classroom_members') is not null
@@ -106,6 +124,8 @@ async function adoptDatabaseBaseline() {
         and to_regclass('public.workspace_members') is not null
         and to_regclass('public.submission_runs') is not null
         and to_regclass('public.sandbox_jobs') is not null
+        and to_regclass('public.tags') is null
+        and to_regclass('public.question_tags') is null
         and (
           select count(*) = 17
           from information_schema.columns
@@ -138,7 +158,64 @@ async function adoptDatabaseBaseline() {
         and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'is_late')
         and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'testcase_results' and column_name = 'submission_run_id')
         and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'grading_jobs' and column_name = 'submission_run_id')
-      ) as workspace_schema_complete
+      ) as workspace_pre_tags_schema_complete,
+      (
+        to_regclass('public.workspaces') is not null
+        and to_regclass('public.workspace_members') is not null
+        and to_regclass('public.submission_runs') is not null
+        and to_regclass('public.sandbox_jobs') is not null
+        and to_regclass('public.tags') is not null
+        and to_regclass('public.question_tags') is not null
+        and (
+          select count(*) = 7
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'tags'
+            and column_name in ('id', 'workspace_id', 'name', 'slug', 'is_preset', 'created_at', 'updated_at')
+        )
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.tags') and conname = 'tags_pkey' and contype = 'p')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.tags') and conname = 'tags_scope_check' and contype = 'c')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.tags') and conname = 'tags_workspace_id_workspaces_id_fk' and contype = 'f')
+        and to_regclass('public.tags_global_slug_unique') is not null
+        and to_regclass('public.tags_workspace_slug_unique') is not null
+        and (
+          select count(*) = 2
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'question_tags'
+            and column_name in ('question_id', 'tag_id')
+        )
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.question_tags') and conname = 'question_tags_pkey' and contype = 'p')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.question_tags') and conname = 'question_tags_question_id_questions_id_fk' and contype = 'f')
+        and exists (select 1 from pg_constraint where conrelid = to_regclass('public.question_tags') and conname = 'question_tags_tag_id_tags_id_fk' and contype = 'f')
+        and to_regclass('public.question_tags_tag_question_idx') is not null
+        and to_regclass('public.assignments') is null
+        and to_regclass('public.assignment_questions') is null
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'questions' and column_name = 'workspace_id')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'rejudge_jobs' and column_name = 'workspace_id')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'latest_run_id')
+        and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'assignment_id')
+        and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'submissions' and column_name = 'is_late')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'testcase_results' and column_name = 'submission_run_id')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'grading_jobs' and column_name = 'submission_run_id')
+      ) as workspace_schema_complete,
+      (
+        to_regclass('public.workspaces') is not null
+        and exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public' and table_name = 'workspaces'
+            and column_name = 'owner_id' and is_nullable = 'NO'
+        )
+        and not exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public' and table_name = 'workspaces' and column_name = 'created_by'
+        )
+        and exists (
+          select 1 from pg_constraint
+          where conrelid = to_regclass('public.workspaces')
+            and conname = 'workspaces_owner_id_users_id_fk' and contype = 'f'
+        )
+      ) as workspace_owner_schema_complete
   `;
 
   if (!state?.questions_table) {
@@ -171,8 +248,22 @@ async function adoptDatabaseBaseline() {
     console.info(message);
   };
 
-  if (state.workspace_schema_complete) {
+  if (state.workspace_owner_schema_complete) {
     await recordThrough(migrations.length, "Adopted the verified workspace schema at the current migration version.");
+    return;
+  }
+
+  if (state.workspace_schema_complete && !state.has_workspace_owner && state.has_workspace_creator) {
+    await recordThrough(workspaceOwnerIndex, "Adopted the verified workspace schema before workspace ownership.");
+    return;
+  }
+
+  if (state.workspace_schema_complete) {
+    throw new Error("Database has a partial workspace ownership schema; refusing ambiguous migration adoption.");
+  }
+
+  if (state.workspace_pre_tags_schema_complete) {
+    await recordThrough(tagsIndex, "Adopted the verified workspace schema before workspace tags.");
     return;
   }
 

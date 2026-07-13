@@ -14,10 +14,10 @@ describe("workspace list SQL", () => {
     }).from(workspaces).toSQL().sql;
 
     expect(query).toContain('cm_count.workspace_id = "workspaces"."id"');
-    expect(query).toContain('creator.id = "workspaces"."created_by"');
+    expect(query).toContain('owner.id = "workspaces"."owner_id"');
     expect(query).toContain('solved_question.workspace_id = "workspaces"."id"');
     expect(query).not.toContain('workspace_id = "id"');
-    expect(query).not.toContain('creator.id = "created_by"');
+    expect(query).not.toContain('owner.id = "owner_id"');
     expect(query).not.toContain('"workspaces"."workspaces"');
   });
 

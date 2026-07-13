@@ -7,9 +7,12 @@ import {
   questions,
   rejudgeJobs,
   sandboxJobs,
+  questionTags,
   submissionRuns,
   submissions,
+  tags,
   testcaseResults,
+  workspaces,
 } from "./schema";
 
 function columnNames(table: Parameters<typeof getTableConfig>[0]) {
@@ -49,6 +52,11 @@ describe("workspace grading schema contract", () => {
     expect(workspaceMembers.role.default).toBe("student");
   });
 
+  test("workspaces use a required owner instead of the legacy creator reference", () => {
+    expect(columnNames(workspaces)).toContain("owner_id");
+    expect(columnNames(workspaces)).not.toContain("created_by");
+  });
+
   test("sandbox work is queued independently from immutable grading runs", async () => {
     expect(columnNames(sandboxJobs)).toEqual(expect.arrayContaining([
       "workspace_id",
@@ -63,5 +71,20 @@ describe("workspace grading schema contract", () => {
     expect(schemaSource).toContain("sandbox_jobs_kind_check");
     expect(schemaSource).toContain("sandbox_jobs_status_lease_created_idx");
     expect(schemaSource).toContain("sandbox_jobs_status_expires_idx");
+  });
+
+  test("tags separate shared presets from workspace-local catalogs and map questions many-to-many", () => {
+    expect(columnNames(tags)).toEqual(expect.arrayContaining([
+      "workspace_id",
+      "name",
+      "slug",
+      "is_preset",
+    ]));
+    expect(columnNames(questionTags)).toEqual(expect.arrayContaining(["question_id", "tag_id"]));
+    const tagConfig = getTableConfig(tags);
+    expect(tagConfig.indexes.map((index) => index.config.name)).toEqual(expect.arrayContaining([
+      "tags_global_slug_unique",
+      "tags_workspace_slug_unique",
+    ]));
   });
 });

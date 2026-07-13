@@ -210,6 +210,24 @@ suite("legacy ownership migration reaches the workspace schema", () => {
     expect(column?.column_name).toBe("workspace_id");
   });
 
+  test("replaces the legacy workspace creator with a required owner", async () => {
+    const [workspace] = await client<Array<{ owner_id: string; has_created_by: boolean }>>`
+      select
+        owner_id::text,
+        exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public' and table_name = 'workspaces' and column_name = 'created_by'
+        ) as has_created_by
+      from workspaces
+      where id = '00000000-0000-0000-0000-000000000101'
+    `;
+
+    expect(workspace).toEqual({
+      owner_id: "00000000-0000-0000-0000-000000000001",
+      has_created_by: false,
+    });
+  });
+
   test("removes legacy assignment storage after using it to derive workspace ownership", async () => {
     const [state] = await client<Array<{
       assignments: string | null;
@@ -309,7 +327,7 @@ suite("legacy ownership migration reaches the workspace schema", () => {
     ]);
   });
 
-  test("executes scoped collection search and cursor binding in PostgreSQL", async () => {
+  test("executes scoped collection search and page-number pagination in PostgreSQL", async () => {
     const child = Bun.spawn([
       "bun",
       "--conditions",
@@ -332,15 +350,19 @@ suite("legacy ownership migration reaches the workspace schema", () => {
     ]);
     expect(exitCode, stderr).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
-      crossAdminWorkspaceCursorStatus: 400,
       workspacePages: [["Two"], ["One"]],
       questionPages: [["Multi"], ["Single"]],
       memberPages: [["teacher"], ["student"]],
       submissionPages: [["Multi"], ["Single"]],
       userPages: [["teacher"], ["student"]],
       workspaceDetail: { memberCount: 2, questionCount: 2, solvedCount: 2 },
-      crossActorQuestionCursorStatus: 400,
-      mismatchedCursorStatus: 400,
+      pageMetadata: {
+        workspace: expect.objectContaining({ currentPage: 1, pageSize: 1, totalCount: 2, hasPrevious: false, hasNext: true }),
+        question: expect.objectContaining({ currentPage: 1, pageSize: 1, totalCount: 2, hasPrevious: false, hasNext: true }),
+        member: expect.objectContaining({ currentPage: 1, pageSize: 1, totalCount: 2, hasPrevious: false, hasNext: true }),
+        submission: expect.objectContaining({ currentPage: 1, pageSize: 1, totalCount: 2, hasPrevious: false, hasNext: true }),
+        user: expect.objectContaining({ currentPage: 1, pageSize: 1, hasPrevious: false, hasNext: true }),
+      },
       questions: ["Single"],
       members: ["student"],
       submissions: ["Single"],

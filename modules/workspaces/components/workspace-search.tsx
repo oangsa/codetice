@@ -6,12 +6,13 @@ import { BookOpen, Search } from "lucide-react";
 import { DataTablePagination } from "@/components/common/data-table";
 import { Input } from "@/components/ui/input";
 import { useCollectionSearch } from "@/lib/use-collection-search";
+import type { PagedResult } from "@/lib/pagination";
 import { WorkspaceCard } from "@/modules/workspaces/components/workspace-card";
 
 type WorkspaceRow = {
   id: string;
   name: string;
-  creatorName: string;
+  ownerName: string;
   memberCount: number;
   questionCount: number;
   solvedCount: number;
@@ -23,13 +24,12 @@ export function WorkspaceSearch({
   actions,
   children,
 }: {
-  initialPage: { items: WorkspaceRow[]; nextCursor: string | null; hasMore: boolean };
+  initialPage: PagedResult<WorkspaceRow>;
   actions: ReactNode;
   children: ReactNode;
 }) {
   const [value, setValue] = useState("");
   const request = useMemo(() => ({
-    limit: 25,
     ...(value.trim() ? { searchTerm: { name: "name", value } } : {}),
   }), [value]);
   const collection = useCollectionSearch<WorkspaceRow>({
@@ -65,12 +65,14 @@ export function WorkspaceSearch({
           {collection.page.items.map((workspace) => <WorkspaceCard key={workspace.id} workspace={workspace} />)}
         </div>
       )}
-      {collection.hasPrevious || collection.page.nextCursor ? (
-        <DataTablePagination
-          previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
-          next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
-        />
-      ) : null}
+      <DataTablePagination
+        meta={collection.page.meta}
+        itemCount={collection.page.items.length}
+        itemName="workspaces"
+        isLoading={collection.isLoading}
+        onPageChange={collection.goToPage}
+        onPageSizeChange={collection.setPageSize}
+      />
     </div>
   );
 }

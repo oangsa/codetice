@@ -3,14 +3,14 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 
 import argon2 from "argon2";
-import { and, desc, eq, gt, gte, ilike, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 
 import { passwordResetTokens, questions, users, workspaces } from "@/db/schema";
 import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/modules/auth/constants";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
 import { getDb } from "@/lib/db";
-import { decodeCursor, encodeCursor } from "@/lib/cursor";
 import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
+import { createPagedResult, pageOffset } from "@/lib/pagination";
 import type { SessionUser } from "@/lib/types";
 
 function toSessionUser(user: {
@@ -154,50 +154,35 @@ function adminUserSearchWhere(search: ParsedCollectionSearch) {
 }
 
 async function queryUsersPage(search: ParsedCollectionSearch) {
-  const endpoint = "admin-users";
-  const scope = "global";
-  const filters = search.filters;
-  let after: ReturnType<typeof or> | undefined;
-  if (search.cursor) {
-    try {
-      const decoded = decodeCursor(search.cursor, { endpoint, scope, filters });
-      const [createdAtValue, id] = decoded.keys;
-      if (typeof createdAtValue !== "string" || typeof id !== "string") throw new Error();
-      if (createdAtValue.length > 64 || Number.isNaN(new Date(createdAtValue).getTime())) throw new Error();
-      after = or(
-        sql`${users.createdAt} < ${createdAtValue}::timestamp`,
-        and(sql`${users.createdAt} = ${createdAtValue}::timestamp`, lt(users.id, id)),
-      );
-    } catch {
-      throw new AppError(Messages.invalidRequest, 400, ErrorCode.VALIDATION);
-    }
-  }
-  const rows = await getDb().select({
-    id: users.id,
-    username: users.username,
-    role: users.role,
-    createdAt: users.createdAt,
-    cursorCreatedAt: sql<string>`${users.createdAt}::text`,
-  }).from(users).where(and(adminUserSearchWhere(search), after)).orderBy(desc(users.createdAt), desc(users.id)).limit(search.limit + 1);
-  const hasMore = rows.length > search.limit;
-  const pageRows = rows.slice(0, search.limit);
-  const items = pageRows.map((row) => ({
+  const db = getDb();
+  const where = adminUserSearchWhere(search);
+  const [rows, countRows] = await Promise.all([
+    db.select({
+      id: users.id,
+      username: users.username,
+      role: users.role,
+      createdAt: users.createdAt,
+    }).from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt), desc(users.id))
+      .limit(search.pageSize)
+      .offset(pageOffset(search)),
+    db.select({ count: sql<number>`count(*)::int` }).from(users).where(where),
+  ]);
+  const items = rows.map((row) => ({
     id: row.id,
     username: row.username,
     role: row.role,
     createdAt: row.createdAt,
   }));
-  const last = pageRows.at(-1);
-  return {
-    items,
-    hasMore,
-    nextCursor: hasMore && last
-      ? encodeCursor({ endpoint, scope, filters, keys: [last.cursorCreatedAt, last.id] })
-      : null,
-  };
+  return createPagedResult(items, {
+    currentPage: search.pageNumber,
+    pageSize: search.pageSize,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  });
 }
 
-export function listUsersPage(input: { limit: number; cursor: string | null }) {
+export function listUsersPage(input: { pageNumber: number; pageSize: number }) {
   return queryUsersPage(parseCollectionSearch(input, adminUserSearchConfig));
 }
 
@@ -249,6 +234,15 @@ export async function adminUpdateUser(input: {
   if (user.role === "admin" && input.role !== "admin" && await countAdmins() <= 1) {
     throw new AppError("At least one admin account is required.", 400, ErrorCode.VALIDATION);
   }
+  if (user.role === "admin" && input.role !== "admin") {
+    const ownedWorkspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.ownerId, user.id),
+      columns: { id: true },
+    });
+    if (ownedWorkspace) {
+      throw new AppError("Transfer this user's workspace ownership before removing admin access.", 400, ErrorCode.VALIDATION);
+    }
+  }
   const existing = await db.query.users.findFirst({ where: eq(users.username, input.username), columns: { id: true } });
   if (existing && existing.id !== input.targetUserId) {
     throw new AppError(Messages.usernameTaken, 409, ErrorCode.CONFLICT);
@@ -283,7 +277,7 @@ export async function adminDeleteUser(input: { currentUserId: string; targetUser
 
   await db.transaction(async (tx) => {
     await tx.update(questions).set({ createdBy: null }).where(eq(questions.createdBy, input.targetUserId));
-    await tx.update(workspaces).set({ createdBy: null }).where(eq(workspaces.createdBy, input.targetUserId));
+    await tx.update(workspaces).set({ ownerId: input.currentUserId }).where(eq(workspaces.ownerId, input.targetUserId));
     await tx.delete(users).where(eq(users.id, input.targetUserId));
   });
 }

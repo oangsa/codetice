@@ -35,7 +35,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const body = updateSchema.parse(await request.json());
     return ok({ workspace: await updateWorkspace(actor, workspaceId, body.name) });
   } catch (error) {
-    return toFailResponse(error, error instanceof z.ZodError ? Messages.invalidRequest : Messages.somethingWrong);
+    return toFailResponse(error, error instanceof z.ZodError ? Messages.invalidRequest : Messages.unableToUpdateWorkspace);
   }
 }
 
@@ -47,6 +47,6 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     await deleteWorkspace(actor, workspaceId);
     return ok({ message: "Workspace deleted." });
   } catch (error) {
-    return toFailResponse(error);
+    return toFailResponse(error, Messages.unableToDeleteWorkspace);
   }
 }

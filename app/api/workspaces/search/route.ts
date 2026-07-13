@@ -1,4 +1,4 @@
-import { ok, toFailResponse } from "@/lib/api";
+import { paged, toFailResponse } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth";
 import { parseCollectionSearch } from "@/lib/collection-search";
 import {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     const actor = await requireApiUser();
     const search = parseCollectionSearch(await request.json(), workspaceSearchConfig);
-    return ok(await searchWorkspacesPage({ actor, search }));
+    return paged(await searchWorkspacesPage({ actor, search }));
   } catch (error) {
     return toFailResponse(error);
   }

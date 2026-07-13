@@ -15,7 +15,7 @@ Keep the visual design and ordinary user behavior from `main` while changing res
 
 - Classroom vocabulary and routes become workspace-scoped.
 - Assignments and dedicated leaderboard surfaces are removed; the embedded Scoreboard remains.
-- Authorization, cursor pagination, immutable runs, permanent staff unranking, rejudges, and Docker isolation follow the remediation requirements.
+- Authorization, page-number pagination, immutable runs, permanent staff unranking, rejudges, and Docker isolation follow the remediation requirements.
 - Administrative collections may paginate even though `main` loaded them globally.
 
 Everything else should retain main behavior. In particular:
@@ -24,7 +24,7 @@ Everything else should retain main behavior. In particular:
 - Reset links use configured `APP_URL`/`NEXT_PUBLIC_APP_URL`, never the request host.
 - Question authoring sees enabled language options even while runtime verification is pending.
 - Student selectors retain `main` behavior by showing every enabled language. The worker inspects or pulls the selected image before grading; readiness status remains visible to admins but is not a user-facing availability gate.
-- Workspace detail, roster, scoreboard, and submission-filter surfaces must consume every authorized cursor page before applying `main`'s client-side search, sorting, and table pagination. Never silently treat the first 100 records as the complete workspace.
+- Workspace detail, roster, scoreboard, and submission-filter surfaces must request every authorized page before applying `main`'s client-side search, sorting, and table pagination. Never silently treat the first 100 records as the complete workspace.
 - Local Pyright and no-op diagnostics remain available while runtime verification is pending. Only compiler diagnostics require a prepared Docker runtime.
 - Raw grading errors are staff-only at the service DTO boundary; student pages render friendly verdict text even if a component forgets its own visibility check.
 - Atomic idempotent mutations cache terminal failures separately after rollback so replaying a failed submit or rejudge key remains deterministic.
@@ -36,4 +36,4 @@ Everything else should retain main behavior. In particular:
 - `tests/routes/workspace-scope.test.ts`: required workspace routes and hard-removed routes.
 - `tests/ui/language-runtime-copy.test.ts`: asynchronous runtime-verification wording.
 - `lib/app-url.test.ts`: configured reset-link origin.
-- `tests/regressions/main-behavior-drift.test.ts`: worker startup, full cursor consumption, diagnostics readiness, failure idempotency, participant filtering, grading-error redaction, runtime copy, and TA badge parity.
+- `tests/regressions/main-behavior-drift.test.ts`: worker startup, complete page consumption, diagnostics readiness, failure idempotency, participant filtering, grading-error redaction, runtime copy, and TA badge parity.

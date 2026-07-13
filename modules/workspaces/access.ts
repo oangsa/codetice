@@ -5,15 +5,18 @@ export type WorkspaceAccess = {
   member: boolean;
   staff: boolean;
   admin: boolean;
+  owner: boolean;
 };
 
 export function resolveWorkspaceAccess(
   platformRole: PlatformRole,
   workspaceRole: WorkspaceRole | null,
+  isOwner = false,
 ): WorkspaceAccess {
-  const admin = platformRole === "admin";
+  const owner = isOwner;
+  const admin = platformRole === "admin" || owner;
   const member = admin || workspaceRole === "student" || workspaceRole === "ta";
   const staff = admin || workspaceRole === "ta";
 
-  return { member, staff, admin };
+  return { member, staff, admin, owner };
 }

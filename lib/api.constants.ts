@@ -37,6 +37,7 @@ export const Messages = {
   workspaceNotFound: "We couldn't find that workspace.",
   submissionNotFound: "We couldn't find that submission.",
   testcaseNotFound: "We couldn't find that test case.",
+  tagNotFound: "We couldn't find that tag.",
   languageNotFound: "We couldn't find that language.",
   gradingJobNotFound: "We couldn't find that grading task.",
   // code / grader
@@ -70,6 +71,9 @@ export const Messages = {
   unableToUpdateQuestion: "We couldn't update the question. Please try again.",
   unableToDeleteQuestion: "We couldn't delete the question. Please try again.",
   unableToCreateWorkspace: "We couldn't create the workspace. Please try again.",
+  unableToUpdateWorkspace: "We couldn't update the workspace. Please try again.",
+  unableToDeleteWorkspace: "We couldn't delete the workspace. Please try again.",
+  unableToTransferWorkspaceOwnership: "We couldn't transfer workspace ownership. Please try again.",
   unableToJoinWorkspace: "We couldn't join that workspace. Please try again.",
   unableToCreateLanguage: "We couldn't create the language. Please try again.",
   unableToUpdateLanguage: "We couldn't update the language. Please try again.",

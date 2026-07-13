@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { ok, toFailResponse, Messages } from "@/lib/api";
+import { ok, paged, toFailResponse, Messages } from "@/lib/api";
 import { requireApiAdmin, requireApiUser } from "@/lib/auth";
-import { parsePageLimit } from "@/lib/cursor";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
 import { workspaceSchema } from "@/modules/workspaces/schema";
 import { createWorkspace } from "@/server/workspaces/mutations";
 import { listWorkspacesPage } from "@/server/workspaces/queries";
@@ -13,11 +13,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const page = await listWorkspacesPage({
       actor,
-      limit: parsePageLimit(url.searchParams.get("limit")),
-      cursor: url.searchParams.get("cursor"),
+      ...parsePageRequestFromSearchParams(url.searchParams),
       search: url.searchParams.get("q") ?? "",
     });
-    return ok(page);
+    return paged(page);
   } catch (error) {
     return toFailResponse(error);
   }

@@ -7,6 +7,7 @@ import {
   index,
   integer,
   jsonb,
+  primaryKey,
   pgTable,
   text,
   timestamp,
@@ -383,9 +384,50 @@ export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   inviteCode: varchar("invite_code", { length: 50 }).notNull().unique(),
-  createdBy: uuid("created_by").references(() => users.id),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 });
+
+export const tags = pgTable(
+  "tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    slug: varchar("slug", { length: 120 }).notNull(),
+    isPreset: boolean("is_preset").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    globalSlugUnique: uniqueIndex("tags_global_slug_unique")
+      .on(table.slug)
+      .where(sql`${table.workspaceId} is null`),
+    workspaceSlugUnique: uniqueIndex("tags_workspace_slug_unique")
+      .on(table.workspaceId, table.slug)
+      .where(sql`${table.workspaceId} is not null`),
+    scopeCheck: check(
+      "tags_scope_check",
+      sql`(${table.workspaceId} is null and ${table.isPreset}) or (${table.workspaceId} is not null and not ${table.isPreset})`,
+    ),
+  }),
+);
+
+export const questionTags = pgTable(
+  "question_tags",
+  {
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    primary: primaryKey({ columns: [table.questionId, table.tagId], name: "question_tags_pkey" }),
+    tagQuestionIdx: index("question_tags_tag_question_idx").on(table.tagId, table.questionId),
+  }),
+);
 
 export const workspaceMembers = pgTable(
   "workspace_members",
@@ -439,7 +481,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   questionScores: many(questionScores),
   rejudgeJobs: many(rejudgeJobs),
   workspaceMembers: many(workspaceMembers),
-  workspacesCreated: many(workspaces),
+  workspacesOwned: many(workspaces),
   passwordResetTokens: many(passwordResetTokens),
 }));
 
@@ -460,6 +502,17 @@ export const questionsRelations = relations(questions, ({ one, many }) => ({
   questionScores: many(questionScores),
   rejudgeJobs: many(rejudgeJobs),
   customCheckers: many(customCheckers),
+  questionTags: many(questionTags),
+}));
+
+export const tagsRelations = relations(tags, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [tags.workspaceId], references: [workspaces.id] }),
+  questionTags: many(questionTags),
+}));
+
+export const questionTagsRelations = relations(questionTags, ({ one }) => ({
+  question: one(questions, { fields: [questionTags.questionId], references: [questions.id] }),
+  tag: one(tags, { fields: [questionTags.tagId], references: [tags.id] }),
 }));
 
 export const testcasesRelations = relations(testcases, ({ one, many }) => ({
@@ -567,13 +620,14 @@ export const customCheckersRelations = relations(customCheckers, ({ one }) => ({
 }));
 
 export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [workspaces.createdBy],
+  owner: one(users, {
+    fields: [workspaces.ownerId],
     references: [users.id],
   }),
   members: many(workspaceMembers),
   questions: many(questions),
   rejudgeJobs: many(rejudgeJobs),
+  tags: many(tags),
 }));
 
 export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
@@ -602,3 +656,5 @@ export type SandboxJob = typeof sandboxJobs.$inferSelect;
 export type SupportedLanguage = typeof supportedLanguages.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
+export type Tag = typeof tags.$inferSelect;
+export type QuestionTag = typeof questionTags.$inferSelect;

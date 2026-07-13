@@ -5,8 +5,9 @@ import { toast } from "sonner";
 
 import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn } from "@/components/common/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/button";
 import { useCollectionSearch } from "@/lib/use-collection-search";
+import type { PagedResult } from "@/lib/pagination";
 
 type Member = {
   id: string;
@@ -23,13 +24,12 @@ export function MemberManager({
   canManage,
 }: {
   workspaceId: string;
-  initialPage: { items: Member[]; nextCursor: string | null; hasMore: boolean };
+  initialPage: PagedResult<Member>;
   canManage: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const request = useMemo(() => ({
-    limit: 25,
     ...(search.trim() ? { searchTerm: { name: "username", value: search } } : {}),
   }), [search]);
   const collection = useCollectionSearch<Member>({
@@ -108,12 +108,16 @@ export function MemberManager({
       rowClassName={(_member, index) =>
         index % 2 === 1 ? "bg-black/[0.02] dark:bg-white/[0.02]" : undefined
       }
-      pagination={collection.hasPrevious || collection.page.nextCursor ? (
+      pagination={
         <DataTablePagination
-          previous={{ label: "Prev", disabled: !collection.hasPrevious || collection.isLoading, onClick: collection.previous }}
-          next={{ label: "Next", disabled: !collection.page.nextCursor || collection.isLoading, onClick: collection.next }}
+          meta={collection.page.meta}
+          itemCount={collection.page.items.length}
+          itemName="members"
+          isLoading={collection.isLoading}
+          onPageChange={collection.goToPage}
+          onPageSizeChange={collection.setPageSize}
         />
-      ) : null}
+      }
     />
   );
 }

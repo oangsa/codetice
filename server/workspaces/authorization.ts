@@ -29,7 +29,7 @@ export async function getWorkspaceAccess(
   const db = getDb();
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.id, workspaceId),
-    columns: { id: true },
+    columns: { id: true, ownerId: true },
   });
   if (!workspace) {
     return null;
@@ -51,7 +51,7 @@ export async function getWorkspaceAccess(
   return {
     workspaceId,
     workspaceRole,
-    ...resolveWorkspaceAccess(actor.role, workspaceRole),
+    ...resolveWorkspaceAccess(actor.role, workspaceRole, workspace.ownerId === actor.userId),
   };
 }
 
