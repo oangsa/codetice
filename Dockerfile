@@ -93,6 +93,7 @@ RUN bun install --frozen-lockfile
 COPY scripts/ ./scripts/
 COPY server/  ./server/
 COPY lib/     ./lib/
+COPY modules/ ./modules/
 COPY db/      ./db/
 COPY tsconfig.json package.json ./
 

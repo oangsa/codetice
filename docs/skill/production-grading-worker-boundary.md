@@ -8,3 +8,4 @@
 - After pending jobs are handled, the worker should periodically inspect all enabled language images so a fresh host warms runtimes proactively without delaying already queued work.
 - The grading sandbox mounts `/workspace` read-only and provides writable executable `/tmp`; compiled language commands should output to `{binary}` or `/tmp/main`, not `main` in `/workspace`.
 - Failed submissions created before a worker-boundary fix remain failed; submit again or rejudge after deployment.
+- The worker compile stage must copy `modules/` alongside `server/`, `lib/`, and `db/`: server authorization code imports pure domain policies such as `modules/workspaces/access` through the `@/*` alias.
