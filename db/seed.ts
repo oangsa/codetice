@@ -1,8 +1,9 @@
 import argon2 from "argon2";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { closeDb, getDb } from "@/lib/db";
-import { supportedLanguages, users } from "@/db/schema";
+import { supportedLanguages, tags, users } from "@/db/schema";
+import { PRESET_TAGS } from "@/lib/tags";
 
 async function main() {
   const username = process.env.ADMIN_USERNAME;
@@ -14,6 +15,21 @@ async function main() {
   }
 
   const db = getDb();
+  for (const preset of PRESET_TAGS) {
+    const existingTag = await db.query.tags.findFirst({
+      where: and(eq(tags.slug, preset.slug), isNull(tags.workspaceId)),
+      columns: { id: true },
+    });
+    if (!existingTag) {
+      await db.insert(tags).values({
+        name: preset.name,
+        slug: preset.slug,
+        workspaceId: null,
+        isPreset: true,
+      });
+    }
+  }
+
   const defaultLanguages = [
     {
       name: "Python",
@@ -74,6 +90,9 @@ async function main() {
           editorLanguage: language.editorLanguage,
           diagnosticsFormat: language.diagnosticsFormat,
           diagnosticsCommand: language.diagnosticsCommand,
+          runtimeStatus: "pending",
+          runtimeCheckedAt: null,
+          runtimeError: null,
         })
         .where(eq(supportedLanguages.id, existingLanguage.id));
     }

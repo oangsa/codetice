@@ -1,6 +1,6 @@
-import { requireUser, createUserSession } from "@/lib/auth";
+import { requireApiUser, createUserSession } from "@/lib/auth";
 import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
-import { updateProfilePicture } from "@/server/services/auth-service";
+import { updateProfilePicture } from "@/server/auth/service";
 import { z } from "zod";
 
 const updateProfilePictureSchema = z.object({
@@ -9,7 +9,7 @@ const updateProfilePictureSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const session = await requireUser();
+    const session = await requireApiUser();
     const body = await request.json();
     const parsed = updateProfilePictureSchema.safeParse(body);
 

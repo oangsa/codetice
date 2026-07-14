@@ -1,23 +1,17 @@
-import { fail, ok, toFailResponse, Messages, ErrorCode } from "@/lib/api";
+import { ok, toFailResponse, Messages } from "@/lib/api";
 import { createAppUrl } from "@/lib/app-url";
-import { requireAdmin } from "@/lib/auth";
+import { requireApiAdmin } from "@/lib/auth";
 import { getRequestIdentifier } from "@/lib/request";
-import { assertRateLimit } from "@/server/services/rate-limit-service";
-import { createPasswordResetToken } from "@/server/services/auth-service";
+import { assertRateLimit } from "@/server/security/rate-limit";
+import { createPasswordResetToken } from "@/server/auth/service";
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
-  } catch {
-    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
-  }
-
-  const { id } = await params;
-
-  try {
+    await requireApiAdmin();
+    const { id } = await params;
     await assertRateLimit({
       identifier: await getRequestIdentifier(),
       action: "admin-generate-reset-link",

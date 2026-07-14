@@ -1,9 +1,13 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
+  check,
   decimal,
   index,
   integer,
+  jsonb,
+  primaryKey,
   pgTable,
   text,
   timestamp,
@@ -12,16 +16,22 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  username: varchar("username", { length: 50 }).notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  role: varchar("role", { length: 20 }).notNull().default("student"),
-  profilePicture: text("profile_picture").default("/avatars/avatar-1.png").notNull(),
-  tokenVersion: integer("token_version").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    username: varchar("username", { length: 50 }).notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    role: varchar("role", { length: 20 }).notNull().default("student"),
+    profilePicture: text("profile_picture").default("/avatars/avatar-1.png").notNull(),
+    tokenVersion: integer("token_version").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    roleCheck: check("users_role_check", sql`${table.role} in ('student', 'admin')`),
+  }),
+);
 
 export const passwordResetTokens = pgTable(
   "password_reset_tokens",
@@ -68,8 +78,11 @@ export const questions = pgTable(
   "questions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
-    slug: varchar("slug", { length: 255 }).notNull().unique(),
+    slug: varchar("slug", { length: 255 }).notNull(),
     description: text("description").notNull(),
     difficulty: varchar("difficulty", { length: 20 }).notNull().default("easy"),
     totalScore: decimal("total_score", { precision: 10, scale: 2 }).notNull().default("100"),
@@ -84,8 +97,19 @@ export const questions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
   },
   (table) => ({
-    publishedCreatedAtIdx: index("questions_published_created_at_idx").on(table.isPublished, table.createdAt),
-    createdAtIdx: index("questions_created_at_idx").on(table.createdAt),
+    workspaceSlugUnique: uniqueIndex("questions_workspace_slug_unique").on(table.workspaceId, table.slug),
+    workspaceIdIdUnique: uniqueIndex("questions_workspace_id_id_unique").on(table.workspaceId, table.id),
+    workspaceCreatedAtIdx: index("questions_workspace_created_at_idx").on(
+      table.workspaceId,
+      table.createdAt,
+      table.id,
+    ),
+    workspacePublishedIdx: index("questions_workspace_published_idx").on(
+      table.workspaceId,
+      table.isPublished,
+      table.createdAt,
+      table.id,
+    ),
   }),
 );
 
@@ -120,7 +144,6 @@ export const submissions = pgTable("submissions", {
   questionId: uuid("question_id")
     .notNull()
     .references(() => questions.id, { onDelete: "cascade" }),
-  assignmentId: uuid("assignment_id").references(() => assignments.id, { onDelete: "set null" }),
   language: varchar("language", { length: 50 }).notNull().default("python"),
   sourceCode: text("source_code").notNull(),
   status: varchar("status", { length: 30 }).notNull(),
@@ -130,22 +153,66 @@ export const submissions = pgTable("submissions", {
   runtimeMs: integer("runtime_ms"),
   memoryKb: integer("memory_kb"),
   errorMessage: text("error_message"),
-  isLate: boolean("is_late").notNull().default(false),
+  isRanked: boolean("is_ranked").notNull().default(true),
+  latestRunId: uuid("latest_run_id")
+    .notNull()
+    .references((): AnyPgColumn => submissionRuns.id),
+  latestScoredRunId: uuid("latest_scored_run_id").references(
+    (): AnyPgColumn => submissionRuns.id,
+  ),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 }, (table) => ({
   userCreatedAtIdx: index("submissions_user_created_at_idx").on(table.userId, table.createdAt),
   questionCreatedAtIdx: index("submissions_question_created_at_idx").on(table.questionId, table.createdAt),
   createdAtIdx: index("submissions_created_at_idx").on(table.createdAt),
+  rankedQuestionIdx: index("submissions_ranked_question_idx").on(
+    table.userId,
+    table.questionId,
+    table.isRanked,
+    table.createdAt,
+  ),
 }));
 
-export const testcaseResults = pgTable("testcase_results", {
+export const submissionRuns = pgTable("submission_runs", {
   id: uuid("id").defaultRandom().primaryKey(),
   submissionId: uuid("submission_id")
     .notNull()
     .references(() => submissions.id, { onDelete: "cascade" }),
-  testcaseId: uuid("testcase_id")
+  sequence: integer("sequence").notNull(),
+  trigger: varchar("trigger", { length: 20 }).notNull(),
+  status: varchar("status", { length: 30 }).notNull().default("queued"),
+  passedCount: integer("passed_count").notNull().default(0),
+  totalCount: integer("total_count").notNull().default(0),
+  score: decimal("score", { precision: 10, scale: 2 }).notNull().default("0"),
+  runtimeMs: integer("runtime_ms"),
+  memoryKb: integer("memory_kb"),
+  errorMessage: text("error_message"),
+  requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: false }),
+  completedAt: timestamp("completed_at", { withTimezone: false }),
+}, (table) => ({
+  submissionSequenceUnique: uniqueIndex("submission_runs_submission_sequence_unique").on(
+    table.submissionId,
+    table.sequence,
+  ),
+  submissionCreatedAtIdx: index("submission_runs_submission_created_at_idx").on(
+    table.submissionId,
+    table.createdAt,
+    table.id,
+  ),
+  triggerCheck: check("submission_runs_trigger_check", sql`${table.trigger} in ('official', 'rejudge')`),
+}));
+
+export const testcaseResults = pgTable("testcase_results", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  submissionRunId: uuid("submission_run_id")
     .notNull()
-    .references(() => testcases.id, { onDelete: "cascade" }),
+    .references(() => submissionRuns.id, { onDelete: "cascade" }),
+  testcaseId: uuid("testcase_id").references(() => testcases.id, { onDelete: "set null" }),
+  testcaseName: varchar("testcase_name", { length: 255 }),
+  testcaseSortOrder: integer("testcase_sort_order").notNull().default(0),
+  isHidden: boolean("is_hidden").notNull().default(true),
   status: varchar("status", { length: 30 }).notNull(),
   actualOutput: text("actual_output"),
   expectedOutput: text("expected_output"),
@@ -155,7 +222,15 @@ export const testcaseResults = pgTable("testcase_results", {
   passed: boolean("passed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 }, (table) => ({
-  submissionIdx: index("testcase_results_submission_idx").on(table.submissionId),
+  runSortIdx: index("testcase_results_run_sort_idx").on(
+    table.submissionRunId,
+    table.testcaseSortOrder,
+    table.id,
+  ),
+  runTestcaseUnique: uniqueIndex("testcase_results_run_testcase_unique").on(
+    table.submissionRunId,
+    table.testcaseId,
+  ),
 }));
 
 export const questionScores = pgTable(
@@ -181,11 +256,46 @@ export const questionScores = pgTable(
   }),
 );
 
+export const rejudgeJobs = pgTable("rejudge_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+  submissionId: uuid("submission_id").references(() => submissions.id, { onDelete: "cascade" }),
+  questionId: uuid("question_id").references(() => questions.id, { onDelete: "cascade" }),
+  requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+  status: varchar("status", { length: 30 }).notNull().default("queued"),
+  totalCount: integer("total_count").notNull().default(0),
+  completedCount: integer("completed_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: false }),
+  completedAt: timestamp("completed_at", { withTimezone: false }),
+}, (table) => ({
+  workspaceCreatedAtIdx: index("rejudge_jobs_workspace_created_at_idx").on(
+    table.workspaceId,
+    table.createdAt,
+    table.id,
+  ),
+  targetCheck: check(
+    "rejudge_jobs_target_check",
+    sql`num_nonnulls(${table.submissionId}, ${table.questionId}) = 1`,
+  ),
+  statusCheck: check(
+    "rejudge_jobs_status_check",
+    sql`${table.status} in ('queued', 'running', 'completed', 'failed')`,
+  ),
+}));
+
 export const gradingJobs = pgTable("grading_jobs", {
   id: uuid("id").defaultRandom().primaryKey(),
   submissionId: uuid("submission_id")
     .notNull()
     .references(() => submissions.id, { onDelete: "cascade" }),
+  submissionRunId: uuid("submission_run_id")
+    .notNull()
+    .references(() => submissionRuns.id, { onDelete: "cascade" }),
+  rejudgeJobId: uuid("rejudge_job_id").references(() => rejudgeJobs.id, { onDelete: "cascade" }),
   status: varchar("status", { length: 30 }).notNull().default("queued"),
   attempts: integer("attempts").notNull().default(0),
   lockedBy: varchar("locked_by", { length: 255 }),
@@ -195,19 +305,51 @@ export const gradingJobs = pgTable("grading_jobs", {
   startedAt: timestamp("started_at", { withTimezone: false }),
   completedAt: timestamp("completed_at", { withTimezone: false }),
 }, (table) => ({
+  runIdx: index("grading_jobs_submission_run_idx").on(table.submissionRunId),
   submissionCreatedAtIdx: index("grading_jobs_submission_created_at_idx").on(table.submissionId, table.createdAt),
+  rejudgeIdx: index("grading_jobs_rejudge_idx").on(table.rejudgeJobId, table.createdAt),
   statusCreatedAtIdx: index("grading_jobs_status_created_at_idx").on(table.status, table.createdAt),
   leaseIdx: index("grading_jobs_lease_idx").on(table.status, table.leaseExpiresAt, table.createdAt),
 }));
 
-export const rejudgeJobs = pgTable("rejudge_jobs", {
+export const sandboxJobs = pgTable("sandbox_jobs", {
   id: uuid("id").defaultRandom().primaryKey(),
-  questionId: uuid("question_id").references(() => questions.id, { onDelete: "cascade" }),
-  requestedBy: uuid("requested_by").references(() => users.id),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  questionId: uuid("question_id")
+    .notNull()
+    .references(() => questions.id, { onDelete: "cascade" }),
+  requestedBy: uuid("requested_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: varchar("kind", { length: 30 }).notNull(),
+  language: varchar("language", { length: 50 }).notNull(),
+  sourceCode: text("source_code"),
   status: varchar("status", { length: 30 }).notNull().default("queued"),
+  result: jsonb("result").$type<Record<string, unknown> | null>(),
+  attempts: integer("attempts").notNull().default(0),
+  lockedBy: varchar("locked_by", { length: 255 }),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: false }),
+  errorMessage: text("error_message"),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: false }),
   completedAt: timestamp("completed_at", { withTimezone: false }),
-});
+  expiresAt: timestamp("expires_at", { withTimezone: false }).notNull(),
+}, (table) => ({
+  statusLeaseCreatedIdx: index("sandbox_jobs_status_lease_created_idx").on(
+    table.status,
+    table.leaseExpiresAt,
+    table.createdAt,
+  ),
+  requesterCreatedIdx: index("sandbox_jobs_requester_created_idx").on(table.requestedBy, table.createdAt),
+  statusExpiresIdx: index("sandbox_jobs_status_expires_idx").on(table.status, table.expiresAt),
+  kindCheck: check("sandbox_jobs_kind_check", sql`${table.kind} in ('sample', 'compiler_diagnostics')`),
+  statusCheck: check(
+    "sandbox_jobs_status_check",
+    sql`${table.status} in ('queued', 'running', 'completed', 'failed', 'cancelled')`,
+  ),
+}));
 
 export const customCheckers = pgTable("custom_checkers", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -238,37 +380,62 @@ export const rateLimits = pgTable(
   }),
 );
 
-export const leaderboards = pgTable(
-  "leaderboards",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    totalScore: decimal("total_score", { precision: 10, scale: 2 }).notNull().default("0"),
-    solvedCount: integer("solved_count").notNull().default(0),
-    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
-  },
-  (table) => ({
-    userUnique: uniqueIndex("leaderboards_user_unique").on(table.userId),
-  }),
-);
-
-export const classrooms = pgTable("classrooms", {
+export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   inviteCode: varchar("invite_code", { length: 50 }).notNull().unique(),
-  createdBy: uuid("created_by").references(() => users.id),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 });
 
-export const classroomMembers = pgTable(
-  "classroom_members",
+export const tags = pgTable(
+  "tags",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    classroomId: uuid("classroom_id")
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    slug: varchar("slug", { length: 120 }).notNull(),
+    isPreset: boolean("is_preset").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+  },
+  (table) => ({
+    globalSlugUnique: uniqueIndex("tags_global_slug_unique")
+      .on(table.slug)
+      .where(sql`${table.workspaceId} is null`),
+    workspaceSlugUnique: uniqueIndex("tags_workspace_slug_unique")
+      .on(table.workspaceId, table.slug)
+      .where(sql`${table.workspaceId} is not null`),
+    scopeCheck: check(
+      "tags_scope_check",
+      sql`(${table.workspaceId} is null and ${table.isPreset}) or (${table.workspaceId} is not null and not ${table.isPreset})`,
+    ),
+  }),
+);
+
+export const questionTags = pgTable(
+  "question_tags",
+  {
+    questionId: uuid("question_id")
       .notNull()
-      .references(() => classrooms.id, { onDelete: "cascade" }),
+      .references(() => questions.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    primary: primaryKey({ columns: [table.questionId, table.tagId], name: "question_tags_pkey" }),
+    tagQuestionIdx: index("question_tags_tag_question_idx").on(table.tagId, table.questionId),
+  }),
+);
+
+export const workspaceMembers = pgTable(
+  "workspace_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -276,39 +443,15 @@ export const classroomMembers = pgTable(
     joinedAt: timestamp("joined_at", { withTimezone: false }).notNull().defaultNow(),
   },
   (table) => ({
-    classroomUserUnique: uniqueIndex("classroom_members_classroom_user_unique").on(
-      table.classroomId,
+    workspaceUserUnique: uniqueIndex("workspace_members_workspace_user_unique").on(
+      table.workspaceId,
       table.userId,
     ),
-  }),
-);
-
-export const assignments = pgTable("assignments", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  classroomId: uuid("classroom_id").references(() => classrooms.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 255 }).notNull(),
-  description: text("description"),
-  startAt: timestamp("start_at", { withTimezone: false }),
-  dueAt: timestamp("due_at", { withTimezone: false }),
-  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
-});
-
-export const assignmentQuestions = pgTable(
-  "assignment_questions",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    assignmentId: uuid("assignment_id")
-      .notNull()
-      .references(() => assignments.id, { onDelete: "cascade" }),
-    questionId: uuid("question_id")
-      .notNull()
-      .references(() => questions.id, { onDelete: "cascade" }),
-    sortOrder: integer("sort_order").notNull().default(0),
-  },
-  (table) => ({
-    assignmentQuestionUnique: uniqueIndex("assignment_questions_assignment_question_unique").on(
-      table.assignmentId,
-      table.questionId,
+    roleCheck: check("workspace_members_role_check", sql`${table.role} in ('student', 'ta')`),
+    workspaceJoinedIdx: index("workspace_members_workspace_joined_idx").on(
+      table.workspaceId,
+      table.joinedAt,
+      table.id,
     ),
   }),
 );
@@ -326,16 +469,19 @@ export const supportedLanguages = pgTable("supported_languages", {
   diagnosticsCommand: text("diagnostics_command"),
   defaultStarterCode: text("default_starter_code"),
   isEnabled: boolean("is_enabled").notNull().default(true),
+  runtimeStatus: varchar("runtime_status", { length: 20 }).notNull().default("pending"),
+  runtimeCheckedAt: timestamp("runtime_checked_at", { withTimezone: false }),
+  runtimeError: text("runtime_error"),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
   questions: many(questions),
   submissions: many(submissions),
+  requestedSubmissionRuns: many(submissionRuns),
   questionScores: many(questionScores),
   rejudgeJobs: many(rejudgeJobs),
-  leaderboardEntries: many(leaderboards),
-  classroomMembers: many(classroomMembers),
-  classroomsCreated: many(classrooms),
+  workspaceMembers: many(workspaceMembers),
+  workspacesOwned: many(workspaces),
   passwordResetTokens: many(passwordResetTokens),
 }));
 
@@ -349,13 +495,24 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
 export const idempotencyKeysRelations = relations(idempotencyKeys, () => ({}));
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [questions.workspaceId], references: [workspaces.id] }),
   author: one(users, { fields: [questions.createdBy], references: [users.id] }),
   testcases: many(testcases),
   submissions: many(submissions),
   questionScores: many(questionScores),
   rejudgeJobs: many(rejudgeJobs),
   customCheckers: many(customCheckers),
-  assignmentQuestions: many(assignmentQuestions),
+  questionTags: many(questionTags),
+}));
+
+export const tagsRelations = relations(tags, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [tags.workspaceId], references: [workspaces.id] }),
+  questionTags: many(questionTags),
+}));
+
+export const questionTagsRelations = relations(questionTags, ({ one }) => ({
+  question: one(questions, { fields: [questionTags.questionId], references: [questions.id] }),
+  tag: one(tags, { fields: [questionTags.tagId], references: [tags.id] }),
 }));
 
 export const testcasesRelations = relations(testcases, ({ one, many }) => ({
@@ -366,15 +523,38 @@ export const testcasesRelations = relations(testcases, ({ one, many }) => ({
 export const submissionsRelations = relations(submissions, ({ one, many }) => ({
   user: one(users, { fields: [submissions.userId], references: [users.id] }),
   question: one(questions, { fields: [submissions.questionId], references: [questions.id] }),
-  assignment: one(assignments, { fields: [submissions.assignmentId], references: [assignments.id] }),
+  runs: many(submissionRuns, { relationName: "submission_runs" }),
+  latestRun: one(submissionRuns, {
+    relationName: "submission_latest_run",
+    fields: [submissions.latestRunId],
+    references: [submissionRuns.id],
+  }),
+  latestScoredRun: one(submissionRuns, {
+    relationName: "submission_latest_scored_run",
+    fields: [submissions.latestScoredRunId],
+    references: [submissionRuns.id],
+  }),
+  gradingJobs: many(gradingJobs),
+}));
+
+export const submissionRunsRelations = relations(submissionRuns, ({ one, many }) => ({
+  submission: one(submissions, {
+    relationName: "submission_runs",
+    fields: [submissionRuns.submissionId],
+    references: [submissions.id],
+  }),
+  requester: one(users, {
+    fields: [submissionRuns.requestedBy],
+    references: [users.id],
+  }),
   testcaseResults: many(testcaseResults),
   gradingJobs: many(gradingJobs),
 }));
 
 export const testcaseResultsRelations = relations(testcaseResults, ({ one }) => ({
-  submission: one(submissions, {
-    fields: [testcaseResults.submissionId],
-    references: [submissions.id],
+  submissionRun: one(submissionRuns, {
+    fields: [testcaseResults.submissionRunId],
+    references: [submissionRuns.id],
   }),
   testcase: one(testcases, {
     fields: [testcaseResults.testcaseId],
@@ -396,9 +576,31 @@ export const gradingJobsRelations = relations(gradingJobs, ({ one }) => ({
     fields: [gradingJobs.submissionId],
     references: [submissions.id],
   }),
+  submissionRun: one(submissionRuns, {
+    fields: [gradingJobs.submissionRunId],
+    references: [submissionRuns.id],
+  }),
+  rejudgeJob: one(rejudgeJobs, {
+    fields: [gradingJobs.rejudgeJobId],
+    references: [rejudgeJobs.id],
+  }),
 }));
 
-export const rejudgeJobsRelations = relations(rejudgeJobs, ({ one }) => ({
+export const sandboxJobsRelations = relations(sandboxJobs, ({ one }) => ({
+  workspace: one(workspaces, { fields: [sandboxJobs.workspaceId], references: [workspaces.id] }),
+  question: one(questions, { fields: [sandboxJobs.questionId], references: [questions.id] }),
+  requester: one(users, { fields: [sandboxJobs.requestedBy], references: [users.id] }),
+}));
+
+export const rejudgeJobsRelations = relations(rejudgeJobs, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [rejudgeJobs.workspaceId],
+    references: [workspaces.id],
+  }),
+  submission: one(submissions, {
+    fields: [rejudgeJobs.submissionId],
+    references: [submissions.id],
+  }),
   question: one(questions, {
     fields: [rejudgeJobs.questionId],
     references: [questions.id],
@@ -407,6 +609,7 @@ export const rejudgeJobsRelations = relations(rejudgeJobs, ({ one }) => ({
     fields: [rejudgeJobs.requestedBy],
     references: [users.id],
   }),
+  gradingJobs: many(gradingJobs),
 }));
 
 export const customCheckersRelations = relations(customCheckers, ({ one }) => ({
@@ -416,50 +619,25 @@ export const customCheckersRelations = relations(customCheckers, ({ one }) => ({
   }),
 }));
 
-export const leaderboardsRelations = relations(leaderboards, ({ one }) => ({
-  user: one(users, {
-    fields: [leaderboards.userId],
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [workspaces.ownerId],
     references: [users.id],
   }),
+  members: many(workspaceMembers),
+  questions: many(questions),
+  rejudgeJobs: many(rejudgeJobs),
+  tags: many(tags),
 }));
 
-export const classroomsRelations = relations(classrooms, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [classrooms.createdBy],
-    references: [users.id],
-  }),
-  members: many(classroomMembers),
-  assignments: many(assignments),
-}));
-
-export const classroomMembersRelations = relations(classroomMembers, ({ one }) => ({
-  classroom: one(classrooms, {
-    fields: [classroomMembers.classroomId],
-    references: [classrooms.id],
+export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [workspaceMembers.workspaceId],
+    references: [workspaces.id],
   }),
   user: one(users, {
-    fields: [classroomMembers.userId],
+    fields: [workspaceMembers.userId],
     references: [users.id],
-  }),
-}));
-
-export const assignmentsRelations = relations(assignments, ({ one, many }) => ({
-  classroom: one(classrooms, {
-    fields: [assignments.classroomId],
-    references: [classrooms.id],
-  }),
-  assignmentQuestions: many(assignmentQuestions),
-  submissions: many(submissions),
-}));
-
-export const assignmentQuestionsRelations = relations(assignmentQuestions, ({ one }) => ({
-  assignment: one(assignments, {
-    fields: [assignmentQuestions.assignmentId],
-    references: [assignments.id],
-  }),
-  question: one(questions, {
-    fields: [assignmentQuestions.questionId],
-    references: [questions.id],
   }),
 }));
 
@@ -470,9 +648,13 @@ export type NewUser = typeof users.$inferInsert;
 export type Question = typeof questions.$inferSelect;
 export type Testcase = typeof testcases.$inferSelect;
 export type Submission = typeof submissions.$inferSelect;
+export type SubmissionRun = typeof submissionRuns.$inferSelect;
 export type TestcaseResult = typeof testcaseResults.$inferSelect;
 export type QuestionScore = typeof questionScores.$inferSelect;
 export type GradingJob = typeof gradingJobs.$inferSelect;
+export type SandboxJob = typeof sandboxJobs.$inferSelect;
 export type SupportedLanguage = typeof supportedLanguages.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
+export type Tag = typeof tags.$inferSelect;
+export type QuestionTag = typeof questionTags.$inferSelect;

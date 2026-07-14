@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/common/button";
 import { Markdown } from "@/components/ui/markdown";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -42,19 +43,22 @@ export function MarkdownEditor({
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-slate-200 pb-0">
         {(["write", "preview"] as const).map((t) => (
-          <button
+          <Button
             key={t}
             type="button"
+            tooltip={t === "write" ? "Write Markdown" : "Preview Markdown"}
             onClick={() => setTab(t)}
+            variant="ghost"
+            size="sm"
             className={cn(
-              "px-3 py-1.5 text-xs font-medium capitalize transition-colors",
+              "h-auto rounded-none px-3 py-1.5 text-xs font-medium capitalize transition-colors",
               tab === t
                 ? "border-b-2 border-slate-900 text-slate-900"
                 : "text-slate-500 hover:text-slate-700",
             )}
           >
             {t}
-          </button>
+          </Button>
         ))}
         <span className="ml-auto pr-1 text-[11px] text-slate-400">Markdown</span>
       </div>

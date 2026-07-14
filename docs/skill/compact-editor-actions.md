@@ -2,4 +2,4 @@
 
 For the question workspace editor, keep the primary action area focused on official submission when sample output panels are removed.
 
-Remove the `Run sample` button from `components/editor/code-editor.tsx` and prefer a taller Monaco editor so the right panel uses the freed vertical space.
+Remove the `Run sample` button from `modules/questions/editor/code-editor.tsx` and prefer a taller Monaco editor so the right panel uses the freed vertical space.

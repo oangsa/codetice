@@ -1,52 +1,14 @@
-import { requireAdmin } from "@/lib/auth";
-import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
-import { supportedLanguageSchema } from "@/lib/validations/language";
-import {
-  createUniqueSupportedLanguageSlug,
-  createSupportedLanguage,
-  listAllSupportedLanguages,
-  listSupportedLanguages,
-} from "@/server/services/language-service";
+import { paged, toFailResponse } from "@/lib/api";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
+import { listPublicLanguagesPage } from "@/server/languages/service";
 
 export const runtime = "nodejs";
 
-function formatLanguageValidationError(error: { flatten: () => { fieldErrors: Record<string, string[]> } }) {
-  const fieldErrors = error.flatten().fieldErrors;
-  const firstError = Object.entries(fieldErrors).find(([, messages]) => messages.length > 0);
-
-  if (!firstError) {
-    return Messages.invalidRequest;
-  }
-
-  const [field, messages] = firstError;
-  return `${field}: ${messages[0]}`;
-}
-
-export async function GET() {
-  const languages = await listSupportedLanguages();
-  return ok({ languages });
-}
-
-export async function POST(request: Request) {
-  await requireAdmin();
-  let body: unknown;
+export async function GET(request: Request) {
   try {
-    body = await request.json();
-  } catch {
-    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
-  }
-  const parsed = supportedLanguageSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return fail(formatLanguageValidationError(parsed.error), 400, { errors: parsed.error.flatten(), code: ErrorCode.VALIDATION });
-  }
-
-  try {
-    const slug = await createUniqueSupportedLanguageSlug(parsed.data.name);
-    const language = await createSupportedLanguage({ ...parsed.data, slug });
-    const languages = await listAllSupportedLanguages();
-    return ok({ language, languages }, { status: 201 });
+    const url = new URL(request.url);
+    return paged(await listPublicLanguagesPage(parsePageRequestFromSearchParams(url.searchParams)));
   } catch (error) {
-    return toFailResponse(error, Messages.unableToCreateLanguage);
+    return toFailResponse(error);
   }
 }

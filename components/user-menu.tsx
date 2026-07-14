@@ -11,13 +11,20 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/common/button";
 import type { SessionUser } from "@/lib/types";
 
 export function UserMenu({ user }: { user: SessionUser }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className=" rounded-full bg-[#f5f5f7] dark:bg-[#121318] p-1 pl-[14px] hover:bg-[#e8e8ec] dark:hover:bg-[#1c1d22] transition-all flex items-center gap-2.5 cursor-pointer">
+        <Button
+          type="button"
+          tooltip="Open user menu"
+          aria-label="Open user menu"
+          variant="ghost"
+          className="h-auto rounded-full bg-[#f5f5f7] p-1 pl-[14px] transition-all hover:bg-[#e8e8ec] dark:bg-[#121318] dark:hover:bg-[#1c1d22]"
+        >
           <span className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[100px] leading-normal select-none">
             {user.username}
           </span>
@@ -31,7 +38,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
               className="h-full w-full object-cover"
             />
           </div>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[--radix-dropdown-menu-trigger-width] min-w-[160px] mt-[2px]">
         {user.role === "admin" ? (

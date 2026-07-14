@@ -1,5 +1,5 @@
 # Role Badge Variants
 
-Classroom role badges should make teacher the primary visual role.
+Workspace role badges should make TA the primary visual role.
 
-Use `variant="default"` for `teacher` and `variant="secondary"` for student/non-teacher roles in classroom membership, leaderboard, and participant tables.
+Use `variant="default"` for `ta` and `variant="secondary"` for student/non-TA roles in workspace membership and participant tables.

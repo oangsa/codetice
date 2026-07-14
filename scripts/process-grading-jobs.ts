@@ -1,31 +1,50 @@
-import { DEFAULT_GRADING_WORKER_POLL_MS } from "@/lib/grader.constants";
+import { DEFAULT_GRADING_WORKER_POLL_MS } from "@/server/grading/constants";
 import { closeDb } from "@/lib/db";
-import { prepareDockerImage } from "@/server/services/docker-image-service";
-import { listSupportedLanguages } from "@/server/services/language-service";
-import { cleanupOldRateLimits } from "@/server/services/rate-limit-service";
-import { processPendingGradingJobs } from "@/server/services/submission-service";
+import { prepareEnabledLanguageRuntime } from "@/server/languages/runtime-preparation.server";
+import { listEnabledLanguageRuntimes } from "@/server/languages/service";
+import { cleanupOldRateLimits } from "@/server/security/rate-limit";
+import { processPendingGradingJobs } from "@/server/grading/worker";
+import { processPendingSandboxJobs } from "@/server/grading/sandbox-worker";
+import { cleanupExpiredSandboxJobs } from "@/server/grading/sandbox-jobs";
 
 const DEFAULT_IMAGE_PREP_INTERVAL_MS = 60_000;
+let nextQueue: "grading" | "sandbox" = "grading";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function prepareEnabledLanguageImages() {
-  const languages = await listSupportedLanguages();
-  const images = [...new Set(languages.map((language) => language.dockerImage.trim()).filter(Boolean))];
+  const languages = await listEnabledLanguageRuntimes();
 
-  if (images.length === 0) {
-    return;
-  }
+  if (languages.length === 0) return;
 
-  for (const image of images) {
+  for (const language of languages) {
     try {
-      await prepareDockerImage(image);
+      const result = await prepareEnabledLanguageRuntime(language);
+      if (result.pulled) console.log(`Pulled Docker image '${result.image}'.`);
     } catch (error) {
-      console.error(`Docker image preparation failed for '${image}':`, error);
+      console.error(`Docker image preparation failed for '${language.dockerImage}':`, error);
     }
   }
+}
+
+async function processPendingJobs(limit: number) {
+  let processed = 0;
+  while (processed < limit) {
+    const first = nextQueue === "grading" ? processPendingGradingJobs : processPendingSandboxJobs;
+    const second = nextQueue === "grading" ? processPendingSandboxJobs : processPendingGradingJobs;
+    nextQueue = nextQueue === "grading" ? "sandbox" : "grading";
+    const firstCount = await first(1);
+    if (firstCount > 0) {
+      processed += firstCount;
+      continue;
+    }
+    const secondCount = await second(1);
+    if (secondCount === 0) break;
+    processed += secondCount;
+  }
+  return processed;
 }
 
 async function main() {
@@ -45,7 +64,8 @@ async function main() {
 
   do {
     try {
-      await processPendingGradingJobs(batchSize);
+      const count = await processPendingJobs(batchSize);
+      if (count > 0) console.log(`Processed ${count} execution job(s).`);
       backoff = pollMs; // reset backoff on success
     } catch (err) {
       console.error("Grading worker error (will retry):", err);
@@ -53,7 +73,7 @@ async function main() {
       backoff = Math.min(backoff * 2, 30_000);
     }
 
-    if (!runOnce && Date.now() - lastImagePrep > imagePrepIntervalMs) {
+    if (Date.now() - lastImagePrep > imagePrepIntervalMs) {
       try {
         await prepareEnabledLanguageImages();
       } catch (err) {
@@ -65,6 +85,7 @@ async function main() {
     if (Date.now() - lastCleanup > 3_600_000) {
       try {
         await cleanupOldRateLimits();
+        await cleanupExpiredSandboxJobs();
       } catch (err) {
         console.error("Rate limit cleanup error:", err);
       }

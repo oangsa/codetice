@@ -1,13 +1,15 @@
-import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
-import { adminCreateUser, listAllUsers } from "@/server/services/auth-service";
-import { adminCreateUserSchema } from "@/lib/validations/auth";
+import { ok, paged, toFailResponse, Messages } from "@/lib/api";
+import { requireApiAdmin } from "@/lib/auth";
+import { parsePageRequestFromSearchParams } from "@/lib/pagination";
+import { listUsersPage } from "@/server/auth/service";
+import { adminCreateUser } from "@/server/auth/service";
+import { adminCreateUserSchema } from "@/modules/auth/schema";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    await requireAdmin();
-    const users = await listAllUsers();
-    return ok({ users });
+    await requireApiAdmin();
+    const url = new URL(request.url);
+    return paged(await listUsersPage(parsePageRequestFromSearchParams(url.searchParams)));
   } catch (error) {
     return toFailResponse(error, Messages.unableToListUsers);
   }
@@ -15,27 +17,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
-  } catch {
-    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
-  }
-
-  const parsed = adminCreateUserSchema.safeParse(body);
-  if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? Messages.invalidRequest;
-    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
-  }
-
-  try {
-    const user = await adminCreateUser(parsed.data);
-    return ok({ user });
+    await requireApiAdmin();
+    const parsed = adminCreateUserSchema.parse(await request.json());
+    return ok({ user: await adminCreateUser(parsed) }, { status: 201 });
   } catch (error) {
     return toFailResponse(error, Messages.unableToCreateUser);
   }

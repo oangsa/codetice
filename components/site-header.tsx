@@ -9,7 +9,7 @@ import type { SessionUser } from "@/lib/types";
 export function SiteHeader({ user }: { user: SessionUser | null }) {
   return (
     <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-white/80 dark:bg-[#0d0e12]/80 backdrop-blur-md shadow-sm">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-6 py-3">
+      <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left — logo + nav */}
         <div className="flex min-w-0 items-center gap-6">
           <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-3 text-sm font-semibold text-slate-900 dark:text-white">
@@ -28,4 +28,3 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
     </header>
   );
 }
-

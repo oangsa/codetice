@@ -1,64 +1,34 @@
-import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
-import { adminUpdateUserSchema } from "@/lib/validations/auth";
-import { adminDeleteUser, adminUpdateUser } from "@/server/services/auth-service";
+import { z } from "zod";
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  let session;
+import { Messages, ok, toFailResponse } from "@/lib/api";
+import { requireApiAdmin } from "@/lib/auth";
+import { adminUpdateUserSchema } from "@/modules/auth/schema";
+import { adminDeleteUser, adminUpdateUser } from "@/server/auth/service";
+
+const idSchema = z.string().uuid();
+
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    session = await requireAdmin();
-  } catch {
-    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
-  }
-
-  const { id } = await params;
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return fail(Messages.invalidRequest, 400, { code: ErrorCode.VALIDATION });
-  }
-
-  const parsed = adminUpdateUserSchema.safeParse(body);
-  if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? Messages.invalidRequest;
-    return fail(firstError, 400, { code: ErrorCode.VALIDATION });
-  }
-
-  try {
-    const user = await adminUpdateUser({
-      currentUserId: session.userId,
-      targetUserId: id,
-      ...parsed.data,
+    const actor = await requireApiAdmin();
+    const { id } = await context.params;
+    const input = adminUpdateUserSchema.parse(await request.json());
+    return ok({
+      user: await adminUpdateUser({
+        currentUserId: actor.userId,
+        targetUserId: idSchema.parse(id),
+        ...input,
+      }),
     });
-    return ok({ user });
   } catch (error) {
     return toFailResponse(error, Messages.unableToUpdateUser);
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  let session;
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    session = await requireAdmin();
-  } catch {
-    return fail(Messages.unauthorized, 401, { code: ErrorCode.UNAUTHORIZED });
-  }
-
-  const { id } = await params;
-
-  try {
-    await adminDeleteUser({
-      currentUserId: session.userId,
-      targetUserId: id,
-    });
+    const actor = await requireApiAdmin();
+    const { id } = await context.params;
+    await adminDeleteUser({ currentUserId: actor.userId, targetUserId: idSchema.parse(id) });
     return ok({ message: "User deleted." });
   } catch (error) {
     return toFailResponse(error, Messages.unableToDeleteUser);

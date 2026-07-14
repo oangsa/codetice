@@ -1,0 +1,1 @@
+Workspace participants and scoreboards should show student participants only. Filter out workspace teachers and global `admin` users before rendering participant rows or aggregating workspace leaderboard scores.

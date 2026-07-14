@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import { ErrorCode, Messages, fail, ok, toFailResponse } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { requireApiUser } from "@/lib/auth";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -10,7 +10,7 @@ const BUCKET = "avatars";
 
 export async function POST(request: Request) {
   try {
-    const session = await requireUser();
+    const session = await requireApiUser();
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return fail(Messages.avatarUnavailable, 500, { code: ErrorCode.INTERNAL });
