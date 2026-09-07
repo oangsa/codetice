@@ -10,4 +10,6 @@ The shared shell follows the compact reference-table treatment: a neutral `round
 
 Only `components/common/data-table.tsx` should import the low-level shadcn table primitives. This keeps submissions, questions, users, scoreboards, members, testcases, leaderboards, and grading history visually aligned without coupling their authorization or data-fetching logic.
 
+Data-bearing headers declare a `sortKey`; utility headers such as selection, row numbering, and actions do not. API-backed tables pass a controlled sort through their collection request so the database orders the full filtered result before pagination. Fully loaded local tables may also provide `sortValue` and enable `localSort`. Keep the interactive sort header in its dedicated client boundary so the shared table remains usable from Server Components.
+
 For server-filtered history tables, keep the toolbar compact: expose one common `Button` that opens the same dialog-style advanced-filter workflow used by client collection tables, then navigate with the selected query parameters. Do not place several raw `Select` controls directly in the table toolbar; their portaled menus are visually noisy and can introduce popup-edge artifacts beside the table.

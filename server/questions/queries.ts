@@ -30,6 +30,7 @@ export const workspaceQuestionSearchConfig = {
     status: ["EQUAL", "NOTEQUAL"] as const,
   },
   searchTermFields: ["title", "slug"] as const,
+  sortFields: ["name", "level", "submissions", "score", "status"] as const,
 };
 
 export function parseWorkspaceQuestionTagIds(tagIds: string[]) {
@@ -107,6 +108,22 @@ async function queryWorkspaceQuestionsPage(input: {
 }) {
   const db = getDb();
   const personalProgress = personalQuestionProgress(input.actor.userId);
+  const statusOrder = sql<string>`case
+    when ${personalProgress.attempts} = 0 then 'todo'
+    when coalesce(${personalProgress.bestScore}, 0) >= ${questions.totalScore} then 'passed'
+    else 'failed'
+  end`;
+  const sortExpressions = {
+    name: sql<string>`lower(${questions.title})`,
+    level: questions.difficulty,
+    submissions: personalProgress.attempts,
+    score: personalProgress.bestScore,
+    status: statusOrder,
+  } as const;
+  const sortExpression = input.search.sort ? sortExpressions[input.search.sort.name as keyof typeof sortExpressions] : null;
+  const sortOrder = sortExpression
+    ? [sql`${sortExpression} is null`, input.search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(questions.id)]
+    : [desc(questions.createdAt), desc(questions.id)];
   const searchWhere = questionSearchWhere(input.search, personalProgress);
   const tagWhere = input.tagIds.length > 0
     ? exists(
@@ -136,7 +153,7 @@ async function queryWorkspaceQuestionsPage(input: {
       ...personalProgress,
     }).from(questions)
       .where(where)
-      .orderBy(desc(questions.createdAt), desc(questions.id))
+      .orderBy(...sortOrder)
       .limit(input.search.pageSize)
       .offset(pageOffset(input.search)),
     db.select({ count: sql<number>`count(*)::int` }).from(questions).where(where),

@@ -12,6 +12,7 @@ import {
   DataTablePagination,
   DataTableSearch,
   type DataTableColumn,
+  type DataTableSort,
 } from "@/components/common/data-table";
 import {
   AlertDialog,
@@ -355,6 +356,7 @@ export function UserManager({
   const [filterValues, setFilterValues] = useState<FilterValues>(createEmptyFilters);
   const [filterDraft, setFilterDraft] = useState<FilterValues>(createEmptyFilters);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [sort, setSort] = useState<DataTableSort | null>(null);
 
   const activeFilters = useMemo(() => {
     const filters: Array<{ key: keyof FilterValues; label: string; displayValue: string }> = [];
@@ -398,7 +400,8 @@ export function UserManager({
       }] : []),
     ],
     ...(search.trim() ? { searchTerm: { name: "username", value: search } } : {}),
-  }), [filterValues, search]);
+    ...(sort ? { sort } : {}),
+  }), [filterValues, search, sort]);
   const collection = useCollectionSearch<AdminUserRow>({
     endpoint: "/api/admin/users/search",
     initialPage,
@@ -453,6 +456,7 @@ export function UserManager({
     {
       id: "username",
       header: "Username",
+      sortKey: "username",
       cell: (user) => (
         <div className="flex items-center gap-2">
           <span className="font-medium text-slate-900 dark:text-white">{user.username}</span>
@@ -463,12 +467,14 @@ export function UserManager({
     {
       id: "role",
       header: "Role",
+      sortKey: "role",
       headerClassName: "w-28",
       cell: (user) => <Badge variant="outline" className={cn("capitalize", ROLE_BADGE_CLASS_NAMES[user.role])}>{user.role}</Badge>,
     },
     {
       id: "registered",
       header: "Registered",
+      sortKey: "registered",
       headerClassName: "w-48",
       cellClassName: "whitespace-nowrap text-sm text-slate-500",
       cell: (user) => formatUserDate(user.createdAt),
@@ -504,6 +510,8 @@ export function UserManager({
         title="Users"
         rows={pageItems}
         columns={columns}
+        sort={sort}
+        onSortChange={setSort}
         getRowKey={(user) => user.id}
         emptyMessage={collection.error ?? (search || activeFilterCount > 0 ? "No users match your search." : "No users found.")}
         rowClassName="hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"

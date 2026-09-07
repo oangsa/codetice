@@ -11,6 +11,7 @@ import {
   DataTablePagination,
   DataTableSearch,
   type DataTableColumn,
+  type DataTableSort,
 } from "@/components/common/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/common/button";
@@ -116,6 +117,7 @@ export function QuestionTable({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
   const [publicationAction, setPublicationAction] = useState<"publish" | "unpublish" | null>(null);
   const [isUpdatingPublication, setIsUpdatingPublication] = useState(false);
+  const [sort, setSort] = useState<DataTableSort | null>(null);
   const editMode = canManage && searchParams.get("editMode") === "1";
   const activeFilters = useMemo(() => [
     ...filterFields
@@ -139,7 +141,8 @@ export function QuestionTable({
     ],
     ...(filterValues.tagIds.length > 0 ? { tagIds: filterValues.tagIds } : {}),
     ...(search.trim() ? { searchTerm: { name: "title,slug", value: search } } : {}),
-  }), [editMode, filterValues, search]);
+    ...(sort ? { sort } : {}),
+  }), [editMode, filterValues, search, sort]);
   const collection = useCollectionSearch<WorkspaceQuestionRow>({
     endpoint: `/api/workspaces/${workspaceId}/questions/search`,
     initialPage,
@@ -267,6 +270,7 @@ export function QuestionTable({
     {
       id: "name",
       header: "Name",
+      sortKey: "name",
       cell: (question) => (
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -284,6 +288,7 @@ export function QuestionTable({
     {
       id: "level",
       header: "Level",
+      sortKey: "level",
       headerClassName: "w-24",
       cell: (question) => (
         <span className={cn(
@@ -297,6 +302,7 @@ export function QuestionTable({
     {
       id: "submissions",
       header: "Submission",
+      sortKey: "submissions",
       headerClassName: "w-24 text-right",
       cellClassName: "text-right tabular-nums text-slate-600",
       cell: (question) => question.attempts > 0 ? question.attempts : "-",
@@ -304,6 +310,7 @@ export function QuestionTable({
     {
       id: "score",
       header: "Score",
+      sortKey: "score",
       headerClassName: "w-24 text-right",
       cellClassName: "text-right tabular-nums font-medium text-slate-900",
       cell: (question) => question.bestScore ? formatScore(question.bestScore) : "None",
@@ -311,6 +318,7 @@ export function QuestionTable({
     {
       id: "status",
       header: "Status",
+      sortKey: "status",
       headerClassName: "w-24 text-right",
       cellClassName: "text-right",
       cell: (question) => (
@@ -360,6 +368,8 @@ export function QuestionTable({
         title="Questions"
         rows={pageItems}
         columns={columns}
+        sort={sort}
+        onSortChange={setSort}
         getRowKey={(question) => question.id}
         onRowClick={(question) => router.push(`/workspaces/${workspaceId}/questions/${question.slug}`)}
         emptyMessage={collection.error ?? (search || activeFilters.length > 0 ? "No questions match your search." : "No questions in this workspace yet.")}

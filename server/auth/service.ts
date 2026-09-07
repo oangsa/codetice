@@ -3,7 +3,7 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 
 import argon2 from "argon2";
-import { and, desc, eq, gt, gte, ilike, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 
 import { passwordResetTokens, questions, users, workspaces } from "@/db/schema";
 import { PASSWORD_RESET_TOKEN_TTL_MINUTES } from "@/modules/auth/constants";
@@ -126,6 +126,7 @@ export const adminUserSearchConfig = {
     createdAt: ["GREATEROREQUAL", "LESSEROREQUAL"] as const,
   },
   searchTermFields: ["username"] as const,
+  sortFields: ["username", "role", "registered"] as const,
 };
 
 function adminUserSearchWhere(search: ParsedCollectionSearch) {
@@ -156,6 +157,11 @@ function adminUserSearchWhere(search: ParsedCollectionSearch) {
 async function queryUsersPage(search: ParsedCollectionSearch) {
   const db = getDb();
   const where = adminUserSearchWhere(search);
+  const sortExpressions = { username: sql<string>`lower(${users.username})`, role: users.role, registered: users.createdAt } as const;
+  const sortExpression = search.sort ? sortExpressions[search.sort.name as keyof typeof sortExpressions] : null;
+  const sortOrder = sortExpression
+    ? [search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(users.id)]
+    : [desc(users.createdAt), desc(users.id)];
   const [rows, countRows] = await Promise.all([
     db.select({
       id: users.id,
@@ -164,7 +170,7 @@ async function queryUsersPage(search: ParsedCollectionSearch) {
       createdAt: users.createdAt,
     }).from(users)
       .where(where)
-      .orderBy(desc(users.createdAt), desc(users.id))
+      .orderBy(...sortOrder)
       .limit(search.pageSize)
       .offset(pageOffset(search)),
     db.select({ count: sql<number>`count(*)::int` }).from(users).where(where),

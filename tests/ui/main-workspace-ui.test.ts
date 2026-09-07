@@ -104,7 +104,7 @@ describe("main-style workspace UI", () => {
     expect(revise).toContain('variant="ghost"');
     expect(revise).toContain('aria-label="Revise submission"');
     expect(revise).not.toContain('size="icon"');
-    expect(revise).toContain("\n      Revise\n");
+    expect(revise).toMatch(/\r?\n      Revise\r?\n/);
   });
 
   test("uses the shared pill actions and table treatment for authoring and members", async () => {

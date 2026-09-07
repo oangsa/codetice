@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn } from "@/components/common/data-table";
+import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn, type DataTableSort } from "@/components/common/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/common/button";
 import { useCollectionSearch } from "@/lib/use-collection-search";
@@ -29,9 +29,11 @@ export function MemberManager({
 }) {
   const [search, setSearch] = useState("");
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [sort, setSort] = useState<DataTableSort | null>(null);
   const request = useMemo(() => ({
     ...(search.trim() ? { searchTerm: { name: "username", value: search } } : {}),
-  }), [search]);
+    ...(sort ? { sort } : {}),
+  }), [search, sort]);
   const collection = useCollectionSearch<Member>({
     endpoint: `/api/workspaces/${workspaceId}/members/search`,
     initialPage,
@@ -73,12 +75,14 @@ export function MemberManager({
     {
       id: "user",
       header: "User",
+      sortKey: "username",
       cellClassName: "font-medium text-slate-900 dark:text-white",
       cell: (member) => member.username,
     },
     {
       id: "role",
       header: "Role",
+      sortKey: "role",
       cell: (member) => <Badge variant={member.role === "ta" ? "default" : "secondary"}>{member.role === "ta" ? "TA" : "Student"}</Badge>,
     },
     ...(canManage ? [{
@@ -102,6 +106,8 @@ export function MemberManager({
       title="Members"
       rows={collection.page.items}
       columns={columns}
+      sort={sort}
+      onSortChange={setSort}
       getRowKey={(member) => member.id}
       emptyMessage={collection.error ?? (search ? "No members match your search." : "No members yet.")}
       search={<DataTableSearch value={search} onValueChange={setSearch} placeholder="Search members" />}

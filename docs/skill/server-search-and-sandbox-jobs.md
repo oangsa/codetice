@@ -9,6 +9,7 @@
 - Authenticate and establish workspace access before parsing resource-specific fields.
 - Calculate a filtered `totalCount` alongside every `LIMIT/OFFSET` query and build `currentPage`, `totalPages`, `pageSize`, `totalCount`, `hasPrevious`, and `hasNext` with `createPagedResult`.
 - Keep ordering stable for every paged collection. Use an explicit unique tiebreaker after the primary order field so adjacent page boundaries remain deterministic.
+- Optional collection sorting uses one strict `sort: { name, direction }` object. Allowlist public sort names per endpoint, map them to concrete SQL expressions, accept only `asc` or `desc`, keep nulls last, and never interpolate a client-provided identifier or ordering fragment.
 - Client tables use `useCollectionSearch`, reset to page 1 on every request-body transition (including when a user clears a search back to an earlier body), preserve the selected page size, abort stale requests, and ignore out-of-order responses.
 - Execute raw SQL collection branches in a real PostgreSQL integration test. TypeScript and production compilation cannot detect malformed CTE syntax.
 

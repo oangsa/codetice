@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useRef, useState } from "react
 import { LoaderCircle } from "lucide-react";
 
 import { SubmissionTable, type WorkspaceSubmissionListItem } from "@/modules/submissions/components/submission-table";
+import type { DataTableSort } from "@/components/common/data-table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Messages } from "@/lib/api.constants";
 import { parsePaginationMeta, type PagedResult } from "@/lib/pagination";
@@ -24,6 +25,27 @@ export function QuestionSubmissionsPanel({
   const [meta, setMeta] = useState(initialPage.meta);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sort, setSort] = useState<DataTableSort | null>(null);
+
+  const fetchPage = useCallback(async (pageNumber: number, activeSort: DataTableSort | null) => {
+    const searchParams = new URLSearchParams({
+      questionId,
+      pageNumber: String(pageNumber),
+      pageSize: String(meta.pageSize),
+      ...(activeSort ? { sortBy: activeSort.name, sortDirection: activeSort.direction } : {}),
+    });
+    const response = await fetch(`/api/workspaces/${workspaceId}/submissions?${searchParams.toString()}`, {
+      cache: "no-store",
+    });
+    const payload = await response.json() as WorkspaceSubmissionListItem[] | { message?: string };
+    if (!response.ok) {
+      const message = typeof payload === "object" && !Array.isArray(payload) ? payload.message : undefined;
+      throw new Error(message ?? Messages.somethingWrong);
+    }
+    const nextMeta = parsePaginationMeta(response.headers.get("X-Pagination"));
+    if (!Array.isArray(payload) || !nextMeta) throw new Error(Messages.somethingWrong);
+    return { items: payload, meta: nextMeta };
+  }, [meta.pageSize, questionId, workspaceId]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || !meta.hasNext) return;
@@ -31,36 +53,38 @@ export function QuestionSubmissionsPanel({
     setLoadError(null);
 
     try {
-      const searchParams = new URLSearchParams({
-        questionId,
-        pageNumber: String(meta.currentPage + 1),
-        pageSize: String(meta.pageSize),
-      });
-      const response = await fetch(`/api/workspaces/${workspaceId}/submissions?${searchParams.toString()}`, {
-        cache: "no-store",
-      });
-      const payload = await response.json() as WorkspaceSubmissionListItem[] | { message?: string };
-      if (!response.ok) {
-        const message = typeof payload === "object" && !Array.isArray(payload) ? payload.message : undefined;
-        throw new Error(message ?? Messages.somethingWrong);
-      }
-      const nextMeta = parsePaginationMeta(response.headers.get("X-Pagination"));
-      if (!Array.isArray(payload) || !nextMeta) throw new Error(Messages.somethingWrong);
+      const nextPage = await fetchPage(meta.currentPage + 1, sort);
 
       startTransition(() => {
         setSubmissions((current) => {
           const existingIds = new Set(current.map((submission) => submission.id));
-          const additions = payload.filter((submission) => !existingIds.has(submission.id));
+          const additions = nextPage.items.filter((submission) => !existingIds.has(submission.id));
           return additions.length > 0 ? [...current, ...additions] : current;
         });
       });
-      setMeta(nextMeta);
+      setMeta(nextPage.meta);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : Messages.somethingWrong);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, meta, questionId, workspaceId]);
+  }, [fetchPage, isLoadingMore, meta, sort]);
+
+  async function changeSort(nextSort: DataTableSort) {
+    if (isLoadingMore) return;
+    setIsLoadingMore(true);
+    setLoadError(null);
+    try {
+      const firstPage = await fetchPage(1, nextSort);
+      setSort(nextSort);
+      setSubmissions(firstPage.items);
+      setMeta(firstPage.meta);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : Messages.somethingWrong);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
@@ -81,7 +105,13 @@ export function QuestionSubmissionsPanel({
     <div className="min-h-0">
       <ScrollArea ref={scrollAreaRef} className="h-[37rem] max-h-[90vh] min-h-0 pr-2">
         {submissions.length > 0 ? (
-          <SubmissionTable workspaceId={workspaceId} submissions={submissions} showQuestion={false} />
+          <SubmissionTable
+            workspaceId={workspaceId}
+            submissions={submissions}
+            showQuestion={false}
+            sort={sort}
+            onSortChange={(nextSort) => void changeSort(nextSort)}
+          />
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
             No submissions yet. Your attempts will appear here.
