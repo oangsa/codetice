@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Edit, Plus, Trash2, Upload } from "lucide-react";
 
-import { DataTable, type DataTableColumn } from "@/components/common/data-table";
+import { DataTable, type DataTableColumn, type DataTableSort } from "@/components/common/data-table";
 import { TagManagerDialog } from "@/modules/questions/components/tag-manager-dialog";
 import { TestcaseDialog } from "@/modules/questions/components/testcase-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +139,7 @@ export function QuestionForm({
   );
   const [tagCatalog, setTagCatalog] = useState<WorkspaceTag[]>(tags);
   const [tagIds, setTagIds] = useState<string[]>(question?.tags.map((tag) => tag.id) ?? []);
+  const [testcaseSort, setTestcaseSort] = useState<DataTableSort | null>(null);
   const isWorkspaceCreate = mode === "create";
 
   function addCreateTestcase() {
@@ -343,20 +344,26 @@ export function QuestionForm({
   }
 
   const testcaseColumns: DataTableColumn<PersistedTestcase>[] = [
-    { id: "name", header: "Name", cell: (testcase) => testcase.name ?? "Unnamed testcase" },
+    { id: "name", header: "Name", sortKey: "name", sortValue: (testcase) => testcase.name ?? "Unnamed testcase", cell: (testcase) => testcase.name ?? "Unnamed testcase" },
     {
       id: "sample",
       header: "Sample",
+      sortKey: "sample",
+      sortValue: (testcase) => testcase.isSample ? "sample" : "official",
       cell: (testcase) => <Badge variant={testcase.isSample ? "default" : "outline"}>{testcase.isSample ? "sample" : "official"}</Badge>,
     },
     {
       id: "visibility",
       header: "Hidden",
+      sortKey: "visibility",
+      sortValue: (testcase) => testcase.isHidden ? "hidden" : "visible",
       cell: (testcase) => <Badge variant={testcase.isHidden ? "secondary" : "outline"}>{testcase.isHidden ? "hidden" : "visible"}</Badge>,
     },
     {
       id: "checker",
       header: "Checker",
+      sortKey: "checker",
+      sortValue: (testcase) => testcase.checkerType,
       cell: (testcase) => (
         <div className="flex flex-col gap-1">
           <Badge variant="default">{testcase.checkerType}</Badge>
@@ -364,7 +371,7 @@ export function QuestionForm({
         </div>
       ),
     },
-    { id: "sort", header: "Sort", cell: (testcase) => testcase.sortOrder },
+    { id: "sort", header: "Sort", sortKey: "sort", sortValue: (testcase) => testcase.sortOrder, cell: (testcase) => testcase.sortOrder },
     {
       id: "actions",
       header: "",
@@ -666,6 +673,9 @@ export function QuestionForm({
           title="Testcases"
           rows={question.testcases}
           columns={testcaseColumns}
+          sort={testcaseSort}
+          onSortChange={setTestcaseSort}
+          localSort
           getRowKey={(testcase) => testcase.id}
           emptyMessage="No testcases yet."
           actions={

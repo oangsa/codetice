@@ -355,6 +355,14 @@ suite("legacy ownership migration reaches the workspace schema", () => {
       memberPages: [["teacher"], ["student"]],
       submissionPages: [["Multi"], ["Single"]],
       userPages: [["teacher"], ["student"]],
+      sorted: {
+        workspaces: ["One", "Two"],
+        questions: ["Multi", "Single"],
+        members: ["student", "teacher"],
+        submissions: ["Multi", "Single"],
+        scoreboard: ["student"],
+        users: ["teacher", "student", "admin"],
+      },
       workspaceDetail: { memberCount: 2, questionCount: 2, solvedCount: 2 },
       pageMetadata: {
         workspace: expect.objectContaining({ currentPage: 1, pageSize: 1, totalCount: 2, hasPrevious: false, hasNext: true }),

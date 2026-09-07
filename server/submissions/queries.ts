@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, desc, eq, gte, ilike, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import { workspaceMembers, questions, submissionRuns, submissions, testcaseResults, users } from "@/db/schema";
-import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
+import { escapeLikePattern, parseCollectionSearch, type CollectionSort, type ParsedCollectionSearch } from "@/lib/collection-search";
 import { getDb } from "@/lib/db";
 import { createPagedResult, pageOffset } from "@/lib/pagination";
 import { AppError, ErrorCode, Messages } from "@/lib/errors";
@@ -50,6 +50,7 @@ export async function listWorkspaceSubmissionsPage(input: {
   studentId: string | null;
   pageNumber: number;
   pageSize: number;
+  sort?: CollectionSort;
 }) {
   const access = await requireWorkspaceMember(input.actor, input.workspaceId);
   await validateSubmissionFilters({ ...input, access });
@@ -61,6 +62,7 @@ export async function listWorkspaceSubmissionsPage(input: {
       ...(input.questionId ? [{ name: "questionId", condition: "EQUAL", value: input.questionId }] : []),
       ...(effectiveStudentId ? [{ name: "studentId", condition: "EQUAL", value: effectiveStudentId }] : []),
     ],
+    ...(input.sort ? { sort: input.sort } : {}),
   }, workspaceSubmissionSearchConfig);
   return queryWorkspaceSubmissionsPage({ actor: input.actor, access, workspaceId: input.workspaceId, search });
 }
@@ -74,6 +76,7 @@ export const workspaceSubmissionSearchConfig = {
     createdAt: ["GREATEROREQUAL", "LESSEROREQUAL"] as const,
   },
   searchTermFields: ["questionTitle", "studentUsername"] as const,
+  sortFields: ["question", "status", "score", "ranking", "submitted"] as const,
 };
 
 function oneSearchValue(search: ParsedCollectionSearch, name: string) {
@@ -128,6 +131,18 @@ async function queryWorkspaceSubmissionsPage(input: {
       effectiveStudentId ? eq(submissions.userId, effectiveStudentId) : undefined,
       ...searchConditions,
     );
+  const rankingLabel = sql<string>`case when ${submissions.isRanked} then 'Ranked' else 'Unranked' end`;
+  const sortExpressions = {
+    question: sql<string>`lower(${questions.title})`,
+    status: sql<string>`lower(replace(${latestRun.status}, '_', ' '))`,
+    score: latestScored.score,
+    ranking: sql<string>`lower(${rankingLabel})`,
+    submitted: submissions.createdAt,
+  } as const;
+  const sortExpression = input.search.sort ? sortExpressions[input.search.sort.name as keyof typeof sortExpressions] : null;
+  const sortOrder = sortExpression
+    ? [sql`${sortExpression} is null`, input.search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(submissions.id)]
+    : [desc(submissions.createdAt), desc(submissions.id)];
   const [rows, countRows] = await Promise.all([
     db.select({
       id: submissions.id,
@@ -143,7 +158,7 @@ async function queryWorkspaceSubmissionsPage(input: {
       .innerJoin(latestRun, eq(latestRun.id, submissions.latestRunId))
       .leftJoin(latestScored, eq(latestScored.id, submissions.latestScoredRunId))
       .where(where)
-      .orderBy(desc(submissions.createdAt), desc(submissions.id))
+      .orderBy(...sortOrder)
       .limit(input.search.pageSize)
       .offset(pageOffset(input.search)),
     db.select({ count: sql<number>`count(*)::int` }).from(submissions)
@@ -259,10 +274,20 @@ export async function listSubmissionRunsPage(input: {
   submissionId: string;
   pageNumber: number;
   pageSize: number;
+  sort?: CollectionSort;
 }) {
   const { access } = await requireVisibleSubmission(input.actor, input.workspaceId, input.submissionId);
   const db = getDb();
   const where = eq(submissionRuns.submissionId, input.submissionId);
+  const runSearch = parseCollectionSearch({
+    pageNumber: input.pageNumber,
+    pageSize: input.pageSize,
+    ...(input.sort ? { sort: input.sort } : {}),
+  }, {
+    fields: {},
+    searchTermFields: [],
+    sortFields: ["sequence", "trigger", "status", "score", "created"],
+  });
   const [rows, countRows] = await Promise.all([
     db.query.submissionRuns.findMany({
       where,
@@ -281,7 +306,19 @@ export async function listSubmissionRunsPage(input: {
         startedAt: true,
         completedAt: true,
       },
-      orderBy: (fields, ops) => [ops.desc(fields.sequence), ops.desc(fields.id)],
+      orderBy: (fields, ops) => {
+        const sortExpressions = {
+          sequence: fields.sequence,
+          trigger: sql<string>`lower(${fields.trigger})`,
+          status: sql<string>`lower(replace(${fields.status}, '_', ' '))`,
+          score: fields.score,
+          created: fields.createdAt,
+        } as const;
+        const sortExpression = runSearch.sort ? sortExpressions[runSearch.sort.name as keyof typeof sortExpressions] : null;
+        return sortExpression
+          ? [sql`${sortExpression} is null`, runSearch.sort!.direction === "asc" ? ops.asc(sortExpression) : ops.desc(sortExpression), ops.asc(fields.id)]
+          : [ops.desc(fields.sequence), ops.desc(fields.id)];
+      },
       limit: input.pageSize,
       offset: pageOffset(input),
     }),

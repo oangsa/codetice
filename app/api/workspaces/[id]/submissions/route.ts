@@ -3,6 +3,7 @@ import { z } from "zod";
 import { paged, toFailResponse, Messages } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth";
 import { parsePageRequestFromSearchParams } from "@/lib/pagination";
+import { parseCollectionSortFromSearchParams } from "@/lib/collection-search";
 import { requireWorkspaceMember } from "@/server/workspaces/authorization";
 import { listWorkspaceSubmissionsPage } from "@/server/submissions/queries";
 
@@ -19,6 +20,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       workspaceId,
       questionId: optionalUuid.parse(url.searchParams.get("questionId")) ?? null,
       studentId: optionalUuid.parse(url.searchParams.get("studentId")) ?? null,
+      sort: parseCollectionSortFromSearchParams(url.searchParams),
       ...parsePageRequestFromSearchParams(url.searchParams),
     }));
   } catch (error) {

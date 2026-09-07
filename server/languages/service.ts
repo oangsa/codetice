@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { supportedLanguages } from "@/db/schema";
 import { escapeLikePattern, parseCollectionSearch, type ParsedCollectionSearch } from "@/lib/collection-search";
@@ -70,6 +70,7 @@ export const publicLanguageSearchConfig = {
     slug: ["CONTAINS", "STARTWITH", "EQUAL"] as const,
   },
   searchTermFields: ["name", "slug"] as const,
+  sortFields: ["name", "slug"] as const,
 };
 
 export const adminLanguageSearchConfig = {
@@ -79,7 +80,15 @@ export const adminLanguageSearchConfig = {
     runtimeStatus: ["EQUAL", "NOTEQUAL"] as const,
   },
   searchTermFields: publicLanguageSearchConfig.searchTermFields,
+  sortFields: ["name", "slug", "isEnabled", "runtimeStatus"] as const,
 };
+
+const adminLanguageSortExpressions = {
+  name: sql<string>`lower(${supportedLanguages.name})`,
+  slug: sql<string>`lower(${supportedLanguages.slug})`,
+  isEnabled: supportedLanguages.isEnabled,
+  runtimeStatus: sql<string>`lower(${supportedLanguages.runtimeStatus})`,
+} as const;
 
 function languageTextCondition(name: "name" | "slug", condition: string, value: string) {
   const column = name === "name" ? supportedLanguages.name : supportedLanguages.slug;
@@ -118,6 +127,14 @@ function languageSearchWhere(search: ParsedCollectionSearch) {
 async function queryPublicLanguagesPage(search: ParsedCollectionSearch) {
   const db = getDb();
   const where = and(enabledLanguageOptionsWhere(), languageSearchWhere(search));
+  const sortExpressions = {
+    name: sql<string>`lower(${supportedLanguages.name})`,
+    slug: sql<string>`lower(${supportedLanguages.slug})`,
+  } as const;
+  const sortExpression = search.sort ? sortExpressions[search.sort.name as keyof typeof sortExpressions] : null;
+  const sortOrder = sortExpression
+    ? [search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(supportedLanguages.id)]
+    : [asc(supportedLanguages.name), asc(supportedLanguages.id)];
   const [items, countRows] = await Promise.all([
     db.select({
       id: supportedLanguages.id,
@@ -129,7 +146,7 @@ async function queryPublicLanguagesPage(search: ParsedCollectionSearch) {
       defaultStarterCode: supportedLanguages.defaultStarterCode,
     }).from(supportedLanguages)
       .where(where)
-      .orderBy(asc(supportedLanguages.name), asc(supportedLanguages.id))
+      .orderBy(...sortOrder)
       .limit(search.pageSize)
       .offset(pageOffset(search)),
     db.select({ count: sql<number>`count(*)::int` }).from(supportedLanguages).where(where),
@@ -152,10 +169,16 @@ export function searchPublicLanguagesPage(body: unknown) {
 async function queryAdminLanguagesPage(search: ParsedCollectionSearch) {
   const db = getDb();
   const where = languageSearchWhere(search);
+  const sortExpression = search.sort
+    ? adminLanguageSortExpressions[search.sort.name as keyof typeof adminLanguageSortExpressions]
+    : null;
+  const sortOrder = sortExpression
+    ? [search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(supportedLanguages.id)]
+    : [asc(supportedLanguages.name), asc(supportedLanguages.id)];
   const [items, countRows] = await Promise.all([
     db.query.supportedLanguages.findMany({
       where,
-      orderBy: (fields, ops) => [ops.asc(fields.name), ops.asc(fields.id)],
+      orderBy: sortOrder,
       limit: search.pageSize,
       offset: pageOffset(search),
     }),

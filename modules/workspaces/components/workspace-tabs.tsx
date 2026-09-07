@@ -3,13 +3,14 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn } from "@/components/common/data-table";
+import { DataTable, DataTablePagination, DataTableSearch, type DataTableColumn, type DataTableSort } from "@/components/common/data-table";
+import { DataTableCsvExport } from "@/components/common/data-table-csv-export";
 import { QuestionTable, type WorkspaceQuestionRow } from "@/modules/workspaces/components/question-table";
 import { Button } from "@/components/common/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn, formatDate, formatScore } from "@/lib/utils";
 import { useCollectionSearch } from "@/lib/use-collection-search";
-import type { PagedResult } from "@/lib/pagination";
+import { collectPagedItems, MAX_PAGE_SIZE, parsePaginationMeta, type PagedResult } from "@/lib/pagination";
 import type { WorkspaceTag } from "@/lib/tags";
 
 type ScoreboardEntry = {
@@ -51,16 +52,20 @@ export function WorkspaceTabs({
   const [activeTab, setActiveTab] = useState<Section>("questions");
   const [scoreSearch, setScoreSearch] = useState("");
   const [participantSearch, setParticipantSearch] = useState("");
+  const [scoreSort, setScoreSort] = useState<DataTableSort | null>(null);
+  const [participantSort, setParticipantSort] = useState<DataTableSort | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<Section, HTMLButtonElement | null>>>({});
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const scoreRequest = useMemo(() => ({
     ...(scoreSearch.trim() ? { searchTerm: { name: "username", value: scoreSearch } } : {}),
-  }), [scoreSearch]);
+    ...(scoreSort ? { sort: scoreSort } : {}),
+  }), [scoreSearch, scoreSort]);
   const memberRequest = useMemo(() => ({
     search: [{ name: "role", condition: "EQUAL", value: "student" }],
     ...(participantSearch.trim() ? { searchTerm: { name: "username", value: participantSearch } } : {}),
-  }), [participantSearch]);
+    ...(participantSort ? { sort: participantSort } : {}),
+  }), [participantSearch, participantSort]);
   const scoreboard = useCollectionSearch<ScoreboardEntry>({
     endpoint: `/api/workspaces/${workspaceId}/scoreboard/search`,
     initialPage: scoreboardPage,
@@ -113,10 +118,28 @@ export function WorkspaceTabs({
     setActiveTab(tab);
   }
 
+  async function loadScoreboardExportRows() {
+    return collectPagedItems(async ({ pageNumber, pageSize }) => {
+      const response = await fetch(`/api/workspaces/${workspaceId}/scoreboard/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...scoreRequest, pageNumber, pageSize }),
+      });
+      const payload = await response.json() as ScoreboardEntry[] | { message?: string };
+      if (!response.ok || !Array.isArray(payload)) {
+        throw new Error(!Array.isArray(payload) && payload.message ? payload.message : "Unable to export scoreboard.");
+      }
+      const meta = parsePaginationMeta(response.headers.get("X-Pagination"));
+      if (!meta) throw new Error("The server returned an invalid scoreboard response.");
+      return { items: payload, meta };
+    }, MAX_PAGE_SIZE);
+  }
+
   const scoreboardColumns: DataTableColumn<ScoreboardEntry>[] = [
     {
       id: "rank",
       header: "Rank",
+      sortKey: "rank",
       headerClassName: "w-12 pl-4",
       cellClassName: "pl-4 font-medium tabular-nums text-slate-400",
       cell: (entry) => entry.rank,
@@ -124,12 +147,14 @@ export function WorkspaceTabs({
     {
       id: "username",
       header: "Username",
+      sortKey: "username",
       cellClassName: "font-medium text-slate-900 dark:text-white",
       cell: (entry) => entry.username,
     },
     {
       id: "solved",
       header: "Solved",
+      sortKey: "solved",
       headerClassName: "w-28 text-right",
       cellClassName: "text-right tabular-nums text-slate-500",
       cell: (entry) => entry.solvedCount,
@@ -137,6 +162,7 @@ export function WorkspaceTabs({
     {
       id: "score",
       header: "Total score",
+      sortKey: "score",
       headerClassName: "w-32 pr-4 text-right",
       cellClassName: "pr-4 text-right font-semibold tabular-nums text-slate-900 dark:text-white",
       cell: (entry) => formatScore(entry.totalScore),
@@ -146,6 +172,7 @@ export function WorkspaceTabs({
     {
       id: "username",
       header: "Username",
+      sortKey: "username",
       headerClassName: "pl-4",
       cellClassName: "pl-4 font-medium text-slate-900 dark:text-white",
       cell: (member) => member.username,
@@ -153,6 +180,7 @@ export function WorkspaceTabs({
     {
       id: "joined",
       header: "Joined",
+      sortKey: "joined",
       headerClassName: "w-44 pr-4 text-right",
       cellClassName: "whitespace-nowrap pr-4 text-right text-slate-500",
       cell: (member) => formatDate(member.joinedAt),
@@ -221,6 +249,21 @@ export function WorkspaceTabs({
           getRowKey={(entry) => entry.userId}
           emptyMessage={scoreboard.error ?? (scoreSearch.trim() ? "No users match your search." : "No submissions yet.")}
           search={<DataTableSearch value={scoreSearch} onValueChange={setScoreSearch} placeholder="Search username" />}
+          sort={scoreSort}
+          onSortChange={setScoreSort}
+          actions={
+            <DataTableCsvExport
+              filename="workspace-scoreboard.csv"
+              disabled={scoreboard.isLoading || scoreboard.page.meta.totalCount === 0}
+              loadRows={loadScoreboardExportRows}
+              columns={[
+                { header: "Rank", value: (entry) => entry.rank },
+                { header: "Username", value: (entry) => entry.username },
+                { header: "Solved", value: (entry) => entry.solvedCount },
+                { header: "Total score", value: (entry) => Number(entry.totalScore) },
+              ]}
+            />
+          }
           rowClassName={(_entry, index) => cn("transition-colors", index % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]")}
           pagination={
             <DataTablePagination
@@ -244,6 +287,8 @@ export function WorkspaceTabs({
             getRowKey={(member) => member.id}
             emptyMessage={members.error ?? (participantSearch.trim() ? "No participants match your search." : "No participants yet.")}
             search={<DataTableSearch value={participantSearch} onValueChange={setParticipantSearch} placeholder="Search username" />}
+            sort={participantSort}
+            onSortChange={setParticipantSort}
             rowClassName={(_member, index) => cn("transition-colors", index % 2 === 1 && "bg-black/[0.02] dark:bg-white/[0.02]")}
             actions={<Button asChild variant="outline" size="sm" className="h-9 rounded-full"><Link href={`/workspaces/${workspaceId}/members`}>Open roster</Link></Button>}
             pagination={

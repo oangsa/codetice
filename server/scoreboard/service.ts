@@ -18,6 +18,7 @@ type ScoreboardRow = {
 export const workspaceScoreboardSearchConfig = {
   fields: { username: ["CONTAINS", "STARTWITH", "EQUAL"] as const },
   searchTermFields: ["username"] as const,
+  sortFields: ["rank", "username", "solved", "score"] as const,
 };
 
 function scoreboardUsernameFilters(search: ParsedCollectionSearch) {
@@ -44,6 +45,8 @@ async function queryWorkspaceScoreboardPage(input: {
 }) {
   const client = getSqlClient();
   const username = scoreboardUsernameFilters(input.search);
+  const sortName = input.search.sort?.name ?? null;
+  const sortDirection = input.search.sort?.direction ?? null;
   const [rows, countRows] = await Promise.all([
     client<ScoreboardRow[]>`
         with eligible as (
@@ -74,7 +77,19 @@ async function queryWorkspaceScoreboardPage(input: {
         where (${username.contains}::text is null or username ilike ${username.contains})
           and (${username.startsWith}::text is null or username ilike ${username.startsWith})
           and (${username.equal}::text is null or username = ${username.equal})
-        order by total_score desc, solved_count desc, username asc, user_id asc
+        order by
+          case when ${sortName}::text = 'rank' and ${sortDirection}::text = 'asc' then rank end asc nulls last,
+          case when ${sortName}::text = 'rank' and ${sortDirection}::text = 'desc' then rank end desc nulls last,
+          case when ${sortName}::text = 'username' and ${sortDirection}::text = 'asc' then lower(username) end asc nulls last,
+          case when ${sortName}::text = 'username' and ${sortDirection}::text = 'desc' then lower(username) end desc nulls last,
+          case when ${sortName}::text = 'solved' and ${sortDirection}::text = 'asc' then solved_count end asc nulls last,
+          case when ${sortName}::text = 'solved' and ${sortDirection}::text = 'desc' then solved_count end desc nulls last,
+          case when ${sortName}::text = 'score' and ${sortDirection}::text = 'asc' then total_score end asc nulls last,
+          case when ${sortName}::text = 'score' and ${sortDirection}::text = 'desc' then total_score end desc nulls last,
+          case when ${sortName}::text is null then total_score end desc,
+          case when ${sortName}::text is null then solved_count end desc,
+          case when ${sortName}::text is null then username end asc,
+          user_id asc
         limit ${input.search.pageSize}
         offset ${pageOffset(input.search)}
       `,

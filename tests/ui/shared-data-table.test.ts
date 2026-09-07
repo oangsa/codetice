@@ -26,6 +26,19 @@ describe("shared data table", () => {
     expect(source).toContain("DataTableSearch");
     expect(source).toContain("PAGE_SIZE_OPTIONS");
     expect(source).toContain("getPageHref");
+    expect(source).toContain("DataTableSortHeader");
+    expect(source).toContain("sortKey");
+  });
+
+  test("keeps CSV export limited to the scoreboard surface", async () => {
+    const workspaceTabs = await readFile(resolve(root, "modules/workspaces/components/workspace-tabs.tsx"), "utf8");
+    expect(workspaceTabs).toContain("DataTableCsvExport");
+    expect(workspaceTabs).toContain('filename="workspace-scoreboard.csv"');
+
+    for (const path of tableSurfaces.filter((path) => path !== "modules/workspaces/components/workspace-tabs.tsx")) {
+      const source = await readFile(resolve(root, path), "utf8");
+      expect(source, path).not.toContain("DataTableCsvExport");
+    }
   });
 
   test("keeps server-rendered page links free of client event handlers", async () => {

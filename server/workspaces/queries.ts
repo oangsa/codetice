@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { workspaceMembers, workspaces, users } from "@/db/schema";
 import {
@@ -22,6 +22,7 @@ import {
 export const workspaceSearchConfig = {
   fields: { name: ["CONTAINS", "STARTWITH", "EQUAL"] as const },
   searchTermFields: ["name"] as const,
+  sortFields: ["name", "ownerName", "memberCount", "questionCount", "solvedCount", "createdAt"] as const,
 };
 
 function workspaceSearchWhere(search: ParsedCollectionSearch) {
@@ -45,6 +46,18 @@ async function queryWorkspacesPage(input: {
   const db = getDb();
   const searchWhere = workspaceSearchWhere(input.search);
   const { memberCount, ownerName, questionCount, solvedCount } = workspaceListStatistics(input.actor.userId);
+  const sortExpressions = {
+    name: sql<string>`lower(${workspaces.name})`,
+    ownerName: sql<string>`lower(${ownerName})`,
+    memberCount,
+    questionCount,
+    solvedCount,
+    createdAt: workspaces.createdAt,
+  } as const;
+  const sortExpression = input.search.sort ? sortExpressions[input.search.sort.name as keyof typeof sortExpressions] : null;
+  const sortOrder = sortExpression
+    ? [sql`${sortExpression} is null`, input.search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(workspaces.id)]
+    : [desc(workspaces.createdAt), desc(workspaces.id)];
 
   const [rows, countRows] = input.actor.role === "admin"
     ? await Promise.all([
@@ -59,7 +72,7 @@ async function queryWorkspacesPage(input: {
         solvedCount,
       }).from(workspaces)
         .where(searchWhere)
-        .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
+        .orderBy(...sortOrder)
         .limit(input.search.pageSize)
         .offset(pageOffset(input.search)),
       db.select({ count: sql<number>`count(*)::int` }).from(workspaces).where(searchWhere),
@@ -84,7 +97,7 @@ async function queryWorkspacesPage(input: {
           eq(workspaces.ownerId, input.actor.userId),
           eq(workspaceMembers.userId, input.actor.userId),
         ), searchWhere))
-        .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
+        .orderBy(...sortOrder)
         .limit(input.search.pageSize)
         .offset(pageOffset(input.search)),
       db.select({ count: sql<number>`count(*)::int` }).from(workspaces)
@@ -207,6 +220,7 @@ export const workspaceMemberSearchConfig = {
     role: ["EQUAL", "NOTEQUAL"] as const,
   },
   searchTermFields: ["username"] as const,
+  sortFields: ["username", "role", "joined"] as const,
 };
 
 function workspaceMemberSearchWhere(search: ParsedCollectionSearch) {
@@ -236,6 +250,11 @@ async function queryWorkspaceMembersPage(input: {
 }) {
   const db = getDb();
   const where = and(eq(workspaceMembers.workspaceId, input.workspaceId), workspaceMemberSearchWhere(input.search));
+  const sortExpressions = { username: sql<string>`lower(${users.username})`, role: workspaceMembers.role, joined: workspaceMembers.joinedAt } as const;
+  const sortExpression = input.search.sort ? sortExpressions[input.search.sort.name as keyof typeof sortExpressions] : null;
+  const sortOrder = sortExpression
+    ? [input.search.sort!.direction === "asc" ? asc(sortExpression) : desc(sortExpression), asc(workspaceMembers.id)]
+    : [desc(workspaceMembers.joinedAt), desc(workspaceMembers.id)];
   const [rows, countRows] = await Promise.all([
     db.select({
       id: workspaceMembers.id,
@@ -247,7 +266,7 @@ async function queryWorkspaceMembersPage(input: {
     }).from(workspaceMembers)
       .innerJoin(users, eq(users.id, workspaceMembers.userId))
       .where(where)
-      .orderBy(desc(workspaceMembers.joinedAt), desc(workspaceMembers.id))
+      .orderBy(...sortOrder)
       .limit(input.search.pageSize)
       .offset(pageOffset(input.search)),
     db.select({ count: sql<number>`count(*)::int` }).from(workspaceMembers)

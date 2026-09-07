@@ -15,13 +15,28 @@ export type SearchCondition = (typeof SEARCH_CONDITIONS)[number];
 type SearchConfig = {
   fields: Record<string, readonly SearchCondition[]>;
   searchTermFields: readonly string[];
+  sortFields?: readonly string[];
 };
+
+export type CollectionSort = {
+  name: string;
+  direction: "asc" | "desc";
+};
+
+export function parseCollectionSortFromSearchParams(searchParams: URLSearchParams): CollectionSort | undefined {
+  const name = searchParams.get("sortBy");
+  const direction = searchParams.get("sortDirection");
+  if (name === null && direction === null) return undefined;
+  if (!name || (direction !== "asc" && direction !== "desc")) invalidSearch();
+  return { name, direction };
+}
 
 export type ParsedCollectionSearch = {
   pageNumber: number;
   pageSize: number;
   search: Array<{ name: string; condition: SearchCondition; value: string | boolean }>;
   searchTerm: { names: string[]; value: string } | null;
+  sort: CollectionSort | null;
   filters: string;
 };
 
@@ -43,7 +58,7 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[])
 
 export function parseCollectionSearch(body: unknown, config: SearchConfig): ParsedCollectionSearch {
   if (!isRecord(body)) invalidSearch();
-  if (!hasOnlyKeys(body, ["pageNumber", "pageSize", "search", "searchTerm"])) invalidSearch();
+  if (!hasOnlyKeys(body, ["pageNumber", "pageSize", "search", "searchTerm", "sort"])) invalidSearch();
 
   let pageNumber: number;
   let pageSize: number;
@@ -81,14 +96,23 @@ export function parseCollectionSearch(body: unknown, config: SearchConfig): Pars
     searchTerm = value ? { names, value } : null;
   }
 
+  let sort: CollectionSort | null = null;
+  if (body.sort !== undefined && body.sort !== null) {
+    if (!isRecord(body.sort) || !hasOnlyKeys(body.sort, ["name", "direction"])) invalidSearch();
+    if (typeof body.sort.name !== "string" || typeof body.sort.direction !== "string") invalidSearch();
+    if (!config.sortFields?.includes(body.sort.name)) invalidSearch();
+    if (body.sort.direction !== "asc" && body.sort.direction !== "desc") invalidSearch();
+    sort = { name: body.sort.name, direction: body.sort.direction };
+  }
+
   const canonicalSearch = [...search].sort((left, right) => (
     left.name.localeCompare(right.name)
     || left.condition.localeCompare(right.condition)
     || String(left.value).localeCompare(String(right.value))
   ));
-  const filters = JSON.stringify({ search: canonicalSearch, searchTerm });
+  const filters = JSON.stringify({ search: canonicalSearch, searchTerm, sort });
 
-  return { pageNumber, pageSize, search, searchTerm, filters };
+  return { pageNumber, pageSize, search, searchTerm, sort, filters };
 }
 
 export function escapeLikePattern(value: string) {

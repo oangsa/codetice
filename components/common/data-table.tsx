@@ -6,6 +6,7 @@ import { Button } from "@/components/common/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTableSortHeader } from "@/components/common/data-table-sort-header";
 import { PAGE_SIZE_OPTIONS, type PaginationMeta } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,44 @@ export type DataTableColumn<T> = {
   headerClassName?: string;
   cellClassName?: string | ((row: T, index: number) => string | undefined);
   cell: (row: T, index: number) => ReactNode;
+  sortKey?: string;
+  sortLabel?: string;
+  sortValue?: (row: T) => string | number | boolean | Date | null | undefined;
 };
+
+export type DataTableSortDirection = "asc" | "desc";
+
+export type DataTableSort = {
+  name: string;
+  direction: DataTableSortDirection;
+};
+
+export function sortDataTableRows<T>(
+  rows: readonly T[],
+  columns: readonly DataTableColumn<T>[],
+  sort: DataTableSort | null,
+) {
+  if (!sort) return [...rows];
+  const column = columns.find((candidate) => candidate.sortKey === sort.name);
+  if (!column?.sortValue) return [...rows];
+  const direction = sort.direction === "asc" ? 1 : -1;
+  return rows.map((row, index) => ({ row, index })).sort((left, right) => {
+    const leftValue = column.sortValue!(left.row);
+    const rightValue = column.sortValue!(right.row);
+    const leftEmpty = leftValue === null || leftValue === undefined || leftValue === "";
+    const rightEmpty = rightValue === null || rightValue === undefined || rightValue === "";
+    if (leftEmpty || rightEmpty) {
+      if (leftEmpty && rightEmpty) return left.index - right.index;
+      return leftEmpty ? 1 : -1;
+    }
+    const leftComparable = leftValue instanceof Date ? leftValue.getTime() : leftValue;
+    const rightComparable = rightValue instanceof Date ? rightValue.getTime() : rightValue;
+    const compared = typeof leftComparable === "number" && typeof rightComparable === "number"
+      ? leftComparable - rightComparable
+      : String(leftComparable).localeCompare(String(rightComparable), undefined, { sensitivity: "base", numeric: false });
+    return compared === 0 ? left.index - right.index : compared * direction;
+  }).map(({ row }) => row);
+}
 
 export function DataTable<T>({
   title,
@@ -30,6 +68,10 @@ export function DataTable<T>({
   onRowClick,
   rowClassName,
   containerClassName,
+  sort = null,
+  onSortChange,
+  getSortHref,
+  localSort = false,
 }: {
   title?: ReactNode;
   rows: readonly T[];
@@ -43,8 +85,13 @@ export function DataTable<T>({
   onRowClick?: (row: T, index: number) => void;
   rowClassName?: string | ((row: T, index: number) => string | undefined);
   containerClassName?: string;
+  sort?: DataTableSort | null;
+  onSortChange?: (sort: DataTableSort) => void;
+  getSortHref?: (sort: DataTableSort) => string;
+  localSort?: boolean;
 }) {
   const hasToolbar = title !== undefined || search !== undefined || actions !== undefined;
+  const displayedRows = localSort ? sortDataTableRows(rows, columns, sort) : rows;
 
   return (
     <div className="space-y-3">
@@ -68,18 +115,35 @@ export function DataTable<T>({
           <TableHeader className="bg-slate-50/80 dark:bg-slate-900/50">
             <TableRow className="border-slate-200 bg-transparent dark:border-slate-800">
               {columns.map((column) => (
-                <TableHead key={column.id} className={column.headerClassName}>{column.header}</TableHead>
+                <TableHead key={column.id} className={column.headerClassName}>
+                  {column.sortKey ? (
+                    <DataTableSortHeader
+                      label={column.sortLabel ?? (typeof column.header === "string" ? column.header : column.sortKey)}
+                      direction={sort?.name === column.sortKey ? sort.direction : null}
+                      href={getSortHref?.({
+                        name: column.sortKey,
+                        direction: sort?.name === column.sortKey && sort?.direction === "asc" ? "desc" : "asc",
+                      })}
+                      onClick={onSortChange ? () => onSortChange({
+                        name: column.sortKey!,
+                        direction: sort?.name === column.sortKey && sort?.direction === "asc" ? "desc" : "asc",
+                      }) : undefined}
+                    >
+                      {column.header}
+                    </DataTableSortHeader>
+                  ) : column.header}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {displayedRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={Math.max(columns.length, 1)} className="py-10 text-center text-sm text-slate-400">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
-            ) : rows.map((row, index) => (
+            ) : displayedRows.map((row, index) => (
               <TableRow
                 key={getRowKey(row, index)}
                 onClick={onRowClick ? () => onRowClick(row, index) : undefined}

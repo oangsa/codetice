@@ -45,6 +45,18 @@ try {
   const secondUserPage = await searchUsersPage({ pageNumber: 2, pageSize: 1 });
   const workspaceDetail = await getWorkspaceDetail(student, workspaceId);
 
+  const [sortedWorkspaces, sortedQuestions, sortedMembers, sortedSubmissions, sortedScoreboard, sortedUsers] = await Promise.all([
+    searchWorkspacesPage({
+      actor: student,
+      search: parseCollectionSearch({ pageSize: 100, sort: { name: "name", direction: "asc" } }, workspaceSearchConfig),
+    }),
+    searchWorkspaceQuestionsPage({ actor: student, workspaceId, body: { pageSize: 100, sort: { name: "name", direction: "asc" } } }),
+    searchWorkspaceMembersPage({ actor: admin, workspaceId, body: { pageSize: 100, sort: { name: "username", direction: "asc" } } }),
+    searchWorkspaceSubmissionsPage({ actor: student, workspaceId, body: { pageSize: 100, sort: { name: "question", direction: "asc" } } }),
+    searchWorkspaceScoreboardPage({ actor: student, workspaceId, body: { pageSize: 100, sort: { name: "score", direction: "asc" } } }),
+    searchUsersPage({ pageSize: 100, sort: { name: "username", direction: "desc" } }),
+  ]);
+
   const [questions, members, submissions, scoreboard, literalWildcard] = await Promise.all([
     searchWorkspaceQuestionsPage({
       actor: student,
@@ -78,6 +90,14 @@ try {
     memberPages: [firstMemberPage.items.map((item) => item.username), secondMemberPage.items.map((item) => item.username)],
     submissionPages: [firstSubmissionPage.items.map((item) => item.question.title), secondSubmissionPage.items.map((item) => item.question.title)],
     userPages: [firstUserPage.items.map((item) => item.username), secondUserPage.items.map((item) => item.username)],
+    sorted: {
+      workspaces: sortedWorkspaces.items.map((item) => item.name),
+      questions: sortedQuestions.items.map((item) => item.title),
+      members: sortedMembers.items.map((item) => item.username),
+      submissions: sortedSubmissions.items.map((item) => item.question.title),
+      scoreboard: sortedScoreboard.items.map((item) => item.username),
+      users: sortedUsers.items.map((item) => item.username),
+    },
     workspaceDetail: {
       memberCount: workspaceDetail.memberCount,
       questionCount: workspaceDetail.questionCount,

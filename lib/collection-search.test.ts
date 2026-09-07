@@ -12,6 +12,7 @@ const config = {
     createdAt: ["GREATEROREQUAL", "LESSEROREQUAL"] as const,
   },
   searchTermFields: ["username"] as const,
+  sortFields: ["username", "role", "createdAt"] as const,
 };
 
 describe("collection search contract", () => {
@@ -79,5 +80,26 @@ describe("collection search contract", () => {
     expect(() => parseCollectionSearch({
       searchTerm: { name: "username", value: "a".repeat(101) },
     }, config)).toThrow();
+  });
+
+  test("accepts one allowlisted sort and includes it in canonical request identity", () => {
+    const ascending = parseCollectionSearch({
+      pageNumber: 3,
+      sort: { name: "username", direction: "asc" },
+    }, config);
+    const descending = parseCollectionSearch({
+      pageNumber: 1,
+      sort: { name: "username", direction: "desc" },
+    }, config);
+
+    expect(ascending.sort).toEqual({ name: "username", direction: "asc" });
+    expect(ascending.filters).not.toBe(descending.filters);
+  });
+
+  test("rejects unknown sort fields, directions, and properties", () => {
+    expect(() => parseCollectionSearch({ sort: { name: "passwordHash", direction: "asc" } }, config)).toThrow();
+    expect(() => parseCollectionSearch({ sort: { name: "username", direction: "sideways" } }, config)).toThrow();
+    expect(() => parseCollectionSearch({ sort: { name: "username", direction: "asc", nulls: "first" } }, config)).toThrow();
+    expect(() => parseCollectionSearch({ sort: { name: "username" } }, config)).toThrow();
   });
 });

@@ -10,6 +10,7 @@ import { WorkspaceRejudgeButton } from "@/modules/submissions/components/workspa
 import { Badge } from "@/components/ui/badge";
 import { requirePageUser } from "@/lib/auth";
 import { parsePageRequest } from "@/lib/pagination";
+import { parseCollectionSortFromSearchParams } from "@/lib/collection-search";
 import { formatDate, formatScore } from "@/lib/utils";
 import { getWorkspaceSubmissionDetail, listRunResultsPage, listSubmissionRunsPage } from "@/server/submissions/queries";
 import { getWorkspaceAccess } from "@/server/workspaces/authorization";
@@ -20,11 +21,13 @@ export default async function WorkspaceSubmissionDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string; submissionId: string }>;
-  searchParams: Promise<{ runId?: string; runPage?: string; resultPage?: string }>;
+  searchParams: Promise<{ runId?: string; runPage?: string; resultPage?: string; sortBy?: string; sortDirection?: string }>;
 }) {
   const actor = await requirePageUser();
   const { id, submissionId } = await params;
   const query = await searchParams;
+  const activeSearchParams = new URLSearchParams(Object.entries(query).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  const runSort = parseCollectionSortFromSearchParams(activeSearchParams) ?? null;
   const access = await getWorkspaceAccess(actor, id);
   if (!access?.member) notFound();
 
@@ -38,7 +41,7 @@ export default async function WorkspaceSubmissionDetailPage({
   const runPageRequest = parsePageRequest({ pageNumber: query.runPage, pageSize: 25 });
   const resultPageRequest = parsePageRequest({ pageNumber: query.resultPage, pageSize: 25 });
   const [runs, results] = await Promise.all([
-    listSubmissionRunsPage({ actor, workspaceId: id, submissionId, ...runPageRequest }),
+    listSubmissionRunsPage({ actor, workspaceId: id, submissionId, sort: runSort ?? undefined, ...runPageRequest }),
     listRunResultsPage({ actor, workspaceId: id, submissionId, runId: selectedRunId, ...resultPageRequest }),
   ]);
   const questionHref = `/workspaces/${id}/questions/${submission.question.slug}`;
@@ -49,27 +52,36 @@ export default async function WorkspaceSubmissionDetailPage({
     {
       id: "sequence",
       header: "Sequence",
-      cell: (run) => <Link className="font-medium underline-offset-4 hover:underline" href={`?runId=${run.id}`}>#{run.sequence}</Link>,
+      sortKey: "sequence",
+      cell: (run) => <Link className="font-medium underline-offset-4 hover:underline" href={`?${new URLSearchParams({
+        runId: run.id,
+        ...(query.runPage ? { runPage: query.runPage } : {}),
+        ...(runSort ? { sortBy: runSort.name, sortDirection: runSort.direction } : {}),
+      }).toString()}`}>#{run.sequence}</Link>,
     },
     {
       id: "trigger",
       header: "Trigger",
+      sortKey: "trigger",
       cellClassName: "capitalize",
       cell: (run) => run.trigger,
     },
     {
       id: "status",
       header: "Status",
+      sortKey: "status",
       cell: (run) => <SubmissionStatusBadge status={run.status} />,
     },
     {
       id: "score",
       header: "Score",
+      sortKey: "score",
       cell: (run) => formatScore(run.score),
     },
     {
       id: "created",
       header: "Created",
+      sortKey: "created",
       cellClassName: "text-slate-500",
       cell: (run) => formatDate(run.createdAt),
     },
@@ -175,6 +187,7 @@ export default async function WorkspaceSubmissionDetailPage({
             getPageHref={(pageNumber) => `?${new URLSearchParams({
               runId: selectedRunId,
               ...(query.runPage ? { runPage: query.runPage } : {}),
+              ...(runSort ? { sortBy: runSort.name, sortDirection: runSort.direction } : {}),
               resultPage: String(pageNumber),
             }).toString()}`}
           />
@@ -185,6 +198,14 @@ export default async function WorkspaceSubmissionDetailPage({
         title="Run history"
         rows={runs.items}
         columns={runColumns}
+        sort={runSort}
+        getSortHref={(nextSort) => `?${new URLSearchParams({
+          runId: selectedRunId,
+          ...(query.resultPage ? { resultPage: query.resultPage } : {}),
+          runPage: "1",
+          sortBy: nextSort.name,
+          sortDirection: nextSort.direction,
+        }).toString()}`}
         getRowKey={(run) => run.id}
         emptyMessage="No grading runs yet."
         pagination={
@@ -194,6 +215,7 @@ export default async function WorkspaceSubmissionDetailPage({
             itemName="runs"
             getPageHref={(pageNumber) => `?${new URLSearchParams({
               runId: selectedRunId,
+              ...(runSort ? { sortBy: runSort.name, sortDirection: runSort.direction } : {}),
               runPage: String(pageNumber),
             }).toString()}`}
           />
